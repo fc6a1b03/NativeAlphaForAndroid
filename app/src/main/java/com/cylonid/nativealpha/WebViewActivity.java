@@ -310,7 +310,7 @@ public class WebViewActivity extends AppCompatActivity {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 WebApp webapp = DataManager.getInstance().getWebApp(webappID);
-                if (webapp.isRequestDesktop())
+                if (webapp == null || webapp.isRequestDesktop())
                     return false;
 
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
@@ -568,10 +568,12 @@ public class WebViewActivity extends AppCompatActivity {
     }
 
     /**
-     * 内存压力分级回收（低损耗目标）：
-     * - 后台 15 分钟：释放缓存资源
-     * - 后台 5 分钟：降低渲染内存
-     * - 后台 60 分钟：清空 WebView 缓存
+     * 内存压力回调：只做轻量操作。
+     *
+     * 注意：不可在此调用 WebView 重型方法（clearCache/freeMemory）——
+     * 系统 dispatchTrimMemory 时 WebView 内部也在处理同一回调（WV.qi1.onTrimMemory），
+     * 并发操作原生层会导致 SIGILL 崩溃（libwebviewchromium.so，模拟器实测复现）。
+     * WebView 内存回收交给 onPause/onDestroy 的既有逻辑处理。
      */
     @Override
     public void onTrimMemory(int level) {
@@ -579,16 +581,8 @@ public class WebViewActivity extends AppCompatActivity {
         if (wv == null) return;
 
         if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
-            // 页面完全不可见：停止计时器、降低后台渲染
+            // 页面不可见：仅暂停计时器（轻量、线程安全）
             wv.pauseTimers();
-        }
-        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
-            // 内存吃紧：清缓存
-            wv.clearCache(true);
-        }
-        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
-            // 极度吃紧：释放 WebView 渲染资源（保留实例避免重建）
-            wv.freeMemory();
         }
     }
 
@@ -1032,7 +1026,8 @@ public class WebViewActivity extends AppCompatActivity {
         public void onLoadResource(WebView view, String url) {
             super.onLoadResource(view, url);
 
-           if (DataManager.getInstance().getWebApp(webappID).isRequestDesktop())
+           WebApp webapp = DataManager.getInstance().getWebApp(webappID);
+           if (webapp != null && webapp.isRequestDesktop())
                view.evaluateJavascript("""
                         var needsForcedWidth = document.documentElement.clientWidth < 1200;
                         if(needsForcedWidth) {
@@ -1057,6 +1052,10 @@ public class WebViewActivity extends AppCompatActivity {
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                 startActivity(intent);
                 return true;
+            }
+
+            if (webapp == null) {
+                return false;
             }
 
             if (webapp.isOpenUrlExternal()) {
