@@ -37,23 +37,9 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: "📦 Cache Gradle"
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle', '**/libs.versions.toml') }}
-          restore-keys: gradle-${{ runner.os }}-
-
-      - name: "🧪 Run Unit Tests"
-        run: ./gradlew testDebugUnitTest --no-daemon
-
-      - name: "🔍 Lint Check"
-        run: ./gradlew lintDebug --no-daemon
-
-      - name: "🏗️ Debug Build"
-        run: ./gradlew assembleDebug --no-daemon
+      # 合并为单次 Gradle 调用：避免多次 JVM/daemon 启动，任务间共享增量编译
+      - name: "🧪 Test + Lint + Debug Build"
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --no-daemon
 
   # ============ Release（tag v* 触发，自动签名） ============
   release:
@@ -74,15 +60,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
-
-      - name: "📦 Cache Gradle"
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle', '**/libs.versions.toml') }}
-          restore-keys: gradle-${{ runner.os }}-
 
       - name: "🔑 Setup Signing Keystore"
         env:
@@ -110,8 +87,6 @@ jobs:
           # pipefail：管道返回 gradlew 真实退出码（否则 tee 会掩盖构建失败）
           set -o pipefail
           ./gradlew assembleRelease bundleRelease --no-daemon 2>&1 | tee /tmp/build.log
-        # 构建失败时上传日志供排查
-        continue-on-error: false
 
       - name: "📦 Upload build log on failure"
         if: failure()
