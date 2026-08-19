@@ -107,6 +107,8 @@ jobs:
 
       - name: "🏗️ Build Release APK + AAB"
         run: |
+          # pipefail：管道返回 gradlew 真实退出码（否则 tee 会掩盖构建失败）
+          set -o pipefail
           ./gradlew assembleRelease bundleRelease --no-daemon 2>&1 | tee /tmp/build.log
         # 构建失败时上传日志供排查
         continue-on-error: false
@@ -123,6 +125,9 @@ jobs:
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
           mkdir -p artifacts
+          # 诊断：先列出实际产物（AGP 9 命名可能带变体后缀）
+          echo "--- 实际产物 ---"
+          find app/build/outputs -name "*.apk" -o -name "*.aab" | sort
           cp app/build/outputs/apk/release/app-release.apk artifacts/WebNative-${VERSION}.apk
           cp app/build/outputs/bundle/release/app-release.aab artifacts/WebNative-${VERSION}.aab
           ls -la artifacts/
