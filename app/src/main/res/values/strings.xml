@@ -20,7 +20,7 @@
     <string name="add_to_home_screen">Add to home screen</string>
     <string name="open_external_links_in_browser_app">Open external links in browser app</string>
     <string name="allow_javascript">Allow Javascript</string>
-    <string name="warning_js_disabled">JavaScript is disabled. Most modern websites (like translator or AI chat pages) will not display correctly.</string>
+    <string name="warning_js_disabled">JavaScript is disabled. Most modern websites will not display correctly.</string>
     <string name="accept_cookies">Accept cookies</string>
     <string name="accept_third_party_cookies">Accept third-party cookies</string>
     <string name="clear_cache_after_usage">Clear cache after usage</string>
@@ -45,7 +45,7 @@
         <item>中文</item>
         <item>English</item>
     </string-array>
-    <string name="edit_webapp_settings">Edit Web App settings</string>
+    <string name="edit_webapp_settings">Edit</string>
     <string name="add_webapp">Add Web App</string>
     <string name="welcome_msg">Welcome!\nAdd your first Web App:</string>
     <string name="request_website_in_desktop_version">Request website in desktop version</string>
@@ -142,4 +142,37 @@
     <string name="sync_global_settings">Sync with global settings</string>
     <string name="synced_global_settings">Synced with global settings</string>
     <string name="app_subtitle">%1$d Web Apps</string>
+
+    <!-- 设置项说明（description） -->
+    <string name="desc_clear_cache">Clear cached data when leaving the app to save storage.</string>
+    <string name="desc_multitouch_reload">Swipe down with two fingers to reload the page.</string>
+    <string name="desc_two_finger_nav">Swipe left/right with two fingers to go back or forward.</string>
+    <string name="desc_three_finger_switch">Swipe left/right with three fingers to switch between Web Apps.</string>
+    <string name="desc_show_progressbar">Show a loading progress bar at the bottom during page load.</string>
+    <string name="desc_always_show_buttons">Keep the system navigation buttons visible in full-screen pages.</string>
+    <string name="desc_allow_js">Required by most modern websites to work correctly.</string>
+    <string name="desc_block_third_party">Block requests to other domains (ads, trackers).</string>
+    <string name="desc_allow_http">Allow loading pages over unencrypted HTTP.</string>
+    <string name="desc_allow_location">Allow the website to access your location.</string>
+    <string name="desc_allow_drm">Allow protected media content (DRM).</string>
+    <string name="desc_allow_camera">Allow the website to use the camera.</string>
+    <string name="desc_allow_microphone">Allow the website to use the microphone.</string>
+    <string name="desc_accept_cookies">Store site cookies for login and preferences.</string>
+    <string name="desc_accept_third_party_cookies">Accept cookies from other domains. Required by some login systems.</string>
+    <string name="desc_force_dark">Force dark display for websites without dark theme.</string>
+    <string name="desc_timespan_dark">Only apply forced dark mode during the set time span.</string>
+    <string name="desc_save_data">Ask the website to send reduced data (mobile-friendly version).</string>
+    <string name="desc_block_images">Block all images to save data and speed up loading.</string>
+    <string name="desc_autoreload">Automatically reload the page at a fixed interval.</string>
+    <string name="desc_fullscreen">Hide system bars for an immersive experience.</string>
+    <string name="desc_keep_awake">Prevent the screen from turning off while open.</string>
+    <string name="desc_request_desktop">Request the desktop version of the website.</string>
+    <string name="desc_open_external">Open links to other domains in the external browser.</string>
+    <string name="desc_two_finger_zoom">Enable pinch and double-finger zoom gestures.</string>
+    <string name="desc_standard_menu">Use the system text selection menu instead of the custom menu.</string>
+    <string name="desc_media_background">Keep playing audio/video when the app is in background.</string>
+    <string name="desc_expert_settings">Show advanced options (start URL, user agent, SSL).</string>
+    <string name="desc_custom_ua">Send a custom user agent string to the website.</string>
+    <string name="desc_ignore_ssl">Skip SSL certificate verification for this site.</string>
+    <string name="warning_ignore_ssl">Security risk: your connection to this site will not be verified.</string>
 </resources>

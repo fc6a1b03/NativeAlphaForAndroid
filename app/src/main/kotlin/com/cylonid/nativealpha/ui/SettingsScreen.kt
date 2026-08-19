@@ -13,10 +13,12 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -182,32 +184,38 @@ fun GlobalSettingsScreen(
                 SettingsSwitchRow(
                     title = stringResource(R.string.clear_cache_after_usage),
                     checked = modified.isClearCache,
-                    onCheckedChange = { modified = modified.copy(isClearCache = it) }
+                    onCheckedChange = { modified = modified.copy(isClearCache = it) },
+                    description = stringResource(R.string.desc_clear_cache)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.global_settings_multitouch_reload),
                     checked = modified.isMultitouchReload,
-                    onCheckedChange = { modified = modified.copy(isMultitouchReload = it) }
+                    onCheckedChange = { modified = modified.copy(isMultitouchReload = it) },
+                    description = stringResource(R.string.desc_multitouch_reload)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.use_two_finger_swipes_for_browser_forward_and_backward_navigation),
                     checked = modified.isTwoFingerMultitouch,
-                    onCheckedChange = { modified = modified.copy(isTwoFingerMultitouch = it) }
+                    onCheckedChange = { modified = modified.copy(isTwoFingerMultitouch = it) },
+                    description = stringResource(R.string.desc_two_finger_nav)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.use_three_finger_swipes_to_switch_between_web_apps_experimental),
                     checked = modified.isThreeFingerMultitouch,
-                    onCheckedChange = { modified = modified.copy(isThreeFingerMultitouch = it) }
+                    onCheckedChange = { modified = modified.copy(isThreeFingerMultitouch = it) },
+                    description = stringResource(R.string.desc_three_finger_switch)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.show_progress_bar_during_page_load),
                     checked = modified.isShowProgressbar,
-                    onCheckedChange = { modified = modified.copy(isShowProgressbar = it) }
+                    onCheckedChange = { modified = modified.copy(isShowProgressbar = it) },
+                    description = stringResource(R.string.desc_show_progressbar)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.always_show_software_buttons),
                     checked = modified.alwaysShowSoftwareButtons,
-                    onCheckedChange = { modified = modified.copy(alwaysShowSoftwareButtons = it) }
+                    onCheckedChange = { modified = modified.copy(alwaysShowSoftwareButtons = it) },
+                    description = stringResource(R.string.desc_always_show_buttons)
                 )
             }
 
@@ -304,27 +312,69 @@ private fun SettingsSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     icon: (@Composable () -> Unit)? = null,
+    description: String? = null,
+    warning: String? = null,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (icon != null) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        RoundedCornerShape(12.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) { icon() }
-            Spacer(modifier = Modifier.width(14.dp))
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (icon != null) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            RoundedCornerShape(12.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) { icon() }
+                Spacer(modifier = Modifier.width(14.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+                if (description != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Switch(checked = checked, onCheckedChange = onCheckedChange)
         }
-        Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        // 警示提示（可能导致页面异常的高风险开关）
+        if (warning != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    warning,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
     }
 }
 

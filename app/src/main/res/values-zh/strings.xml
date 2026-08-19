@@ -20,7 +20,7 @@
     <string name="add_to_home_screen">添加到主屏幕</string>
     <string name="open_external_links_in_browser_app">在浏览器应用中打开外部链接</string>
     <string name="allow_javascript">允许 JavaScript</string>
-    <string name="warning_js_disabled">已禁用 JavaScript。大多数现代网站（如翻译、AI 对话页面）将无法正常显示。</string>
+    <string name="warning_js_disabled">已禁用 JavaScript。大多数现代网站将无法正常显示。</string>
     <string name="accept_cookies">接受 Cookies</string>
     <string name="accept_third_party_cookies">接受第三方 Cookies</string>
     <string name="clear_cache_after_usage">使用后清除缓存</string>
@@ -48,7 +48,7 @@
         <item>中文</item>
         <item>English</item>
     </string-array>
-    <string name="edit_webapp_settings">编辑 Web App 设置</string>
+    <string name="edit_webapp_settings">编辑</string>
     <string name="add_webapp">添加 Web App</string>
     <string name="welcome_msg">欢迎！
 添加你的第一个 Web App：</string>
@@ -146,4 +146,37 @@
     <string name="sync_global_settings">同步全局设置</string>
     <string name="synced_global_settings">已同步全局设置</string>
     <string name="app_subtitle">%1$d 个 PWA 应用</string>
+
+    <!-- 设置项说明（description） -->
+    <string name="desc_clear_cache">离开应用时清除缓存数据，节省存储空间。</string>
+    <string name="desc_multitouch_reload">双指下滑即可刷新页面。</string>
+    <string name="desc_two_finger_nav">双指左右滑动进行后退/前进。</string>
+    <string name="desc_three_finger_switch">三指左右滑动在多个 Web App 之间切换。</string>
+    <string name="desc_show_progressbar">页面加载时在底部显示加载进度条。</string>
+    <string name="desc_always_show_buttons">在全屏页面中保持系统导航按钮可见。</string>
+    <string name="desc_allow_js">大多数现代网站正常运行所必需。</string>
+    <string name="desc_block_third_party">阻止对其他域名的请求（广告、追踪器）。</string>
+    <string name="desc_allow_http">允许加载未加密的 HTTP 页面。</string>
+    <string name="desc_allow_location">允许网站访问你的位置信息。</string>
+    <string name="desc_allow_drm">允许播放受保护媒体内容（DRM）。</string>
+    <string name="desc_allow_camera">允许网站使用摄像头。</string>
+    <string name="desc_allow_microphone">允许网站使用麦克风。</string>
+    <string name="desc_accept_cookies">保存站点 Cookies，用于登录和偏好设置。</string>
+    <string name="desc_accept_third_party_cookies">接受其他域名的 Cookies。部分登录系统需要。</string>
+    <string name="desc_force_dark">为没有深色主题的网站强制深色显示。</string>
+    <string name="desc_timespan_dark">仅在设定的时间段内应用强制深色模式。</string>
+    <string name="desc_save_data">请求网站发送精简数据（移动版内容）。</string>
+    <string name="desc_block_images">屏蔽所有图片，节省流量并加快加载。</string>
+    <string name="desc_autoreload">按固定间隔自动刷新页面。</string>
+    <string name="desc_fullscreen">隐藏系统栏，获得沉浸式体验。</string>
+    <string name="desc_keep_awake">打开时防止屏幕自动熄灭。</string>
+    <string name="desc_request_desktop">请求网站返回桌面版页面。</string>
+    <string name="desc_open_external">其他域名的链接在外部浏览器打开。</string>
+    <string name="desc_two_finger_zoom">启用双指捏合缩放手势。</string>
+    <string name="desc_standard_menu">使用系统文本选择菜单代替自定义菜单。</string>
+    <string name="desc_media_background">应用退到后台时继续播放音视频。</string>
+    <string name="desc_expert_settings">显示高级选项（起始 URL、UA、SSL）。</string>
+    <string name="desc_custom_ua">向网站发送自定义 User Agent 字符串。</string>
+    <string name="desc_ignore_ssl">跳过此站点的 SSL 证书验证。</string>
+    <string name="warning_ignore_ssl">安全风险：到此站点的连接将不再验证。</string>
 </resources>

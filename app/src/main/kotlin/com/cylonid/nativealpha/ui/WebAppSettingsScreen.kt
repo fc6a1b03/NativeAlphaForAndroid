@@ -239,38 +239,45 @@ fun WebAppSettingsScreen(
                     title = stringResource(R.string.allow_javascript),
                     checked = modified.isAllowJs,
                     onCheckedChange = { updateSettings { isAllowJs = it } },
+                    description = stringResource(R.string.desc_allow_js),
                     warning = if (!modified.isAllowJs) stringResource(R.string.warning_js_disabled) else null
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.block_all_third_party_requests),
                     checked = modified.isBlockThirdPartyRequests,
                     onCheckedChange = { updateSettings { isBlockThirdPartyRequests = it } },
+                    description = stringResource(R.string.desc_block_third_party),
                     warning = if (modified.isBlockThirdPartyRequests) stringResource(R.string.warning_block_third_party) else null
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.allow_http),
                     checked = modified.isAllowHttp,
-                    onCheckedChange = { updateSettings { isAllowHttp = it } }
+                    onCheckedChange = { updateSettings { isAllowHttp = it } },
+                    description = stringResource(R.string.desc_allow_http)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.allow_location_access),
                     checked = modified.isAllowLocationAccess,
-                    onCheckedChange = { updateSettings { isAllowLocationAccess = it } }
+                    onCheckedChange = { updateSettings { isAllowLocationAccess = it } },
+                    description = stringResource(R.string.desc_allow_location)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.allow_drm_content),
                     checked = modified.isDrmAllowed,
-                    onCheckedChange = { updateSettings { isDrmAllowed = it } }
+                    onCheckedChange = { updateSettings { isDrmAllowed = it } },
+                    description = stringResource(R.string.desc_allow_drm)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.allow_camera_access),
                     checked = modified.isCameraPermission,
-                    onCheckedChange = { updateSettings { isCameraPermission = it } }
+                    onCheckedChange = { updateSettings { isCameraPermission = it } },
+                    description = stringResource(R.string.desc_allow_camera)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.allow_microphone_access),
                     checked = modified.isMicrophonePermission,
-                    onCheckedChange = { updateSettings { isMicrophonePermission = it } }
+                    onCheckedChange = { updateSettings { isMicrophonePermission = it } },
+                    description = stringResource(R.string.desc_allow_microphone)
                 )
             }
 
@@ -280,13 +287,15 @@ fun WebAppSettingsScreen(
                 SettingsSwitchRow(
                     title = stringResource(R.string.accept_cookies),
                     checked = modified.isAllowCookies,
-                    onCheckedChange = { updateSettings { isAllowCookies = it } }
+                    onCheckedChange = { updateSettings { isAllowCookies = it } },
+                    description = stringResource(R.string.desc_accept_cookies)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.accept_third_party_cookies),
                     checked = modified.isAllowThirdPartyCookies,
                     enabled = modified.isAllowCookies,
-                    onCheckedChange = { updateSettings { isAllowThirdPartyCookies = it } }
+                    onCheckedChange = { updateSettings { isAllowThirdPartyCookies = it } },
+                    description = stringResource(R.string.desc_accept_third_party_cookies)
                 )
             }
 
@@ -296,13 +305,15 @@ fun WebAppSettingsScreen(
                 SettingsSwitchRow(
                     title = stringResource(R.string.force_dark_mode),
                     checked = modified.isForceDarkMode,
-                    onCheckedChange = { updateSettings { isForceDarkMode = it } }
+                    onCheckedChange = { updateSettings { isForceDarkMode = it } },
+                    description = stringResource(R.string.desc_force_dark)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.limit_dark_mode_to_time_span),
                     checked = modified.isUseTimespanDarkMode,
                     enabled = modified.isForceDarkMode,
-                    onCheckedChange = { updateSettings { isUseTimespanDarkMode = it } }
+                    onCheckedChange = { updateSettings { isUseTimespanDarkMode = it } },
+                    description = stringResource(R.string.desc_timespan_dark)
                 )
                 if (modified.isUseTimespanDarkMode) {
                     SettingsTimeRow(
@@ -328,12 +339,14 @@ fun WebAppSettingsScreen(
                 SettingsSwitchRow(
                     title = stringResource(R.string.request_data_saving_page),
                     checked = modified.isSendSavedataRequest,
-                    onCheckedChange = { updateSettings { isSendSavedataRequest = it } }
+                    onCheckedChange = { updateSettings { isSendSavedataRequest = it } },
+                    description = stringResource(R.string.desc_save_data)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.do_not_load_images),
                     checked = modified.isBlockImages,
                     onCheckedChange = { updateSettings { isBlockImages = it } },
+                    description = stringResource(R.string.desc_block_images),
                     warning = if (modified.isBlockImages) stringResource(R.string.warning_block_images) else null
                 )
             }
@@ -344,7 +357,8 @@ fun WebAppSettingsScreen(
                 SettingsSwitchRow(
                     title = stringResource(R.string.webapp_autoreload_switch),
                     checked = modified.isAutoreload,
-                    onCheckedChange = { updateSettings { isAutoreload = it } }
+                    onCheckedChange = { updateSettings { isAutoreload = it } },
+                    description = stringResource(R.string.desc_autoreload)
                 )
                 if (modified.isAutoreload) {
                     OutlinedTextField(
@@ -365,12 +379,14 @@ fun WebAppSettingsScreen(
                 SettingsSwitchRow(
                     title = stringResource(R.string.show_fullscreen),
                     checked = modified.isShowFullscreen,
-                    onCheckedChange = { updateSettings { isShowFullscreen = it } }
+                    onCheckedChange = { updateSettings { isShowFullscreen = it } },
+                    description = stringResource(R.string.desc_fullscreen)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.keep_screen_awake),
                     checked = modified.isKeepAwake,
-                    onCheckedChange = { updateSettings { isKeepAwake = it } }
+                    onCheckedChange = { updateSettings { isKeepAwake = it } },
+                    description = stringResource(R.string.desc_keep_awake)
                 )
             }
 
@@ -380,27 +396,32 @@ fun WebAppSettingsScreen(
                 SettingsSwitchRow(
                     title = stringResource(R.string.request_website_in_desktop_version),
                     checked = modified.isRequestDesktop,
-                    onCheckedChange = { updateSettings { isRequestDesktop = it } }
+                    onCheckedChange = { updateSettings { isRequestDesktop = it } },
+                    description = stringResource(R.string.desc_request_desktop)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.open_external_links_in_browser_app),
                     checked = modified.isOpenUrlExternal,
-                    onCheckedChange = { updateSettings { isOpenUrlExternal = it } }
+                    onCheckedChange = { updateSettings { isOpenUrlExternal = it } },
+                    description = stringResource(R.string.desc_open_external)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.activate_two_finger_zoom),
                     checked = modified.isEnableZooming,
-                    onCheckedChange = { updateSettings { isEnableZooming = it } }
+                    onCheckedChange = { updateSettings { isEnableZooming = it } },
+                    description = stringResource(R.string.desc_two_finger_zoom)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.use_standard_context_menu_permanently),
                     checked = modified.alwaysUseFallbackContextMenu,
-                    onCheckedChange = { updateSettings { alwaysUseFallbackContextMenu = it } }
+                    onCheckedChange = { updateSettings { alwaysUseFallbackContextMenu = it } },
+                    description = stringResource(R.string.desc_standard_menu)
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.allow_media_playback_in_background),
                     checked = modified.isAllowMediaPlaybackInBackground,
-                    onCheckedChange = { updateSettings { isAllowMediaPlaybackInBackground = it } }
+                    onCheckedChange = { updateSettings { isAllowMediaPlaybackInBackground = it } },
+                    description = stringResource(R.string.desc_media_background)
                 )
             }
 
@@ -410,7 +431,8 @@ fun WebAppSettingsScreen(
                 SettingsSwitchRow(
                     title = stringResource(R.string.show_expert_settings),
                     checked = modified.isShowExpertSettings,
-                    onCheckedChange = { updateSettings { isShowExpertSettings = it } }
+                    onCheckedChange = { updateSettings { isShowExpertSettings = it } },
+                    description = stringResource(R.string.desc_expert_settings)
                 )
                 if (modified.isShowExpertSettings) {
                     HorizontalDivider()
@@ -429,7 +451,8 @@ fun WebAppSettingsScreen(
                     SettingsSwitchRow(
                         title = stringResource(R.string.use_custom_user_agent),
                         checked = modified.isUseCustomUserAgent,
-                        onCheckedChange = { updateSettings { isUseCustomUserAgent = it } }
+                        onCheckedChange = { updateSettings { isUseCustomUserAgent = it } },
+                        description = stringResource(R.string.desc_custom_ua)
                     )
                     if (modified.isUseCustomUserAgent) {
                         OutlinedTextField(
@@ -446,7 +469,9 @@ fun WebAppSettingsScreen(
                     SettingsSwitchRow(
                         title = stringResource(R.string.ignore_ssl_errors),
                         checked = modified.isIgnoreSslErrors,
-                        onCheckedChange = { updateSettings { isIgnoreSslErrors = it } }
+                        onCheckedChange = { updateSettings { isIgnoreSslErrors = it } },
+                        description = stringResource(R.string.desc_ignore_ssl),
+                        warning = if (modified.isIgnoreSslErrors) stringResource(R.string.warning_ignore_ssl) else null
                     )
                 }
             }
@@ -571,6 +596,7 @@ private fun SettingsSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     enabled: Boolean = true,
     icon: (@Composable () -> Unit)? = null,
+    description: String? = null,
     warning: String? = null,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -592,13 +618,22 @@ private fun SettingsSwitchRow(
                 ) { icon() }
                 Spacer(modifier = Modifier.width(14.dp))
             }
-            Text(
-                title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+                if (description != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
         }
         // 高风险开关警示：调用方传入 warning 时显示（JS 关闭 / 拦截开启 / 禁图开启）
