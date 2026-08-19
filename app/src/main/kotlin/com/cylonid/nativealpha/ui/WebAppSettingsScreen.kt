@@ -1,0 +1,597 @@
+package com.cylonid.nativealpha.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.cylonid.nativealpha.R
+import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.util.DateUtils
+import android.app.TimePickerDialog
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import java.util.Calendar
+
+/**
+ * 单个 WebApp 的设置页（Compose 化）：
+ * - 分区块卡片：基本信息（名称/URL/快捷方式）/ 安全与隐私 / Cookies / 深色模式 /
+ *   数据节省 / 自动刷新 / 信息亭 / 其他 / 高级
+ * - 各开关直接修改传入的 WebApp 副本，保存时由 Activity 层统一写入 DataManager
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WebAppSettingsScreen(
+    webapp: WebApp,
+    isGlobal: Boolean,
+    onBack: () -> Unit,
+    onSave: (WebApp) -> Unit,
+    onRecreateShortcut: () -> Unit,
+) {
+    // 全局设置模板（新 WebApp 与"同步全局"的来源）
+    val globalTemplate = DataManager.getInstance().settings.globalWebApp
+
+    // 工作副本：初始化时立即完整拷贝（避免首帧空窗导致保存不完整数据）
+    // 关键：非全局且未覆盖时，显示全局设置的值（运行时实际生效的就是它）
+    // 必须用 neverEqualPolicy：WebApp 的 data class equals 只比较 baseUrl/ID，
+    // 设置字段变化时默认策略检测不到，开关/输入框永不刷新
+    var modified by remember {
+        mutableStateOf(
+            WebApp(webapp.baseUrl, webapp.ID, webapp.order).apply {
+                title = webapp.title
+                displayName = webapp.displayName
+                // 跟随全局时显示全局值，否则显示 WebApp 自己的值
+                val source = if (!isGlobal && !webapp.isOverrideGlobalSettings) globalTemplate else webapp
+                copySettings(source)
+                isOverrideGlobalSettings = webapp.isOverrideGlobalSettings
+            },
+            neverEqualPolicy()
+        )
+    }
+
+    // 统一修改入口（名称/URL 等 WebApp 自身字段）：不改变覆盖状态
+    fun update(block: WebApp.() -> Unit) {
+        val copy = WebApp(modified.baseUrl, modified.ID, modified.order).apply {
+            title = modified.title
+            displayName = modified.displayName
+            copySettings(modified)
+            isOverrideGlobalSettings = modified.isOverrideGlobalSettings
+        }
+        copy.block()
+        modified = copy
+    }
+
+    // 设置字段修改入口：任何设置变更自动切换为"应用设置为主"（覆盖全局）
+    fun updateSettings(block: WebApp.() -> Unit) {
+        val copy = WebApp(modified.baseUrl, modified.ID, modified.order).apply {
+            title = modified.title
+            displayName = modified.displayName
+            copySettings(modified)
+        }
+        copy.isOverrideGlobalSettings = true
+        copy.block()
+        modified = copy
+    }
+
+    // 同步全局设置：一键恢复跟随全局（复制全局模板值 + 关闭覆盖）
+    fun syncFromGlobal() {
+        if (isGlobal) return
+        val copy = WebApp(modified.baseUrl, modified.ID, modified.order).apply {
+            title = modified.title
+            displayName = modified.displayName
+            copySettings(globalTemplate)
+            isOverrideGlobalSettings = false
+        }
+        modified = copy
+    }
+
+    val context = LocalContext.current
+    // 预取字符串（避免在 lambda 里查询资源触发 lint）
+    val msgSynced = stringResource(R.string.synced_global_settings)
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(if (isGlobal) R.string.global_web_app_settings else R.string.web_app_settings)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            )
+        },
+        bottomBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.cancel))
+                }
+                Button(onClick = { onSave(modified) }, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.save))
+                }
+            }
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+        ) {
+            // 跟随全局状态提示（非全局且未覆盖时显示）
+            if (!isGlobal && !modified.isOverrideGlobalSettings) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.follows_global_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            // 基本信息（仅非全局显示：全局模板的名称/URL 只是占位符，无实际用途，隐藏）
+            if (!isGlobal) {
+                SettingsSectionTitle(stringResource(R.string.label))
+                SettingsCard {
+                    // 名称
+                    OutlinedTextField(
+                        value = modified.title,
+                        onValueChange = { update { title = it } },
+                        label = { Text(stringResource(R.string.label)) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    // URL
+                    OutlinedTextField(
+                        value = modified.baseUrl,
+                        onValueChange = { update { baseUrl = it } },
+                        label = { Text(stringResource(R.string.url)) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    // 快捷方式重建
+                    HorizontalDivider()
+                    SettingsActionRow(
+                        icon = { Icon(Icons.Default.CloudUpload, contentDescription = null) },
+                        title = stringResource(R.string.re_create_shortcut),
+                        onClick = onRecreateShortcut
+                    )
+                    // 覆盖全局设置开关（语义：开=应用设置为主，关=跟随全局）
+                    HorizontalDivider()
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.override_global_settings),
+                        checked = modified.isOverrideGlobalSettings,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                // 打开覆盖：保持当前显示值，切换为应用设置为主
+                                updateSettings { }
+                            } else {
+                                // 关闭覆盖：一键同步全局设置
+                                syncFromGlobal()
+                            }
+                        }
+                    )
+                    // 同步全局设置按钮（快速恢复跟随全局）
+                    HorizontalDivider()
+                    SettingsActionRow(
+                        icon = { Icon(Icons.Default.Sync, contentDescription = null) },
+                        title = stringResource(R.string.sync_global_settings),
+                        onClick = {
+                            syncFromGlobal()
+                            Toast.makeText(context, msgSynced, Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+            }
+
+            // 安全与隐私
+            SettingsSectionTitle(stringResource(R.string.webapp_section_security))
+            SettingsCard {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.allow_javascript),
+                    checked = modified.isAllowJs,
+                    onCheckedChange = { updateSettings { isAllowJs = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.block_all_third_party_requests),
+                    checked = modified.isBlockThirdPartyRequests,
+                    onCheckedChange = { updateSettings { isBlockThirdPartyRequests = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.allow_http),
+                    checked = modified.isAllowHttp,
+                    onCheckedChange = { updateSettings { isAllowHttp = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.allow_location_access),
+                    checked = modified.isAllowLocationAccess,
+                    onCheckedChange = { updateSettings { isAllowLocationAccess = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.allow_drm_content),
+                    checked = modified.isDrmAllowed,
+                    onCheckedChange = { updateSettings { isDrmAllowed = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.allow_camera_access),
+                    checked = modified.isCameraPermission,
+                    onCheckedChange = { updateSettings { isCameraPermission = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.allow_microphone_access),
+                    checked = modified.isMicrophonePermission,
+                    onCheckedChange = { updateSettings { isMicrophonePermission = it } }
+                )
+            }
+
+            // Cookies
+            SettingsSectionTitle(stringResource(R.string.webapp_section_cookies))
+            SettingsCard {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.accept_cookies),
+                    checked = modified.isAllowCookies,
+                    onCheckedChange = { updateSettings { isAllowCookies = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.accept_third_party_cookies),
+                    checked = modified.isAllowThirdPartyCookies,
+                    enabled = modified.isAllowCookies,
+                    onCheckedChange = { updateSettings { isAllowThirdPartyCookies = it } }
+                )
+            }
+
+            // 深色模式
+            SettingsSectionTitle(stringResource(R.string.dark_mode))
+            SettingsCard {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.force_dark_mode),
+                    checked = modified.isForceDarkMode,
+                    onCheckedChange = { updateSettings { isForceDarkMode = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.limit_dark_mode_to_time_span),
+                    checked = modified.isUseTimespanDarkMode,
+                    enabled = modified.isForceDarkMode,
+                    onCheckedChange = { updateSettings { isUseTimespanDarkMode = it } }
+                )
+                if (modified.isUseTimespanDarkMode) {
+                    SettingsTimeRow(
+                        label = stringResource(R.string.begin),
+                        value = modified.timespanDarkModeBegin ?: "22:00",
+                        onClick = { current ->
+                            showTimePicker(context, current) { updateSettings { timespanDarkModeBegin = it } }
+                        }
+                    )
+                    SettingsTimeRow(
+                        label = stringResource(R.string.end),
+                        value = modified.timespanDarkModeEnd ?: "06:00",
+                        onClick = { current ->
+                            showTimePicker(context, current) { updateSettings { timespanDarkModeEnd = it } }
+                        }
+                    )
+                }
+            }
+
+            // 数据节省
+            SettingsSectionTitle(stringResource(R.string.webapp_section_datasaving))
+            SettingsCard {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.request_data_saving_page),
+                    checked = modified.isSendSavedataRequest,
+                    onCheckedChange = { updateSettings { isSendSavedataRequest = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.do_not_load_images),
+                    checked = modified.isBlockImages,
+                    onCheckedChange = { updateSettings { isBlockImages = it } }
+                )
+            }
+
+            // 自动刷新
+            SettingsSectionTitle(stringResource(R.string.webapp_autoreload))
+            SettingsCard {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.webapp_autoreload_switch),
+                    checked = modified.isAutoreload,
+                    onCheckedChange = { updateSettings { isAutoreload = it } }
+                )
+                if (modified.isAutoreload) {
+                    OutlinedTextField(
+                        value = modified.timeAutoreload.toString(),
+                        onValueChange = { updateSettings { timeAutoreload = it.toIntOrNull() ?: 0 } },
+                        label = { Text(stringResource(R.string.webapp_interval_for_reload)) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            // 信息亭
+            SettingsSectionTitle(stringResource(R.string.webapp_section_kiosk))
+            SettingsCard {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.show_fullscreen),
+                    checked = modified.isShowFullscreen,
+                    onCheckedChange = { updateSettings { isShowFullscreen = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.keep_screen_awake),
+                    checked = modified.isKeepAwake,
+                    onCheckedChange = { updateSettings { isKeepAwake = it } }
+                )
+            }
+
+            // 其他
+            SettingsSectionTitle(stringResource(R.string.webapp_section_misc))
+            SettingsCard {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.request_website_in_desktop_version),
+                    checked = modified.isRequestDesktop,
+                    onCheckedChange = { updateSettings { isRequestDesktop = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.open_external_links_in_browser_app),
+                    checked = modified.isOpenUrlExternal,
+                    onCheckedChange = { updateSettings { isOpenUrlExternal = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.activate_two_finger_zoom),
+                    checked = modified.isEnableZooming,
+                    onCheckedChange = { updateSettings { isEnableZooming = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.use_standard_context_menu_permanently),
+                    checked = modified.alwaysUseFallbackContextMenu,
+                    onCheckedChange = { updateSettings { alwaysUseFallbackContextMenu = it } }
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.allow_media_playback_in_background),
+                    checked = modified.isAllowMediaPlaybackInBackground,
+                    onCheckedChange = { updateSettings { isAllowMediaPlaybackInBackground = it } }
+                )
+            }
+
+            // 高级
+            SettingsSectionTitle(stringResource(R.string.expert_settings))
+            SettingsCard {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.show_expert_settings),
+                    checked = modified.isShowExpertSettings,
+                    onCheckedChange = { updateSettings { isShowExpertSettings = it } }
+                )
+                if (modified.isShowExpertSettings) {
+                    HorizontalDivider()
+                    // 起始 URL
+                    OutlinedTextField(
+                        value = modified.baseUrl,
+                        onValueChange = { if (!isGlobal) update { baseUrl = it } },
+                        label = { Text(stringResource(R.string.start_url)) },
+                        singleLine = true,
+                        enabled = !isGlobal,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    // 自定义 UA
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.use_custom_user_agent),
+                        checked = modified.isUseCustomUserAgent,
+                        onCheckedChange = { updateSettings { isUseCustomUserAgent = it } }
+                    )
+                    if (modified.isUseCustomUserAgent) {
+                        OutlinedTextField(
+                            value = modified.userAgent ?: "",
+                            onValueChange = { update { userAgent = it } },
+                            label = { Text(stringResource(R.string.insert_custom_user_agent)) },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+                    // SSL
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.ignore_ssl_errors),
+                        checked = modified.isIgnoreSslErrors,
+                        onCheckedChange = { updateSettings { isIgnoreSslErrors = it } }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+/** 时间选择行（深色模式时间段） */
+@Composable
+private fun SettingsTimeRow(
+    label: String,
+    value: String,
+    onClick: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick(value) }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+/** 显示时间选择器 */
+private fun showTimePicker(
+    context: android.content.Context,
+    current: String,
+    onResult: (String) -> Unit,
+) {
+    val c = DateUtils.convertStringToCalendar(current) ?: Calendar.getInstance()
+    val picker = TimePickerDialog(
+        context,
+        { _, hour, minute ->
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.HOUR_OF_DAY, hour)
+            cal.set(Calendar.MINUTE, minute)
+            onResult(DateUtils.getHourMinFormat().format(cal.time))
+        },
+        c.get(Calendar.HOUR_OF_DAY),
+        c.get(Calendar.MINUTE),
+        true
+    )
+    picker.show()
+}
+
+// 复用 SettingsScreen.kt 的私有组件（同一包内可见）
+@Composable
+private fun SettingsSectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
+    )
+}
+
+@Composable
+private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(vertical = 4.dp), content = content)
+    }
+}
+
+@Composable
+private fun SettingsActionRow(
+    icon: @Composable () -> Unit,
+    title: String,
+    subtitle: String? = null,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    MaterialTheme.colorScheme.primaryContainer,
+                    RoundedCornerShape(12.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) { icon() }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
+    icon: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon != null) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        MaterialTheme.colorScheme.primaryContainer,
+                        RoundedCornerShape(12.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) { icon() }
+            Spacer(modifier = Modifier.width(14.dp))
+        }
+        Text(
+            title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (enabled) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.weight(1f)
+        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+    }
+}
