@@ -1,140 +1,101 @@
 
-# <img src="graphics/logo.png" width="50px" alt=""></img> Native Alpha
-![OS](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white&style=plastic)
-![OS](https://img.shields.io/badge/MinVersion-9.0-red)
-![SDK](https://img.shields.io/badge/SDK-35-yellowgreen)
-[![GitHub release](https://img.shields.io/github/v/release/cylonid/NativeAlphaForAndroid?include_prereleases&color=blueviolet)](https://github.com/cylonid/NativeAlphaForAndroid/releases)
-[![Github all releases](https://img.shields.io/github/downloads/cylonid/NativeAlphaForAndroid/total?color=blue&label=GitHub%E2%87%A9&style=plastic)](https://somsubhra.github.io/github-release-stats/?username=cylonid&repository=NativeAlphaForAndroid&page=1&per_page=20)
-[![GitHub license](https://img.shields.io/github/license/cylonid/NativeAlphaForAndroid?color=orange)](https://github.com/cylonid/NativeAlphaForAndroid/blob/master/LICENSE)
-![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)
+# WebNative
 
+![OS](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white&style=plastic)
+![OS](https://img.shields.io/badge/MinVersion-12.0-red)
+![SDK](https://img.shields.io/badge/SDK-37-yellowgreen)
+![GitHub license](https://img.shields.io/github/license/cylonid/NativeAlphaForAndroid?color=orange)
+
+**为 PWA 而生的轻量 Web App 套壳**——把任意网站变成全屏、免打扰的原生应用体验。专为高频文本流场景（如 AI 对话、代码生成）做了严苛的渲染优化。
 
 ## Features
-  * Shows any website in a borderless full-screen window using Android System WebView.
-  * Create home screen shortcuts and retrieves icons in suitable resolution.
-  * Various settings (JavaScript, cookies, adblocking, location/camera/microphone access) can be set for every web app individually
-  * Navigation with multi-touch gestures while browsing.
-  * Opt-in adblock with user-selected filter lists.
-  * Less memory footprint and no privacy-invading app permissions in comparison to native apps
-  * Dark mode for Android 10+
 
-## Download Options
-[![IzzyOnDroid Download Badge](graphics/IzzyOnDroid.png)](https://apt.izzysoft.de/fdroid/index/apk/com.cylonid.nativealpha)
-[![APK Download Badge](graphics/apk_badge.png)](https://github.com/cylonid/NativeAlphaForAndroid/releases/download/v1.5.2/NativeAlpha-extendedGithub-universal-release-v1.5.2.apk)
-[![Google Play Download Badge](graphics/google_play.png)](https://play.google.com/store/apps/details?id=com.cylonid.nativealpha)
-### Paid Download
-[![Google Play Download Badge](graphics/google_play.png)](https://play.google.com/store/apps/details?id=com.cylonid.nativealpha.pro)
+* **PWA 专用渲染优化**：渲染优先级拉满、硬件加速、文字 1:1 保真、预栅格化——流式文本输出流畅清晰
+* **自定义地址**：首页自由添加任意网站，自定义显示名称
+* **动态图标**：自动拉取站点 favicon，失败时生成优雅的渐变首字母图标（也支持手动上传图片）
+* **桌面快捷方式**：一键创建主屏幕直达入口
+* **中英双语**：默认中文，设置内一键切换（跟随系统 / 中文 / English）
+* **全屏沉浸**：edge-to-edge，状态栏/导航栏与页面融合
+* **每站独立设置**：JavaScript、Cookies、桌面 UA、深色模式、自动刷新等按 Web App 单独配置
+* **多手势导航**：双指前进/后退、双指下滑刷新、三指切换
+* **数据备份**：版本化 JSON 导出/导入（含校验和验证）
+* **极低损耗**：R8 全量压缩，APK 仅 ~12MB；无 GMS 依赖，无隐私侵入权限
 
+## Tech Stack
 
+| 组件 | 版本 |
+|---|---|
+| Kotlin | 2.3.20（built-in Kotlin） |
+| Compose | Material 3 + BOM 2026.06.01 |
+| AGP | 9.3.1 |
+| Gradle | 9.7.0 |
+| minSdk / targetSdk | 31 / 37 |
+| 持久化 | Gson + SharedPreferences |
 
+## Build
 
-[![LiberaPay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/cylonid/donate)
+```bash
+# Debug（可安装调试）
+./gradlew assembleDebug
 
-## Paid Features
+# Release（需 key.properties，无则回退 debug 签名）
+./gradlew assembleRelease
+```
 
-__Note: From v1.5.0, the GitHub and IzzyOnDroid release is functionally equivalent to Native Alpha Plus.__
+依赖版本统一管理于 `gradle/libs.versions.toml`（Version Catalog）。
 
-  * Sandbox containers: Web Apps are loaded in fully separated sandboxes, cookies or other data are not shared with other Web Apps
-  * Kiosk Mode: Fullscreen with menubars hidden
-  * Biometric Access Protection: For every Web App, you can enable access protection (Fingerprint + fallback to lockscreen PIN)
-  * Experimental "Force Dark Mode" also available for websites (configurable with respect to day-time)
-  
-## Latest Major Changes (v1.5.x)
+## Release (CI)
 
-* New adblock engine that allows users to add their own selection of block lists. By default, the app will download and use "Fanboy Ultimate List" from https://fanboy.co.nz. You can change your block list sources at any time.
-* Material Design 3-based components and theme
-* Cleaner main screen, less buttons: "Delete" and "Open settings" actions are available via swipe, Web Apps are opened by clicking on the label.
-* Login using HTTP Auth is supported
-* Several bugfixes, most notably regarding the top system bar on devices running Android 15
+打 tag 自动触发 GitHub Actions 发版（签名 APK + AAB → GitHub Release）：
 
-### Small release (v1.5.2)
-* Fixed cases where OK button could not be pressed on intro screen
-* Changed system top bar to neutral color again
-* Fixed an issue with desktop mode on large screens
-* Fixed crashes when opening pop up menu
-* Information dialog regarding adblock-related crashes
+```bash
+git tag -a v2.0.0 -m "v2.0.0"
+git push origin v2.0.0
+```
 
-### Native Alpha Plus
-
-* Biometric Access Protection: For every Web App, you can enable access protection (Fingerprint + fallback to lockscreen PIN)
-* Further enhancements for Dark Mode
-
+首次需在仓库 Settings → Secrets 配置：`KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`。
 
 ## FAQ
-<details> 
-<summary><i> Q: Why would I need this app if any mobile browser can do the same? </i></summary>
-A: Mobile browsers usually only are able to create shortcuts which give a native, borderless fullscreen experience if the website has a Progressive Web App (PWA) manifest. Unfortunately, most websites do not offer this feature yet. Additionally, you cannot set different settings for different websites with an usual browser.
-</details>
 
-<details> 
-<summary><i> Q: Can I keep multiple log-in sessions of the same website? </i></summary>
-A: Yes, this is possible using the sandbox feature of Native Alpha Plus.
-</details>
-
-<details> 
-<summary><i> Q: Why isn't the sandbox feature in Native Alpha Plus enabled by default? </i></summary>
-A: The sandboxing approach is recommended for specific usage rather than general usage because it can limit the performance of the application and increase the disk usage. Therefore, use it for privacy-invasive websites or websites where you want to be logged in twice, but not for any website just because you can.
-</details>
-
-<details> 
-<summary><i> Q: Is this app a dedicated web browser with its own browser engine? </i></summary>
-A: No. As stated, this app relies on the system built-in Android WebView in order to display the website. For privacy reasons, you can opt to use alternative webviews such as [Bromite](https://www.bromite.org/system_web_view) on rooted phones. Always make sure to use to most recent version of any WebView implementation you use!
+<details>
+<summary><i> Q: 为什么需要这个应用？手机浏览器不也能做到吗？ </i></summary>
+A: 浏览器创建的主屏幕快捷方式只有站点提供 PWA manifest 时才能全屏沉浸。WebNative 对任意网站都能做到，且可以为不同网站设置不同配置（桌面 UA、深色模式、自动刷新等）。
 </details>
 
 <details>
-<summary><i> Q: Why is it not possible to find an icon for a certain website? </i></summary>
-A: This problem can occur due to multiple reasons. In most cases, the website does not offer a high-resolution icon. If you are a website maintainer and your website icon cannot be found, look at [RealFaviconGenerator](https://realfavicongenerator.net) for further information. If you think it should work, feel free to post the URL and I will look into it.
+<summary><i> Q: 为什么针对文本流做了专门优化？ </i></summary>
+A: AI 对话/代码生成类页面是高频流式文本渲染（逐字输出、长文档、代码块），对 WebView 渲染性能要求苛刻。WebNative 通过渲染优先级、硬件加速、预栅格化等配置确保这类场景流畅清晰。
 </details>
 
 <details>
-<summary><i> Q: In constrast to your promise, this app has a large memory footprint! </i></summary>
-A: This is because Native Alpha makes use of caching in the same way your browser app does, i.e., it saves web content locally on your device. Then it can be loaded faster if you visit the same page again. You can either delete cache regularly yourself or set the "Clear cache after usage" setting in the global settings if memory footprint is a concern for you. However, then websites will take a longer time to load because everything has to be loaded from net.
+<summary><i> Q: 这是独立浏览器引擎吗？ </i></summary>
+A: 不是。基于系统内置 Android WebView 渲染，无自带引擎、无 GMS 依赖。
 </details>
 
 <details>
-<summary><i> Q: What is the minimum Android version for running Native Alpha? </i></summary>
-A: Android 9 and newer are supported.
+<summary><i> Q: 最低支持什么 Android 版本？ </i></summary>
+A: Android 12（API 31）及以上。
 </details>
 
-<details>
-<summary><i> Q: I don't want to use Google Play services, is there any other way to obtain Native Alpha Plus? </i></summary>
-A: You can build the app yourself, everything is open-source including the paid features. Also, the GitHub release includes the Pro features.
-</details>
+## Notable used libraries
 
-## Notable used libraries/resources
-* [CircularProgressBar](https://github.com/lopspower/CircularProgressBar)
-* [JSoup](https://jsoup.org/)
-* [AdblockAndroid](https://github.com/Edsuns/AdblockAndroid)
-* [MovableFloatingActionButton](https://stackoverflow.com/questions/46370836/android-movable-draggable-floating-action-button-fab)
-* [Android About Page](https://github.com/medyo/android-about-page)
-* [Android Databinding](https://developer.android.com/topic/libraries/data-binding)
-* [AboutLibraries](https://github.com/mikepenz/AboutLibraries)
-* [Drag & Drop n' Swipe Recyclerview](https://github.com/ernestoyaquello/DragDropSwipeRecyclerview)
+* [AndroidX WebKit](https://developer.android.com/jetpack/androidx/releases/webkit) — WebView 现代化能力
+* [Jetpack Compose (Material 3)](https://developer.android.com/jetpack/compose) — UI
+* [Gson](https://github.com/google/gson) — 数据持久化
+* [JSoup](https://jsoup.org/) — favicon/标题抓取
+* [AboutLibraries](https://github.com/mikepenz/AboutLibraries) — 开源声明
+* [CircularProgressBar](https://github.com/lopspower/CircularProgressBar) — 快捷方式图标加载进度
 
-For testing purposes:
-* [Robolectric](https://github.com/robolectric/robolectric)
-* [Espresso](https://developer.android.com/training/testing/espresso/)
-
-A list of used open-source libraries can also be found inside the app ("About" section).
+完整开源库列表见应用内「关于」页。
 
 ## Screenshots
-<details>
-<summary> Click to see screenshots </summary>
-<div style="text-align: center; margin: auto;">
-<img src="graphics/screenshots/mainScreen.png" alt="Main Screen" width="350"/>
-<img src="graphics/screenshots/addWebApp.png" alt="Add Web App" width="350"/>
-<img src="graphics/screenshots/webAppSettings.png" alt="Available Web App Settings" width="350"/>
-<img src="graphics/screenshots/globalSettings.png" alt="Global Settings" width="350"/>
-</div>
-</details>
 
+*待补充（模拟器验收后截图）*
 
 ## License
-Native Alpha is Free Software: You can use, study share and improve it at your
+
+WebNative is Free Software: You can use, study share and improve it at your
 will. Specifically you can redistribute and/or modify it under the terms of the
 [GNU General Public License](https://www.gnu.org/licenses/gpl.html) as
 published by the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
-
-## End User License Agreement
-THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
