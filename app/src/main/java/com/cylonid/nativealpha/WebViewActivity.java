@@ -41,6 +41,7 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.RenderProcessGoneDetail;
 import android.widget.FrameLayout;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
@@ -952,6 +953,20 @@ public class WebViewActivity extends AppCompatActivity {
         @Override
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
             super.onPageStarted(view, url, favicon);
+        }
+
+        @Override
+        public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+            // 渲染进程崩溃/OOM：避免整个应用崩溃，提示用户并关闭页面
+            runOnUiThread(() -> {
+                NotificationUtils.showInfoSnackbar(
+                    WebViewActivity.this,
+                    getString(R.string.render_process_gone),
+                    Snackbar.LENGTH_LONG
+                );
+                finish();
+            });
+            return true; // 已处理，阻止系统终止应用
         }
 
         @Nullable
