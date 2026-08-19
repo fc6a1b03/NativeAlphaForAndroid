@@ -48,6 +48,9 @@ jobs:
       - name: "🧪 Run Unit Tests"
         run: ./gradlew testDebugUnitTest --no-daemon
 
+      - name: "🔍 Lint Check"
+        run: ./gradlew lintDebug --no-daemon
+
       - name: "🏗️ Debug Build"
         run: ./gradlew assembleDebug --no-daemon
 
