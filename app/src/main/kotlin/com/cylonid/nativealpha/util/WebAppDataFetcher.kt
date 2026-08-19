@@ -144,7 +144,9 @@ object WebAppDataFetcher {
                         val width = if (sizes.isNotEmpty())
                             ShortcutIconUtils.getWidthFromIcon(sizes)
                         else 1
-                        foundIcons[width] = iconHref
+                        if (isUsableIconUrl(iconHref)) {
+                            foundIcons[width] = iconHref
+                        }
                     }
                 }
             }
@@ -271,5 +273,15 @@ object WebAppDataFetcher {
         // 内嵌图像：PNG(89 50 4E 47) / JPEG(FF D8 FF) / BMP(42 4D) 均可直接解码；
         // 老式 ICO 的 AND 掩码位图（DIB）无文件头，此场景已极少，忽略
         return BitmapFactory.decodeByteArray(imgBytes, 0, imgBytes.size)
+    }
+
+    /**
+     * 判断图标 URL 是否可下载：
+     * - 非空
+     * - http/https（排除 data:、javascript: 等空图标声明，如 example.com 的 `data:,`）
+     */
+    @JvmStatic
+    internal fun isUsableIconUrl(url: String?): Boolean {
+        return !url.isNullOrBlank() && url.startsWith("http")
     }
 }

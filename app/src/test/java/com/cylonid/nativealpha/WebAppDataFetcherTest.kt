@@ -3,8 +3,10 @@ package com.cylonid.nativealpha
 import android.content.res.Resources
 import com.cylonid.nativealpha.util.WebAppDataFetcher
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -85,5 +87,20 @@ class WebAppDataFetcherTest {
     fun `loadBitmap returns null for blank url`() {
         assertNull(WebAppDataFetcher.loadBitmap(""))
         assertNull(WebAppDataFetcher.loadBitmap(null))
+    }
+
+    @Test
+    fun `isUsableIconUrl filters invalid urls`() {
+        // 有效：http/https
+        assertTrue(WebAppDataFetcher.isUsableIconUrl("https://example.com/favicon.ico"))
+        assertTrue(WebAppDataFetcher.isUsableIconUrl("http://example.com/icon.png"))
+        // 无效：空 / data:（example.com 的 data:, 空图标声明）
+        assertFalse(WebAppDataFetcher.isUsableIconUrl(""))
+        assertFalse(WebAppDataFetcher.isUsableIconUrl("data:,"))
+        assertFalse(WebAppDataFetcher.isUsableIconUrl("data:image/png;base64,iVBORw0KGgo="))
+        assertFalse(WebAppDataFetcher.isUsableIconUrl("javascript:void(0)"))
+        assertFalse(WebAppDataFetcher.isUsableIconUrl(null))
+        // 大小写敏感：http 开头（URL 协议规范小写）
+        assertFalse(WebAppDataFetcher.isUsableIconUrl("HTTP://EXAMPLE.COM/icon.png"))
     }
 }
