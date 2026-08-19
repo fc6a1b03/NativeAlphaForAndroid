@@ -1,5 +1,9 @@
 <resources>
     <style name="AppTheme" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@color/md_theme_surface</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:navigationBarColor">@color/md_theme_surface</item>
         <item name="colorPrimary">@color/md_theme_primary</item>
         <item name="colorOnPrimary">@color/md_theme_onPrimary</item>
         <item name="colorPrimaryContainer">@color/md_theme_primaryContainer</item>
@@ -57,6 +61,10 @@
 
     <!-- 强制深色模式主题：固定深色色板（不依赖 values-night 自动解析） -->
     <style name="AppThemeDark" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/md_theme_surface</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:navigationBarColor">@color/md_theme_surface</item>
         <item name="colorPrimary">#C1BFFF</item>
         <item name="colorOnPrimary">#1A1B80</item>
         <item name="colorPrimaryContainer">#3232AD</item>
