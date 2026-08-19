@@ -1,23 +1,29 @@
 <resources>
     <string name="app_name" translatable="false">WebNative</string>
-    <string name="action_settings">设置</string>
     <!-- Strings used for fragments for navigation -->
-    <string name="spinner_prompt">UI Mode</string>
     <string name="global_settings">全局设置</string>
     <string name="these_settings_are_applied_globally_and_override_app_specific_settings">这些设置应用于所有 Web App，除非某个 Web App 显式覆盖了全局设置。</string>
-    <string name="clear_cookies_after_usage">使用后清除 Cookies</string>
     <string name="use_three_finger_swipes_to_switch_between_web_apps_experimental">使用三指滑动在 Web App 之间切换（实验性）</string>
     <string name="select_ui_mode">选择界面模式</string>
     <string name="save">保存</string>
     <string name="loading_icon_and_website_title">正在加载图标和网站标题…</string>
+    <!-- 添加向导 -->
+    <string name="add_step_1">第 1 步 · 输入网站地址</string>
+    <string name="add_step_2">第 2 步 · 确认名称与图标</string>
+    <string name="add_step1_hint">继续后将自动识别网站标题与图标。</string>
+    <string name="display_name_auto">自动识别自网站</string>
+    <string name="fetching_icon">正在获取图标…</string>
+    <string name="use_dynamic_icon">使用自动生成的图标</string>
+    <string name="fetch_failed_hint">无法获取图标。可重试或使用自动生成图标。</string>
+    <string name="retry">重试</string>
+    <string name="icon_will_be_generated">将自动生成渐变图标。</string>
+    <string name="add_to_home_screen">添加到主屏幕</string>
     <string name="open_external_links_in_browser_app">在浏览器应用中打开外部链接</string>
     <string name="allow_javascript">允许 JavaScript</string>
     <string name="accept_cookies">接受 Cookies</string>
     <string name="accept_third_party_cookies">接受第三方 Cookies</string>
     <string name="clear_cache_after_usage">使用后清除缓存</string>
-    <string name="timeout_for_page_restore_in_minutes">超时时间（分钟）</string>
     <string name="re_create_shortcut">重新创建快捷方式</string>
-    <string name="create_shortcut_on_home_screen">在主屏幕创建快捷方式</string>
     <string name="url">URL</string>
     <string name="use_two_finger_swipes_for_browser_forward_and_backward_navigation">使用双指滑动进行浏览器前进/后退导航</string>
     <string-array name="ui_modes">
@@ -25,13 +31,14 @@
         <item>Light Mode</item>
         <item>Dark Mode</item>
     </string-array>
-    <string name="icon_fetch_failed_line1">无法获取 %1 的图标。
+    <string name="icon_fetch_failed_line1">无法获取 %1$s 的图标。
 可能的原因：
 </string>
     <string name="icon_fetch_failed_line2">• 无网络连接
 </string>
     <string name="icon_fetch_failed_line3">• 网站没有存储合适的图标。</string>
     <string name="delete_question">确定要删除这个网站吗？</string>
+    <string name="delete">删除</string>
     <string name="enter_valid_url">请输入有效的网址。</string>
     <string name="display_name_hint">显示名称（可选）</string>
     <string name="language">语言</string>
@@ -44,7 +51,6 @@
     <string name="add_webapp">添加 Web App</string>
     <string name="welcome_msg">欢迎！
 添加你的第一个 Web App：</string>
-    <string name="restore_last_opened_page">恢复上次打开的页面</string>
     <string name="request_website_in_desktop_version">以桌面版请求网站</string>
     <string name="shortcut_icon">快捷方式图标</string>
     <string name="shortcut_title">快捷方式标题</string>
@@ -53,7 +59,6 @@
     <string name="gnu_license">本软件基于 GNU 通用公共许可证 - 版本 3 发布。
 https://www.gnu.org/licenses/gpl-3.0.txt</string>
     <string name="app_info">关于</string>
-    <string name="license">许可证</string>
     <string name="os_libraries_title">开源库</string>
     <string name="web_app_settings">Web App 设置</string>
     <string name="do_not_load_images">不加载图片</string>
@@ -74,43 +79,27 @@ https://www.gnu.org/licenses/gpl-3.0.txt</string>
     <string name="webapp_section_cookies">Cookies 与广告</string>
     <string name="webapp_section_datasaving">数据节省</string>
     <string name="webapp_section_misc">其他</string>
-    <string name="webapp_section_restorepage">页面恢复</string>
+        <string name="import_success">成功恢复 %1$d 个 Web App。</string>
     <string name="import_failed">备份恢复失败。</string>
-    <string name="import_success">成功恢复 %1$d 个 Web App。</string>
     <string name="export_failed">备份导出失败。</string>
     <string name="export_success">备份创建成功。</string>
     <string name="webapp_not_found">您尝试访问的 Web App 已不存在。</string>
-    <string name="import_success_dialog_txt1">备份包含</string>
-    <string name="import_success_dialog_txt2">是否要为所有 Web App 重新创建快捷方式？</string>
-    <string name="import_success_dialog_txt3">请注意，您需要手动确认每个快捷方式的添加。</string>
     <string name="no_filemanager">请安装文件管理器。</string>
     <string name="export_settings_web_apps">导出设置与 Web App</string>
     <string name="import_settings_web_apps">导入设置与 Web App</string>
     <string name="global_settings_multitouch_reload">使用双指下滑刷新页面</string>
     <string name="allow_location_access">允许位置访问</string>
     <string name="allow_drm_content">允许 DRM 内容</string>
-    <string name="dialog_permission_location_title">位置权限请求</string>
-    <string name="dialog_permission_location_txt">是否允许此 Web App 访问您的位置？您可以随时在 Web App 设置中撤销此决定。</string>
-    <string name="dialog_permission_drm_title">DRM 内容</string>
-    <string name="dialog_permission_drm_txt">是否允许此 Web App 加载受 DRM 保护的内容？</string>
-    <string name="permission_location_rationale">如果您希望 Web App 能够获取您的位置，需要授予位置权限。</string>
-    <string name="permission_storage_rationale">如果您希望 Web App 能够下载文件，需要接受存储权限请求。</string>
     <string name="file_download">文件正在下载…</string>
-    <string name="file_download_failed">无法下载文件。</string>
     <string name="custom_icon">选择自定义图标</string>
     <string name="show_progress_bar_during_page_load">页面加载时显示进度条</string>
-    <string name="user_agent">User Agent</string>
     <string name="use_custom_user_agent">使用自定义 User Agent</string>
     <string name="insert_custom_user_agent">在此输入自定义 User Agent…</string>
     <string name="webapp_autoreload">自动刷新页面</string>
     <string name="webapp_interval_for_reload">刷新间隔（秒）</string>
     <string name="webapp_autoreload_switch">定期刷新页面</string>
-    <string name="hint_user_agent">请查阅 <![CDATA[<a href="https://www.whatismybrowser.com/guides/the-latest-user-agent/">WhatIsMyBrowser.com</a>]]> 获取最新的 User Agent 列表。</string>
 
     <string name="label">名称</string>
-    <string name="backup_import_done">备份导入完成</string>
-    <string name="backup_imported_done_txt">屏幕需要重新加载以应用恢复的主题。</string>
-    <string name="restore_shortcut">是否恢复快捷方式 <b>%1$s</b>？</string>
     <string name="force_dark_mode">强制深色模式</string>
     <string name="end">结束</string>
     <string name="begin">开始</string>
@@ -118,29 +107,19 @@ https://www.gnu.org/licenses/gpl-3.0.txt</string>
     <string name="dark_mode">深色模式</string>
     <string name="expert_settings">高级设置</string>
     <string name="show_expert_settings">显示高级设置</string>
-    <string name="ssl_errors">SSL 错误</string>
-    <string name="ssl_permanent_warning">仅对自托管的非生产网站使用此选项</string>
     <string name="ignore_ssl_errors">忽略 SSL 错误</string>
     <string name="webapp_already_deleted">此 Web App 已不存在。您可以删除此快捷方式。</string>
     <string name="override_global_settings">覆盖全局设置</string>
     <string name="global_web_app_settings">全局 Web App 设置</string>
     <string name="general">通用</string>
     <string name="backup">备份</string>
-    <string name="use_google_safe_browsing">使用 Google Safe Browsing</string>
     <string name="block_all_third_party_requests">阻止第三方请求</string>
     <string name="show_fullscreen">全屏（沉浸模式）</string>
-    <string name="site_not_found">页面无法加载。</string>
     <string name="icon_not_found">无法加载图标。</string>
-    <string name="privacy_policy">隐私政策</string>
     <string name="webapp_section_kiosk">信息亭模式</string>
     <string name="keep_screen_awake">保持屏幕常亮</string>
-    <string name="dialog_permission_camera_title">相机访问</string>
-    <string name="dialog_permission_camera_txt">是否允许此 Web App 访问您的相机？</string>
     <string name="allow_camera_access">允许相机访问</string>
     <string name="allow_microphone_access">允许麦克风访问</string>
-    <string name="dialog_permission_microphone_title">麦克风访问</string>
-    <string name="dialog_permission_microphone_txt">是否允许此 Web App 访问您的麦克风？</string>
-    <string name="app_name_plus" translatable="false">WebNative</string>
     <string name="shortcut_already_exists">快捷方式已存在。</string>
     <string name="back">后退</string>
     <string name="forward">前进</string>
@@ -148,32 +127,25 @@ https://www.gnu.org/licenses/gpl-3.0.txt</string>
     <string name="share">分享</string>
     <string name="reload">刷新</string>
     <string name="activate_two_finger_zoom">启用双指缩放</string>
-    <string name="webapp_section_access_restriction">访问限制</string>
-    <string name="enable_access_restriction">启用访问限制</string>
     <string name="allow_media_playback_in_background">允许后台媒体播放</string>
     <string name="start_url">起始 URL</string>
     <string name="more">更多</string>
     <string name="close_web_app">关闭 Web App</string>
-    <string name="select_text">选择文本</string>
     <string name="to_main_menu">主菜单</string>
     <string name="cancel">取消</string>
     <string name="ok">确定</string>
-    <string name="accept">接受</string>
     <string name="webview_activity_launch_failed">Web App 无法启动。</string>
     <string name="no_url_entered">未输入网址。</string>
-    <string name="scroll_to_bottom">滚动到底部</string>
     <string name="always_show_software_buttons">始终显示软件导航按钮</string>
     <string name="use_standard_context_menu_temporarily">暂时使用标准上下文菜单</string>
     <string name="use_standard_context_menu_permanently">始终使用标准上下文菜单</string>
-    <string name="question_delete_item">确定要删除此项吗？</string>
-    <string name="undo">撤销</string>
-    <string name="x_was_removed">%1$s 已移除。</string>
-    <string name="restore_standard_setting">恢复标准设置</string>
     <string name="http_auth_title">登录（HTTP 认证）</string>
     <string name="username">用户名</string>
     <string name="password">密码</string>
     <string name="enter_http_auth_credentials">为 %1$s 在 %2$s 输入凭据：</string>
-    <string name="entry_already_exists">此条目已存在。</string>
-    <string name="warning">警告</string>
 
+    <string name="follows_global_hint">此 Web App 当前跟随全局设置。修改下方任意选项将切换为应用设置为主，或点击"同步全局设置"。</string>
+    <string name="sync_global_settings">同步全局设置</string>
+    <string name="synced_global_settings">已同步全局设置</string>
+    <string name="app_subtitle">%1$d 个 PWA 应用</string>
 </resources>

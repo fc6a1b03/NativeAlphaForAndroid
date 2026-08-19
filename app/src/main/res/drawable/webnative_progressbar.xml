@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 页面加载进度条：靛蓝主色 + 圆角 + 半透明轨道（Material 3 风格） -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 轨道（半透明主色） -->
+    <item android:id="@android:id/background">
+        <shape android:shape="rectangle">
+            <corners android:radius="2dp" />
+            <solid android:color="@color/webnative_progress_track" />
+        </shape>
+    </item>
+    <!-- 进度（靛蓝主色） -->
+    <item android:id="@android:id/progress">
+        <clip>
+            <shape android:shape="rectangle">
+                <corners android:radius="2dp" />
+                <solid android:color="@color/md_theme_primary" />
+            </shape>
+        </clip>
+    </item>
+</layer-list>
