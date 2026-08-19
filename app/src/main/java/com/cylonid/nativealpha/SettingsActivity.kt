@@ -11,6 +11,7 @@ import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
 import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.ui.GlobalSettingsScreen
 import com.cylonid.nativealpha.util.Const
@@ -30,7 +31,7 @@ class SettingsActivity : AppCompatActivity() {
         setTheme(ThemeUtils.resolveTheme())
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            AppMaterialTheme {
                 GlobalSettingsScreen(
                     onBack = { finish() },
                     onSave = { modified ->

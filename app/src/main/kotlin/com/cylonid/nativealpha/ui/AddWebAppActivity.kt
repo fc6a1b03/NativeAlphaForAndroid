@@ -74,6 +74,7 @@ import androidx.core.graphics.drawable.IconCompat
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import com.cylonid.nativealpha.R
+import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.WebApp
@@ -102,7 +103,7 @@ class AddWebAppActivity : AppCompatActivity() {
         setTheme(ThemeUtils.resolveTheme())
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            AppMaterialTheme {
                 AddWebAppScreen(
                     onBack = { finish() }
                 )

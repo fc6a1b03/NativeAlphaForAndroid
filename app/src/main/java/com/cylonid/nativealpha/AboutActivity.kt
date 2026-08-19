@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cylonid.nativealpha.R
+import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
 import com.mikepenz.aboutlibraries.LibsBuilder
 
@@ -34,7 +35,7 @@ class AboutActivity : AppCompatActivity() {
         setTheme(ThemeUtils.resolveTheme())
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            AppMaterialTheme {
                 AboutScreen(
                     versionName = BuildConfig.VERSION_NAME,
                     onBack = { finish() },

@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.ui.AddWebAppActivity
@@ -28,7 +29,7 @@ class MainActivity : AppCompatActivity() {
         entryPointReached(this)
 
         setContent {
-            MaterialTheme {
+            AppMaterialTheme {
                 val refreshKey = MainActivity.refreshTrigger
                 val webApps: List<WebApp> = remember(refreshKey) {
                     DataManager.getInstance().activeWebsites.filterNotNull()

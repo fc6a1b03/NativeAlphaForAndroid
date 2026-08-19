@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
 import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.ui.WebAppSettingsScreen
@@ -42,7 +43,7 @@ class WebAppSettingsActivity : AppCompatActivity() {
         }
 
         setContent {
-            MaterialTheme {
+            AppMaterialTheme {
                 WebAppSettingsScreen(
                     webapp = webapp!!,
                     isGlobal = isGlobalWebApp,

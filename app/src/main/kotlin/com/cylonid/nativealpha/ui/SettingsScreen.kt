@@ -165,9 +165,8 @@ fun GlobalSettingsScreen(
                                         uiExpanded = false
                                         uiSelection = index
                                         modified = modified.copy(themeId = index)
-                                        // 立即应用：先落库（recreate 后 onCreate 才能读到新值）再重建
+                                        // 立即应用：落库 + 同步 AppCompat + 重建当前 Activity（resolveTheme 按新值选主题）
                                         DataManager.getInstance().settings = modified
-                                        DataManager.getInstance().saveGlobalSettings()
                                         com.cylonid.nativealpha.util.ThemeUtils.applyUiMode()
                                         (context as? android.app.Activity)?.recreate()
                                     }
