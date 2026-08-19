@@ -4,7 +4,7 @@
 ![OS](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white&style=plastic)
 ![OS](https://img.shields.io/badge/MinVersion-12.0-red)
 ![SDK](https://img.shields.io/badge/SDK-37-yellowgreen)
-![GitHub license](https://img.shields.io/github/license/cylonid/NativeAlphaForAndroid?color=orange)
+![GitHub license](https://img.shields.io/github/license/fc6a1b03/NativeAlphaForAndroid?color=orange)
 
 **为 PWA 而生的轻量 Web App 套壳**——把任意网站变成全屏、免打扰的原生应用体验。专为高频文本流场景（如 AI 对话、代码生成）做了严苛的渲染优化。
 
@@ -102,6 +102,12 @@ A: Android 12（API 31）及以上。
 > 截图基于 Android 模拟器（Pixel 9a, API 37）实测采集。
 
 ## License
+
+**WebNative** is a fork of
+[NativeAlphaForAndroid](https://github.com/cylonid/NativeAlphaForAndroid)
+(by [cylonid](https://github.com/cylonid)) with extensive modifications —
+UI rebuild, feature changes and optimizations. All changes are released under
+the same license as the original project.
 
 WebNative is Free Software: You can use, study share and improve it at your
 will. Specifically you can redistribute and/or modify it under the terms of the
