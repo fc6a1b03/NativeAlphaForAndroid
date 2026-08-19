@@ -34,9 +34,9 @@
     <string name="icon_fetch_failed_line1">We could not retrieve an icon for %1$s.\nPossible reasons:\n</string>
     <string name="icon_fetch_failed_line2">• No internet connection\n</string>
     <string name="icon_fetch_failed_line3">• The website has no suitable icon stored.</string>
-    <string name="delete_question">Are you sure you want to remove this website?</string>
     <string name="delete">Delete</string>
     <string name="enter_valid_url">Please enter a valid web address.</string>
+    <string name="render_process_gone">The page is using too much memory and was closed. Please try again.</string>
     <string name="display_name_hint">Display name (optional)</string>
     <string name="language">Language</string>
     <string-array name="language_options">

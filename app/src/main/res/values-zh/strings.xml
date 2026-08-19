@@ -37,9 +37,9 @@
     <string name="icon_fetch_failed_line2">• 无网络连接
 </string>
     <string name="icon_fetch_failed_line3">• 网站没有存储合适的图标。</string>
-    <string name="delete_question">确定要删除这个网站吗？</string>
     <string name="delete">删除</string>
     <string name="enter_valid_url">请输入有效的网址。</string>
+    <string name="render_process_gone">页面占用内存过高已关闭，请重试。</string>
     <string name="display_name_hint">显示名称（可选）</string>
     <string name="language">语言</string>
     <string-array name="language_options">
