@@ -99,11 +99,25 @@ jobs:
           keyAlias=$KEY_ALIAS
           keyPassword=$KEY_PASSWORD
           EOF
+          # 诊断：校验 keystore 是否有效（alias/密码/指纹）
+          echo "--- keystore 诊断 ---"
+          ls -la webnative-release.keystore
+          keytool -list -keystore webnative-release.keystore -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" 2>&1 | head -10 || echo "❌ keystore 校验失败（base64 或密码不对）"
           echo "✅ Signing config injected"
 
       - name: "🏗️ Build Release APK + AAB"
         run: |
-          ./gradlew assembleRelease bundleRelease --no-daemon
+          ./gradlew assembleRelease bundleRelease --no-daemon 2>&1 | tee /tmp/build.log
+        # 构建失败时上传日志供排查
+        continue-on-error: false
+
+      - name: "📦 Upload build log on failure"
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-build-log
+          path: /tmp/build.log
+          retention-days: 7
 
       - name: "📦 Organize Artifacts"
         run: |
