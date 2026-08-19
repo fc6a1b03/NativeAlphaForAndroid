@@ -4,15 +4,17 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.cylonid.nativealpha.databinding.ActivityToolbarBaseBinding
-import com.cylonid.nativealpha.util.ColorUtils.getColorResFromThemeAttr
 import com.mikepenz.aboutlibraries.LibsBuilder
-import mehdi.sakout.aboutpage.AboutPage
-import mehdi.sakout.aboutpage.Element
-import java.time.Year
 
+/**
+ * 关于页：版本号 + 许可 + 开源库声明（GPL-3.0 合规）。
+ * 保持轻量 View 实现（非核心页面，无需 Compose 化）。
+ */
 class AboutActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -20,7 +22,7 @@ class AboutActivity : AppCompatActivity() {
         val baseBinding = ActivityToolbarBaseBinding.inflate(layoutInflater)
         setContentView(baseBinding.root)
 
-        baseBinding.activityContent.addView(generateAboutPageView())
+        baseBinding.activityContent.addView(buildAboutView())
 
         val toolbar = baseBinding.toolbar.topAppBar
         setSupportActionBar(toolbar)
@@ -34,121 +36,45 @@ class AboutActivity : AppCompatActivity() {
         toolbar.setNavigationOnClickListener {
             onBackPressedDispatcher.onBackPressed()
         }
-
     }
 
-    private fun generateAboutPageView(): View {
-        val page = AboutPage(this).apply {
-            setDescription(
-                """
-                Native Alpha for Android
-                by cylonid © ${Year.now().value}
-                """.trimIndent()
-            )
-            setImage(R.drawable.native_alpha_foreground)
-            addItem(Element().setTitle("Version " + BuildConfig.VERSION_NAME))
-            addItem(addGitHubCustom("cylonid", "GitHub"))
-            addPlayStore("com.cylonid.nativealpha.pro", "Play Store")
-            addWebsite(
-                "https://github.com/cylonid/NativeAlphaForAndroid/blob/dev/privacy_policy.md",
-                getString(
-                    R.string.privacy_policy
+    private fun buildAboutView(): View {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 32, 48, 32)
+        }
+
+        // 版本号
+        container.addView(TextView(this).apply {
+            text = "WebNative v" + BuildConfig.VERSION_NAME
+            textSize = 18f
+        })
+
+        // 开源许可（GPL-3.0，点击打开协议）
+        container.addView(TextView(this).apply {
+            text = getString(R.string.gnu_license)
+            setPadding(0, 24, 0, 0)
+            setOnClickListener {
+                startActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse("https://www.gnu.org/licenses/gpl-3.0.txt"))
                 )
-            )
-            if(BuildConfig.FLAVOR == "extendedGithub") {
-                addItem(showLiberaPay())
             }
-            addGroup(getString(R.string.eula_title))
-            addItem(showEULA())
-            addGroup(getString(R.string.license))
-            addItem(showLicense())
-            addItem(showOpenSourcelibs())
-        }
+        })
 
-        return page.create()
+        // 开源库列表（aboutlibraries，GPL 合规声明）
+        container.addView(TextView(this).apply {
+            text = getString(R.string.open_source_libs)
+            setPadding(0, 24, 0, 0)
+            setOnClickListener {
+                startActivity(
+                    LibsBuilder()
+                        .withEdgeToEdge(true)
+                        .withSearchEnabled(true)
+                        .intent(this@AboutActivity)
+                )
+            }
+        })
 
-    }
-
-    private fun addGitHubCustom(id: String, title: String): Element {
-        val gitHubElement = Element()
-        gitHubElement.setTitle(title)
-        gitHubElement.setIconDrawable(R.drawable.about_icon_github)
-        gitHubElement.setIconTint(
-            getColorResFromThemeAttr(
-                this, com.google.android.material.R.attr.colorOnSurface, R.color.about_github_color
-            )
-        )
-        gitHubElement.setIconNightTint(R.color.about_item_dark_text_color)
-        gitHubElement.setValue(id)
-
-        val intent = Intent()
-        intent.setAction(Intent.ACTION_VIEW)
-        intent.addCategory(Intent.CATEGORY_BROWSABLE)
-        intent.setData(Uri.parse(String.format("https://github.com/%s", id)))
-
-        gitHubElement.setIntent(intent)
-
-        return gitHubElement
-    }
-
-    fun showEULA(): Element {
-        val license = Element()
-        license.setTitle(getString(R.string.eula_content))
-        return license
-    }
-
-    fun showLicense(): Element {
-        val license = Element()
-
-        license.setTitle(getString(R.string.gnu_license))
-        license.setOnClickListener {
-            val url = "https://www.gnu.org/licenses/gpl-3.0.txt"
-            val i = Intent(Intent.ACTION_VIEW)
-            i.setData(Uri.parse(url))
-            startActivity(i)
-        }
-        return license
-    }
-
-    fun showLiberaPay(): Element {
-        val element = Element()
-        element.setTitle(getString(R.string.support_liberapay))
-        element.setIconDrawable(R.drawable.liberapay_logo)
-        element.skipTint = true
-
-        element.setOnClickListener {
-            val url = "https://liberapay.com/cylonid"
-            val i = Intent(Intent.ACTION_VIEW)
-            i.setData(Uri.parse(url))
-            startActivity(i)
-        }
-        return element
-    }
-
-    fun showPayPal(): Element {
-        val license = Element()
-
-        license.setTitle(getString(R.string.paypal))
-        license.setOnClickListener {
-            val url = "https://paypal.me/cylonid"
-            val i = Intent(Intent.ACTION_VIEW)
-            i.setData(Uri.parse(url))
-            startActivity(i)
-        }
-        return license
-    }
-
-    fun showOpenSourcelibs(): Element {
-        val os = Element()
-        os.setTitle(getString(R.string.open_source_libs))
-        os.setOnClickListener {
-            startActivity(
-                LibsBuilder()
-                    .withEdgeToEdge(true)
-                    .withSearchEnabled(true)
-                    .intent(this)
-            )
-        }
-        return os
+        return container
     }
 }

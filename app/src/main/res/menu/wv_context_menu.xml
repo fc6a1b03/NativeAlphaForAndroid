@@ -36,11 +36,6 @@
             android:iconTint="?attr/colorOnSurface"
             android:icon="@drawable/ic_baseline_home_24" />
 
-        <item android:title="Adblock providers"
-            android:id="@+id/cmShowAdblockProviders"
-            android:visible="false"
-            android:iconTint="?attr/colorOnSurface"
-            android:icon="@drawable/fingerprint_dialog_fp_icon"/>
         <item
             android:id="@+id/cmItemMore"
             android:title="@string/more"

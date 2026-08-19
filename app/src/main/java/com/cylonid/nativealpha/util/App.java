@@ -1,27 +1,16 @@
 package com.cylonid.nativealpha.util;
 
-import android.annotation.SuppressLint;
 import android.app.Application;
 import android.content.Context;
 
-import androidx.work.Configuration;
-import androidx.work.WorkManager;
-
 public class App extends Application {
 
-    @SuppressLint("StaticFieldLeak") //We are using app context which is never deleted during runtime, so this is not a leak per se.
-    //https://stackoverflow.com/questions/2002288/static-way-to-get-context-in-android
     private static Context context;
 
     public void onCreate() {
         super.onCreate();
 
         App.context = getApplicationContext();
-       if(!WorkManager.isInitialized()) {
-           WorkManager.initialize(this, new Configuration.Builder().build());
-       }
-
-
     }
 
     public static Context getAppContext() {

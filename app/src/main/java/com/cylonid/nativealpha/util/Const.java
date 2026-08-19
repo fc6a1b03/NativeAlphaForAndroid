@@ -1,9 +1,5 @@
 package com.cylonid.nativealpha.util;
 
-import com.cylonid.nativealpha.model.AdblockConfig;
-
-import java.util.ArrayList;
-
 public class Const {
     public static final String DESKTOP_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:137.0) Gecko/20100101 Firefox/137.0";
 
@@ -23,12 +19,7 @@ public class Const {
     public static final int CODE_WRITE_FILE = 4096;
 
     public static final int FAVICON_MIN_WIDTH = 96;
-
-    public static ArrayList<AdblockConfig> getDefaultAdBlockConfig() {
-        ArrayList<AdblockConfig> list = new ArrayList<>();
-        list.add(new AdblockConfig("Fanboy Ultimate List", "https://fanboy.co.nz/r/fanboy-ultimate.txt"));
-        return list;
-    }
 }
+
 
 

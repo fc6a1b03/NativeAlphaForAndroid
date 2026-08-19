@@ -2,31 +2,23 @@ package com.cylonid.nativealpha.model;
 
 import android.content.SharedPreferences;
 import android.net.Uri;
-import android.util.Base64;
-import android.util.Base64InputStream;
-import android.util.Base64OutputStream;
 import android.view.Gravity;
 import android.widget.Toast;
 
 import com.cylonid.nativealpha.R;
-import com.cylonid.nativealpha.model.deserializer.GlobalSettingsDeserializer;
-import com.cylonid.nativealpha.model.deserializer.WebAppDeserializer;
 import com.cylonid.nativealpha.util.App;
 import com.cylonid.nativealpha.util.Const;
 import com.cylonid.nativealpha.util.InvalidChecksumException;
 import com.cylonid.nativealpha.util.ShortcutIconUtils;
 import com.cylonid.nativealpha.util.Utility;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import com.himanshurawat.hasher.HashType;
-import com.himanshurawat.hasher.Hasher;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Map;
@@ -44,7 +36,6 @@ public class DataManager {
     private static final String GENERAL_INFO = "com.cylonid.nativealpha.GENERAL_INFO";
     public static final String EULA_ACCEPTED = "eulaAccepted";
 
-    public static final String ADBLOCK_CRASH = "adblockCrash";
     public static final String LAST_SHOWN_UPDATE = "lastShownUpdate";
     public static final String DATA_FORMAT = "dataFormat";
 
@@ -104,7 +95,6 @@ public class DataManager {
         String json = gson.toJson(websites);
         editor.putString(shared_pref_webappdata, json);
         editor.putInt(shared_pref_max_id, max_assigned_ID);
-        if (SandboxManager.getInstance() != null) editor.putInt(shared_pref_next_container, SandboxManager.getInstance().getNextContainer());
         editor.apply();
     }
 
@@ -114,13 +104,9 @@ public class DataManager {
         return getGeneralInfo().getBoolean(EULA_ACCEPTED, false);
     }
 
-    public boolean getHasAdblockCrashed() { return getGeneralInfo().getBoolean(ADBLOCK_CRASH, false);}
-
     public int getLastShownUpdate() {
         return getGeneralInfo().getInt(LAST_SHOWN_UPDATE, 0);
     }
-
-    public void setHasAdblockCrashed(boolean newValue) {        getGeneralInfo().edit().putBoolean(ADBLOCK_CRASH, newValue).apply(); }
 
     public void setEulaData(boolean newValue) {
         getGeneralInfo().edit().putBoolean(EULA_ACCEPTED, newValue).apply();
@@ -158,38 +144,35 @@ public class DataManager {
         Utility.Assert(App.getAppContext() != null, "App.getAppContext() null before loading sharedpref");
 
         appdata = App.getAppContext().getSharedPreferences(SHARED_PREF_KEY, MODE_PRIVATE);
-        //Webapp data
+        //Webapp data（D14：不做旧版兼容，直接默认 Gson 反序列化）
         if (appdata.contains(shared_pref_webappdata)) {
-            GsonBuilder gsonBuilder = new GsonBuilder();
-            gsonBuilder.registerTypeAdapter(WebApp.class, new WebAppDeserializer());
-            Gson gson = gsonBuilder.create();
+            Gson gson = new Gson();
             String json = appdata.getString(shared_pref_webappdata, "");
-            int oldDataFormat = DataVersionConverter.getDataFormat(json);
-            String currentDataFormattedJson = this.checkDataFormat(oldDataFormat, json);
-            ArrayList<WebApp> new_websites = gson.fromJson(currentDataFormattedJson, new TypeToken<ArrayList<WebApp>>() {}.getType());
-            checkIfWebAppIdsCollide(websites, new_websites);
-            websites = new_websites;
-            if(oldDataFormat != DataVersionConverter.getDataFormat(currentDataFormattedJson)) this.saveWebAppData();
+            ArrayList<WebApp> new_websites = gson.fromJson(json, new TypeToken<ArrayList<WebApp>>() {}.getType());
+            if (new_websites != null) {
+                checkIfWebAppIdsCollide(websites, new_websites);
+                websites = new_websites;
+            }
         }
 
         max_assigned_ID = appdata.getInt(shared_pref_max_id, max_assigned_ID);
-        if (SandboxManager.getInstance() != null) SandboxManager.getInstance().setNextContainer(appdata.getInt(shared_pref_next_container, 0));
 
         if (appdata.getBoolean(shared_pref_global_settings_json, false)) {
             loadGlobalSettingsLegacy();
         }
-        //Global settings
+        //Global settings（D14：不做旧版兼容，直接默认 Gson 反序列化）
         if (appdata.contains(shared_pref_globalsettings)) {
-            GsonBuilder gsonBuilder = new GsonBuilder();
-            gsonBuilder.registerTypeAdapter(WebApp.class, new WebAppDeserializer());
-            gsonBuilder.registerTypeAdapter(GlobalSettings.class, new GlobalSettingsDeserializer());
-            Gson gson = gsonBuilder.create();
+            Gson gson = new Gson();
             String json = appdata.getString(shared_pref_globalsettings, "");
-            int oldDataFormat = DataVersionConverter.getDataFormat(json);
-            String currentDataFormattedJson = this.checkDataFormat(oldDataFormat, json);
-            settings = gson.fromJson(currentDataFormattedJson, GlobalSettings.class);
-            assertGlobalWebappData();
-            if(oldDataFormat != DataVersionConverter.getDataFormat(currentDataFormattedJson)) this.saveGlobalSettings();
+            GlobalSettings loaded = gson.fromJson(json, GlobalSettings.class);
+            if (loaded != null) {
+                // 空值防护：JSON 缺失 globalWebApp 字段时 Gson 返回 null，补默认值防 NPE
+                if (loaded.getGlobalWebApp() == null) {
+                    loaded.setGlobalWebApp(new WebApp("about:blank", Integer.MAX_VALUE));
+                }
+                settings = loaded;
+                assertGlobalWebappData();
+            }
         }
 
     }
@@ -286,17 +269,28 @@ public class DataManager {
     }
 
 
+    /** 备份格式版本（D15：版本化 JSON，不兼容旧版） */
+    private static final int BACKUP_FORMAT_VERSION = 2;
+
+    /** 导出：版本化 JSON（websites + settings + 校验和） */
     public boolean saveSharedPreferencesToFile(Uri uri) {
         boolean result = false;
-        try(FileOutputStream fos = (FileOutputStream) App.getAppContext().getContentResolver().openOutputStream(uri);
-            Base64OutputStream b64os = new Base64OutputStream(fos, Base64.DEFAULT);
-            ObjectOutputStream oos = new ObjectOutputStream(b64os)) {
+        try (FileOutputStream fos = (FileOutputStream) App.getAppContext().getContentResolver().openOutputStream(uri)) {
             appdata = App.getAppContext().getSharedPreferences(SHARED_PREF_KEY, MODE_PRIVATE);
-            TreeMap<String, ?> shared_pref_map = new TreeMap<>(appdata.getAll());
+            loadAppData();
 
-            oos.writeObject(Hasher.Companion.hash(shared_pref_map.toString(), HashType.SHA_256));
-            oos.writeObject(shared_pref_map);
+            // 备份内容：版本 + 导出时间 + Web Apps + 全局设置
+            Map<String, Object> backup = new TreeMap<>();
+            backup.put("version", BACKUP_FORMAT_VERSION);
+            backup.put("exportedAt", System.currentTimeMillis());
+            backup.put("websites", websites);
+            backup.put("settings", settings);
 
+            String json = new Gson().toJson(backup);
+            String checksum = sha256Hex(json);
+            String payload = "{\"checksum\":\"" + checksum + "\",\"data\":" + json + "}";
+
+            fos.write(payload.getBytes(StandardCharsets.UTF_8));
             result = true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -304,56 +298,77 @@ public class DataManager {
         return result;
     }
 
-    @SuppressWarnings({ "unchecked" })
-    public boolean loadSharedPreferencesFromFile(Uri uri){
-        boolean result = false;
-        try (FileInputStream fis = (FileInputStream) App.getAppContext().getContentResolver().openInputStream(uri);
-             Base64InputStream b64is = new Base64InputStream(fis, Base64.DEFAULT);
-             ObjectInputStream ois = new ObjectInputStream(b64is)) {
-
-            SharedPreferences.Editor prefEdit = App.getAppContext().getSharedPreferences(SHARED_PREF_KEY, MODE_PRIVATE).edit();
-            prefEdit.clear();
-            String checksum = (String) ois.readObject();
-            TreeMap<String, ?> shared_pref_map = ((TreeMap<String, ?>) ois.readObject());
-            String new_checksum = Hasher.Companion.hash(shared_pref_map.toString(), HashType.SHA_256);
-
-            if (!checksum.equals(new_checksum))
-                throw new InvalidChecksumException("Checksums between backup and restored settings do not match.");
-            for (Map.Entry<String, ?> entry : shared_pref_map.entrySet()) {
-                Object v = entry.getValue();
-                String key = entry.getKey();
-
-                if (v instanceof Boolean)
-                    prefEdit.putBoolean(key, (Boolean) v);
-                else if (v instanceof Float)
-                    prefEdit.putFloat(key, (Float) v);
-                else if (v instanceof Integer)
-                    prefEdit.putInt(key, (Integer) v);
-                else if (v instanceof Long)
-                    prefEdit.putLong(key, (Long) v);
-                else if (v instanceof String)
-                    prefEdit.putString(key, ((String) v));
+    /** SHA-256 摘要（十六进制）。备份完整性校验用。 */
+    private static String sha256Hex(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
             }
-            prefEdit.apply();
-            result = true;
-
-        } catch (InvalidChecksumException | IOException | ClassNotFoundException e) {
-            e.printStackTrace();
+            return sb.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException("SHA-256 not available", e);
         }
-
-
-        return result;
     }
 
-    private String checkDataFormat(int dataFormat, String jsonInput) {
-        switch(dataFormat) {
-            case LEGACY_DATA_FORMAT:
-                String convertedInput = DataVersionConverter.convertToDataFormat(jsonInput, DataVersionConverter.getLegacyTo1300Map());
-                return convertedInput;
-            default:
-            case 1300: // Current data format => corresponding to app release version
-                return jsonInput;
+    /** 导入：校验和验证 + 版本化 JSON 解析（D15：不兼容旧版格式） */
+    public boolean loadSharedPreferencesFromFile(Uri uri) {
+        boolean result = false;
+        try (FileInputStream fis = (FileInputStream) App.getAppContext().getContentResolver().openInputStream(uri)) {
+            byte[] bytes = new byte[fis.available()];
+            int read = fis.read(bytes);
+            if (read <= 0) return false;
+            String payload = new String(bytes, StandardCharsets.UTF_8);
+
+            // 解析外层 {checksum, data}
+            com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(payload).getAsJsonObject();
+            if (root == null || !root.has("checksum") || !root.has("data")) {
+                return false; // 非本应用备份格式
+            }
+            String checksum = root.get("checksum").getAsString();
+            String data = root.get("data").toString();
+
+            // 校验和验证（防篡改/损坏）
+            String newChecksum = sha256Hex(data);
+            if (!checksum.equals(newChecksum)) {
+                throw new InvalidChecksumException("Checksums between backup and restored settings do not match.");
+            }
+
+            // 解析数据体
+            com.google.gson.JsonObject dataObj = com.google.gson.JsonParser.parseString(data).getAsJsonObject();
+            if (dataObj == null || !dataObj.has("version") || !dataObj.has("websites") || !dataObj.has("settings")) {
+                return false; // 数据体不完整
+            }
+            int version = dataObj.get("version").getAsInt();
+            if (version != BACKUP_FORMAT_VERSION) {
+                throw new InvalidChecksumException("Unsupported backup format version: " + version);
+            }
+
+            Gson gson = new Gson();
+            ArrayList<WebApp> loadedWebsites = gson.fromJson(
+                    dataObj.get("websites"), new TypeToken<ArrayList<WebApp>>() {}.getType());
+            GlobalSettings loadedSettings = gson.fromJson(dataObj.get("settings"), GlobalSettings.class);
+
+            if (loadedWebsites != null) {
+                websites = loadedWebsites;
+                saveWebAppData();
+            }
+            if (loadedSettings != null) {
+                if (loadedSettings.getGlobalWebApp() == null) {
+                    loadedSettings.setGlobalWebApp(new WebApp("about:blank", Integer.MAX_VALUE));
+                }
+                settings = loadedSettings;
+                saveGlobalSettings();
+            }
+            result = true;
+
+        } catch (InvalidChecksumException | IOException | RuntimeException e) {
+            // RuntimeException 覆盖 JsonSyntaxException（用户选了非备份文件）
+            e.printStackTrace();
         }
+        return result;
     }
 
     public WebApp getSuccessor(int i) {

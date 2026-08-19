@@ -141,6 +141,7 @@
     <color name="md_theme_surfaceContainerHigh_highContrast">#E2D0CE</color>
     <color name="md_theme_surfaceContainerHighest_highContrast">#D4C3C0</color>
 
+    <color name="webnative_splash_bg">#4F46E5</color>
     <color name="colorSignature">#b71c1c</color>
     <color name="colorSignatureDark">#7f0000</color>
 

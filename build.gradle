@@ -1,33 +1,21 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+// Top-level build file — WebNative
+// 依赖版本统一管理于 gradle/libs.versions.toml (Version Catalog)
 
+// 显式指定 KGP 版本（built-in Kotlin 默认 2.2.10，此处升到 2.2.20 修 Compose 内联问题）
 buildscript {
-    ext {
-        kotlinVersion = "2.1.20"
-    }
     repositories {
         google()
         mavenCentral()
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.8.2'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
-        classpath "com.mikepenz.aboutlibraries.plugin:aboutlibraries-plugin:11.6.3"
-        
-
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.20")
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-    }
+plugins {
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.aboutlibraries) apply false
+    // AGP 9 内置 Kotlin 支持，无需再声明 org.jetbrains.kotlin.android
 }
 
 task clean(type: Delete) {

@@ -1,11 +1,9 @@
 package com.cylonid.nativealpha
 
 import android.annotation.SuppressLint
-import android.app.ActivityManager
 import android.app.TimePickerDialog
 import android.content.Intent
 import android.os.Bundle
-import android.os.Process
 import android.text.Html
 import android.text.method.LinkMovementMethod
 import android.view.LayoutInflater
@@ -19,7 +17,6 @@ import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.DateUtils.convertStringToCalendar
 import com.cylonid.nativealpha.util.DateUtils.getHourMinFormat
-import com.cylonid.nativealpha.util.ProcessUtils.closeAllWebAppsAndProcesses
 import com.cylonid.nativealpha.util.Utility
 import java.util.Calendar
 
@@ -77,28 +74,11 @@ class WebAppSettingsActivity : ToolbarBaseActivity<WebappSettingsBinding>() {
     
     private fun setupSaveAndCancel(modifiedWebapp: WebApp) {
         binding.btnSave.setOnClickListener {
-            val activityManager =
-                getSystemService(ACTIVITY_SERVICE) as ActivityManager
-            // Global web app => close all webview activities, save to global settings
+            // 保存到 DataManager（沙箱已移除，无需进程管理）
             if (isGlobalWebApp) {
-                closeAllWebAppsAndProcesses(
-                    activityManager
-                )
                 DataManager.getInstance().settings.globalWebApp = modifiedWebapp
                 DataManager.getInstance().saveGlobalSettings()
             } else {
-                for (task in activityManager.appTasks) {
-                    val id = task.taskInfo.baseIntent.getIntExtra(
-                        Const.INTENT_WEBAPPID,
-                        -1
-                    )
-                    if (id == webappID) task.finishAndRemoveTask()
-                }
-                for (processInfo in activityManager.runningAppProcesses) {
-                    if (processInfo.processName.contains("web_sandbox_" + modifiedWebapp.containerId)) {
-                        Process.killProcess(processInfo.pid)
-                    }
-                }
                 DataManager.getInstance().replaceWebApp(modifiedWebapp)
             }
 
@@ -142,12 +122,7 @@ class WebAppSettingsActivity : ToolbarBaseActivity<WebappSettingsBinding>() {
     }
 
     private fun setupPlusSettings() {
-        if (!BuildConfig.FLAVOR.contains("extended")) {
-            binding.sectionDarkmode.visibility = View.GONE
-            binding.sectionSandbox.visibility = View.GONE
-            binding.sectionKioskMode.visibility = View.GONE
-            binding.sectionAccessRestriction.visibility = View.GONE
-        }
+        // 单一 flavor：Plus 功能全部保留，无 flavor 门控（阶段 2 删除沙箱相关 section）
     }
 
     private fun showTimePicker(txtField: EditText) {

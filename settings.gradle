@@ -1,2 +1,20 @@
-rootProject.name='NativeAlpha'
+// 插件仓库：AGP 等插件从 google() 解析（必须是脚本第一个块）
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+rootProject.name='WebNative'
 include ':app'
+
+// 依赖版本目录（gradle/libs.versions.toml）
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+}

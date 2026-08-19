@@ -37,6 +37,7 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
@@ -54,14 +55,11 @@ import androidx.core.content.ContextCompat;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
 
+import android.content.pm.PackageManager;
+
 import com.cylonid.nativealpha.databinding.DialogHttpAuthBinding;
-import com.cylonid.nativealpha.helper.AdblockLifecycleHelper;
-import com.cylonid.nativealpha.helper.AdblockProviderApiHelper;
-import com.cylonid.nativealpha.helper.BiometricPromptHelper;
 import com.cylonid.nativealpha.helper.IconPopupMenuHelper;
-import com.cylonid.nativealpha.model.AdblockConfig;
 import com.cylonid.nativealpha.model.DataManager;
-import com.cylonid.nativealpha.model.SandboxManager;
 import com.cylonid.nativealpha.model.WebApp;
 import com.cylonid.nativealpha.util.Const;
 import com.cylonid.nativealpha.util.DateUtils;
@@ -85,13 +83,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 
-import io.github.edsuns.adfilter.AdFilter;
-import io.github.edsuns.adfilter.Filter;
-import pub.devrel.easypermissions.EasyPermissions;
-
 import static com.cylonid.nativealpha.util.Const.CODE_OPEN_FILE;
 
-public class WebViewActivity extends AppCompatActivity implements EasyPermissions.PermissionCallbacks {
+public class WebViewActivity extends AppCompatActivity {
 
     //Constants for touchlistener
     private static final int NONE = 0;
@@ -114,19 +108,10 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
     private boolean fallbackToDefaultLongClickBehaviour = false;
     private PopupMenu mPopupMenu = null;
 
-    private AdFilter adFilter;
-
-    private AdblockProviderApiHelper adblockProviderApiHelper;
-    private AdblockLifecycleHelper adblockLifecycleHelper;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        adblockLifecycleHelper = new AdblockLifecycleHelper(this);
-        adblockLifecycleHelper.trySyncOperation(() -> adFilter = AdFilter.Companion.get(getApplicationContext()));
-
-        adblockProviderApiHelper = new AdblockProviderApiHelper(adFilter);
         webappID = getIntent().getIntExtra(Const.INTENT_WEBAPPID, -1);
         EntryPointUtils.entryPointReached(this);
         webapp = DataManager.getInstance().getWebApp(webappID);
@@ -134,37 +119,12 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
             // Toast is shown in getWebApp method
             finish();
         } else {
-            if(webapp.isBiometricProtection()) {
-                new BiometricPromptHelper(WebViewActivity.this).showPrompt(() -> setupWebView(), () -> finish(), getString(R.string.bioprompt_restricted_webapp));
-            }
             setupWebView();
         }
     }
 
     @SuppressLint("ClickableViewAccessibility")
     private void setupWebView() {
-
-        String processName = Application.getProcessName();
-        String packageName = this.getPackageName();
-
-        boolean hasSandboxing = SandboxManager.getInstance() != null;
-        // Sandboxed Web App is openend in main process using an old shortcut
-        if (packageName.equals(processName) && webapp.isUseContainer() && hasSandboxing) {
-            WebViewLauncher.startWebViewInNewProcess(webapp, this);
-        }
-
-        if (!packageName.equals(processName) && hasSandboxing) {
-            if (SandboxManager.getInstance().isSandboxUsedByAnotherApp(webapp)) {
-                SandboxManager.getInstance().unregisterWebAppFromSandbox(webapp.getContainerId());
-                WebViewLauncher.startWebViewInNewProcess(webapp, this);
-            }
-            try {
-                SandboxManager.getInstance().registerWebAppToSandbox(webapp);
-                WebView.setDataDirectorySuffix(webapp.getContainerId() + webapp.getAlphanumericBaseUrl() + "_" + webapp.getID());
-            } catch (IllegalStateException e) {
-                e.printStackTrace();
-            }
-        }
 
         setContentView(R.layout.full_webview);
 
@@ -176,25 +136,6 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
 
         wv = findViewById(R.id.webview);
         progressBar = findViewById(R.id.progressBar);
-
-        List<AdblockConfig> adblockConfigs = DataManager.getInstance().getSettings().getGlobalWebApp().getAdBlockSettings();
-        if (webapp.isUseAdblock() && !adblockConfigs.isEmpty()) {
-            wv.setVisibility(View.GONE);
-            wv = findViewById(R.id.adblockwebview);
-            wv.setVisibility(View.VISIBLE);
-
-            adFilter.setupWebView(wv);
-            adblockLifecycleHelper.beforeAdblockOperation(() -> adblockProviderApiHelper.synchronizeAdblockProviderWithSettings(adblockConfigs));
-
-            adFilter.getViewModel().getOnDirty().observe(this, none -> wv.clearCache(false)
-            );
-
-            adFilter.getViewModel().getEnabledFilterCount().observe(this, count -> {
-                if (count == adblockConfigs.size()) {
-                    adblockLifecycleHelper.afterAdblockOperation();
-                }
-            });
-        }
 
         String fieldName = Stream.of(WebViewActivity.class.getDeclaredFields()).filter(f -> f.getType() == WebView.class).findFirst().orElseThrow(null).getName();
         String uaString = wv.getSettings().getUserAgentString().replace("; " + fieldName, "");
@@ -217,6 +158,29 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
         wv.getSettings().setAllowFileAccess(true);
         wv.getSettings().setBlockNetworkLoads(false);
 //        wv.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+
+        // ===== PWA 高频文本流渲染优化（Kimi Code 流式输出场景） =====
+        // 渲染优先级拉满（文本流/长文档滚动核心）
+        wv.getSettings().setRenderPriority(WebSettings.RenderPriority.HIGH);
+        // 硬件加速强制（避免软件层合成拖慢流式更新）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            wv.setLayerType(View.LAYER_TYPE_NONE, null);
+        }
+        // 文字 1:1 保真（防缩放模糊，流式代码块清晰）
+        wv.getSettings().setTextZoom(100);
+        // 预栅格化：减少滚动时白块/抖动（流式长文本滚动流畅）
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.OFF_SCREEN_PRERASTER)) {
+            WebSettingsCompat.setOffscreenPreRaster(wv.getSettings(), true);
+        }
+        // 缓存策略：默认模式，流式页面不强制离线/不缓存
+        wv.getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
+        // 关闭边缘高亮减少合成开销
+        wv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        // 滚动条优化（长文本流式滚动）
+        wv.setScrollBarStyle(WebView.SCROLLBARS_OUTSIDE_OVERLAY);
+        wv.setScrollbarFadingEnabled(true);
+        // ===== PWA 渲染优化结束 =====
+
         this.setDarkModeIfNeeded();
 
         wv.getSettings().setJavaScriptEnabled(webapp.isAllowJs());
@@ -298,9 +262,16 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
 
                   if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                       String[] perms = {Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE};
-                      if (!EasyPermissions.hasPermissions(WebViewActivity.this, perms)) {
+                      boolean allGranted = true;
+                      for (String perm : perms) {
+                          if (ContextCompat.checkSelfPermission(WebViewActivity.this, perm) != PackageManager.PERMISSION_GRANTED) {
+                              allGranted = false;
+                              break;
+                          }
+                      }
+                      if (!allGranted) {
                           dl_request = request;
-                          EasyPermissions.requestPermissions(WebViewActivity.this, getString(R.string.permission_storage_rationale), Const.PERMISSION_RC_STORAGE, perms);
+                          ActivityCompat.requestPermissions(WebViewActivity.this, perms, Const.PERMISSION_RC_STORAGE);
                       } else {
                           if (dm != null) {
                               dm.enqueue(request);
@@ -384,10 +355,9 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
 
     @SuppressLint("RequiresFeature")
     private void setDarkModeIfNeeded() {
-        if (!BuildConfig.FLAVOR.contains("extended")) {
+        if (webapp == null || wv == null) {
             return;
         }
-
         boolean needsForcedDarkMode = webapp.isUseTimespanDarkMode() &&
                 DateUtils.isInInterval(DateUtils.convertStringToCalendar(webapp.getTimespanDarkModeBegin()), Calendar.getInstance(), DateUtils.convertStringToCalendar(webapp.getTimespanDarkModeEnd()))
                 || (!webapp.isUseTimespanDarkMode() && webapp.isForceDarkMode());
@@ -441,7 +411,7 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
         SpannableString spanStringWebAppTitle = new SpannableString(title);
 
         // The item is disabled because it has no click action, but we want to override the disabled style (text color)
-        int colorOnSurface = MaterialColors.getColor(center, R.attr.colorOnSurface, Color.BLACK);
+        int colorOnSurface = MaterialColors.getColor(center, com.google.android.material.R.attr.colorOnSurface, Color.BLACK);
         ForegroundColorSpan foregroundColorSpan = new ForegroundColorSpan(colorOnSurface);
         spanStringWebAppTitle.setSpan(foregroundColorSpan, 0,     spanStringWebAppTitle.length(), 0);
 
@@ -454,52 +424,54 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
             spanString.setSpan(foregroundColorSpan, 0, spanString.length(),0);
             item.setTitle(spanString);
         }
-        if(wv.canGoForward()) mPopupMenu.getMenu().getItem(2).setVisible(true);
+        if(wv.canGoForward()) {
+            MenuItem forwardItem = mPopupMenu.getMenu().findItem(R.id.cmItemForward);
+            if (forwardItem != null) forwardItem.setVisible(true);
+        }
         if(BuildConfig.DEBUG) {
-            mPopupMenu.getMenu().getItem(6).setVisible(true);
+            MenuItem debugItem = mPopupMenu.getMenu().findItem(R.id.cmFallbackContextmenuTemp);
+            if (debugItem != null) debugItem.setVisible(true);
         }
         mPopupMenu.setOnMenuItemClickListener(menuItem -> {
-            switch(menuItem.getItemId()) {
-                case R.id.cmItemForward:
-                    wv.goForward();
-                    return true;
-                case R.id.cmItemBack:
-                    onBackPressed();
-                    return true;
-                case R.id.cmItemReload:
-                    wv.reload();
-                    return true;
-                case R.id.cmItemCopyUrl:
-                    ClipboardManager clipboard =  getSystemService(ClipboardManager.class);
-                    ClipData clip = ClipData.newPlainText("URL", wv.getUrl());
-                    clipboard.setPrimaryClip(clip);
-                    return true;
-                case R.id.cmItemShareUrl:
-                    new ShareCompat.IntentBuilder(WebViewActivity.this)
-                            .setType("text/plain")
-                            .setChooserTitle("Share URL")
-                            .setText(wv.getUrl())
-                            .startChooser();
-                    return true;
-                case R.id.cmItemCloseWebApp:
-                    finishAndRemoveTask();
-                    return true;
-                case R.id.cmFallbackContextmenuTemp:
-                    fallbackToDefaultLongClickBehaviour = true;
-                    return true;
-                case R.id.cmMainMenu:
-                    Intent intent = new Intent(this, MainActivity.class);
-                    startActivity(intent);
-                    return true;
-                case R.id.cmShowAdblockProviders:
-                    StringBuilder message = new StringBuilder();
-                    for(Map.Entry<String, Filter> entry :  Objects.requireNonNull(AdFilter.Companion.get().getViewModel().getFilters().getValue()).entrySet()) {
-                        Filter filter = entry.getValue();
-                        message.append(filter.getUrl()).append(" has downloaded: ").append(filter.hasDownloaded()).append("\n\n");
-                }
-                    NotificationUtils.showToast(this, message.toString());
-                    return true;
-
+            int id = menuItem.getItemId();
+            if (id == R.id.cmItemForward) {
+                wv.goForward();
+                return true;
+            }
+            if (id == R.id.cmItemBack) {
+                onBackPressed();
+                return true;
+            }
+            if (id == R.id.cmItemReload) {
+                wv.reload();
+                return true;
+            }
+            if (id == R.id.cmItemCopyUrl) {
+                ClipboardManager clipboard = getSystemService(ClipboardManager.class);
+                ClipData clip = ClipData.newPlainText("URL", wv.getUrl());
+                clipboard.setPrimaryClip(clip);
+                return true;
+            }
+            if (id == R.id.cmItemShareUrl) {
+                new ShareCompat.IntentBuilder(WebViewActivity.this)
+                        .setType("text/plain")
+                        .setChooserTitle("Share URL")
+                        .setText(wv.getUrl())
+                        .startChooser();
+                return true;
+            }
+            if (id == R.id.cmItemCloseWebApp) {
+                finishAndRemoveTask();
+                return true;
+            }
+            if (id == R.id.cmFallbackContextmenuTemp) {
+                fallbackToDefaultLongClickBehaviour = true;
+                return true;
+            }
+            if (id == R.id.cmMainMenu) {
+                Intent intent = new Intent(this, MainActivity.class);
+                startActivity(intent);
+                return true;
             }
             return false;
         });
@@ -516,6 +488,10 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
     @Override
     public void onBackPressed() {
         WebApp webapp = DataManager.getInstance().getWebApp(webappID);
+        if (webapp == null) {
+            finish();
+            return;
+        }
 
         if(wv.canGoBack()) {
             wv.goBack();
@@ -540,20 +516,18 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
 
         if (new_id != webappID) {
             WebApp new_webapp = DataManager.getInstance().getWebApp(new_id);
-            WebViewLauncher.startWebViewInNewProcess(new_webapp, this);
+            if (new_webapp != null) {
+                WebViewLauncher.startWebView(new_webapp, this);
+            }
         }
 
-        wv.onResume();
-        wv.resumeTimers();
+        if (wv != null) {
+            wv.onResume();
+            wv.resumeTimers();
+        }
         this.setDarkModeIfNeeded();
 
-        
-        if(webapp.isBiometricProtection()) {
-            View fullActivityView = findViewById(R.id.webviewActivity);
-            fullActivityView.setVisibility(View.GONE);
-            new BiometricPromptHelper(WebViewActivity.this).showPrompt(() -> fullActivityView.setVisibility(View.VISIBLE), () -> finish(), getString(R.string.bioprompt_restricted_webapp));
-        }
-        if (webapp.isAutoreload()) {
+        if (webapp != null && webapp.isAutoreload()) {
             reload_handler = new Handler();
             reload();
         }
@@ -564,12 +538,14 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
     protected void onPause() {
         super.onPause();
 
-        wv.evaluateJavascript("document.querySelectorAll('audio').forEach(x => x.pause());document.querySelectorAll('video').forEach(x => x.pause());", null);
-        wv.onPause();
-        wv.pauseTimers();
+        if (wv != null) {
+            wv.evaluateJavascript("document.querySelectorAll('audio').forEach(x => x.pause());document.querySelectorAll('video').forEach(x => x.pause());", null);
+            wv.onPause();
+            wv.pauseTimers();
+        }
         if(mPopupMenu != null) mPopupMenu.dismiss();
 
-        if (webapp.isClearCache() || DataManager.getInstance().getSettings().isClearCache())
+        if (webapp != null && (webapp.isClearCache() || DataManager.getInstance().getSettings().isClearCache()) && wv != null)
             wv.clearCache(true);
 
         if (reload_handler != null) {
@@ -581,7 +557,7 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
     private void reload() {
         reload_handler.postDelayed(() -> {
             currently_reloading = true;
-            wv.reload();
+            if (wv != null) wv.reload();
             reload();
         }, webapp.getTimeAutoreload() * 1000L);
     }
@@ -601,6 +577,10 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
 
     private void loadURL(final WebView view, final String url) {
         final WebApp webApp = DataManager.getInstance().getWebApp(webappID);
+        if (webApp == null) {
+            finish();
+            return;
+        }
         if (url.contains("http://") && !webApp.isAllowHttp()) {
             final AlertDialog.Builder builder = new AlertDialog.Builder(WebViewActivity.this);
 
@@ -665,8 +645,19 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        // Forward results to EasyPermissions
-        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
+        boolean allGranted = grantResults.length > 0;
+        for (int r : grantResults) {
+            if (r != PackageManager.PERMISSION_GRANTED) {
+                allGranted = false;
+                break;
+            }
+        }
+
+        if (allGranted) {
+            onPermissionsGranted(requestCode, Arrays.asList(permissions));
+        } else {
+            onPermissionsDenied(requestCode, Arrays.asList(permissions));
+        }
     }
     @FunctionalInterface
     interface PermissionGrantedCallback {
@@ -680,8 +671,7 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
         wv.reload();
     }
 
-    @Override
-    public void onPermissionsGranted(int requestCode, @NonNull List<String> list) {
+    private void onPermissionsGranted(int requestCode, @NonNull List<String> list) {
         if (requestCode == Const.PERMISSION_RC_LOCATION) {
             enablePermissionBoolOnWebApp(() -> webapp.setAllowLocationAccess(true));
             this.handleGeoPermissionCallback(true);
@@ -702,8 +692,7 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
         }
     }
 
-    @Override
-    public void onPermissionsDenied(int requestCode, List<String> list) {
+    private void onPermissionsDenied(int requestCode, List<String> list) {
         if (requestCode == Const.PERMISSION_RC_LOCATION) {
             this.handleGeoPermissionCallback(false);
         }
@@ -743,7 +732,7 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
                                              List<String> permissionsToGrant,
                                              String[] webkitPermission,
                                              PermissionGrantedCallback successCallback) {
-            boolean androidPermissionsMissing = !EasyPermissions.hasPermissions(WebViewActivity.this, androidPermissions);
+            boolean androidPermissionsMissing = areAndroidPermissionsMissing(androidPermissions);
             if (currentState && androidPermissionsMissing) {
                 ActivityCompat.requestPermissions(WebViewActivity.this, androidPermissions, requestCode);
                 return;
@@ -768,6 +757,15 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
 
         private String getPermissionRequestStringResource(String prefix, String variable, String suffix) {
             return getString(WebViewActivity.this.getResources().getIdentifier(prefix + variable + suffix, "string", WebViewActivity.this.getPackageName()));
+        }
+
+        private boolean areAndroidPermissionsMissing(String[] androidPermissions) {
+            for (String perm : androidPermissions) {
+                if (ContextCompat.checkSelfPermission(WebViewActivity.this, perm) != PackageManager.PERMISSION_GRANTED) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         @Override
@@ -884,8 +882,6 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
 
     private class CustomBrowser extends WebViewClient {
 
-        private AdFilter adFilter = AdFilter.Companion.get();
-
         @Override
         public void onReceivedHttpAuthRequest(WebView view, HttpAuthHandler handler, String host, String realm) {
             showHttpAuthDialog(handler, host, realm);
@@ -903,7 +899,6 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
 
         @Override
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
-            adFilter.performScript(view, url);
             super.onPageStarted(view, url, favicon);
         }
 
@@ -912,9 +907,6 @@ public class WebViewActivity extends AppCompatActivity implements EasyPermission
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
             if(urlOnFirstPageload.equals("")) urlOnFirstPageload = request.getUrl().toString();
 
-            if(webapp.isUseAdblock()) {
-                return (adFilter.shouldIntercept(view, request)).getResourceResponse();
-            }
             if (webapp.isBlockThirdPartyRequests()) {
                 Uri uri = request.getUrl();
                 Uri webapp_uri = Uri.parse(webapp.getBaseUrl());

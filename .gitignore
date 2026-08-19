@@ -16,3 +16,6 @@ app/release/**
 app/standard/**
 app/extended/**
 app/extendedGithub/**
+webnative-release.keystore
+key.properties
+/.kotlin/

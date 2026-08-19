@@ -7,9 +7,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.WebStorage
-import androidx.appcompat.app.AppCompatActivity
-import androidx.databinding.DataBindingUtil
-import com.cylonid.nativealpha.activities.AdblockConfigActivity
+import android.widget.ArrayAdapter
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import com.cylonid.nativealpha.activities.ToolbarBaseActivity
 import com.cylonid.nativealpha.databinding.GlobalSettingsBinding
 import com.cylonid.nativealpha.model.DataManager
@@ -32,15 +32,6 @@ class SettingsActivity : ToolbarBaseActivity<GlobalSettingsBinding>() {
         val settings = DataManager.getInstance().settings
         val modified_settings = settings.copy()
         binding.settings = modified_settings
-        binding.btnAdblockConfig.setOnClickListener { v: View? ->
-            val intent = Intent(
-                this@SettingsActivity,
-                AdblockConfigActivity::class.java
-            )
-            intent.setAction(Intent.ACTION_VIEW)
-            startActivity(intent)
-        }
-
         binding.btnGlobalWebApp.setOnClickListener { v: View? ->
             val intent = Intent(
                 this@SettingsActivity,
@@ -53,6 +44,8 @@ class SettingsActivity : ToolbarBaseActivity<GlobalSettingsBinding>() {
             intent.setAction(Intent.ACTION_VIEW)
             startActivity(intent)
         }
+
+        setupLanguageSpinner()
 
 
         binding.btnExportSettings.setOnClickListener { v: View? ->
@@ -104,6 +97,42 @@ class SettingsActivity : ToolbarBaseActivity<GlobalSettingsBinding>() {
 
     override fun inflateBinding(layoutInflater: LayoutInflater): GlobalSettingsBinding {
         return GlobalSettingsBinding.inflate(layoutInflater)
+    }
+
+    /** 语言切换：跟随系统 / 中文 / English（AppCompatDelegate 无重启切换） */
+    private fun setupLanguageSpinner() {
+        val options = resources.getStringArray(R.array.language_options)
+        binding.spinnerLanguage.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, options
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+
+        // 当前语言定位
+        val currentLang = AppCompatDelegate.getApplicationLocales().toLanguageTags()
+        binding.spinnerLanguage.setSelection(
+            when {
+                currentLang.isEmpty() -> 0 // 跟随系统
+                currentLang.startsWith("zh") -> 1
+                else -> 2
+            }
+        )
+
+        // 防初始化误触发：Spinner 设置 adapter 后会回调一次 onItemSelected，需跳过
+        var isInitializing = true
+        binding.spinnerLanguage.post { isInitializing = false }
+
+        binding.spinnerLanguage.setOnItemSelectedListener(object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (isInitializing) return // 跳过初始化回调
+                val tags = when (position) {
+                    0 -> LocaleListCompat.getEmptyLocaleList()
+                    1 -> LocaleListCompat.forLanguageTags("zh")
+                    else -> LocaleListCompat.forLanguageTags("en")
+                }
+                AppCompatDelegate.setApplicationLocales(tags)
+            }
+
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        })
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

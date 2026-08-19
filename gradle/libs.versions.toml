@@ -1,0 +1,84 @@
+# WebNative Version Catalog — 依赖版本唯一来源
+# 所有版本统一在此管理，build 文件只引用不写死
+# 查询时间：2026-08-19（Google Maven / Maven Central 最新稳定版）
+
+[versions]
+# 构建工具
+agp = "9.3.1"
+kotlin = "2.3.20"
+gradle = "9.7.0"
+
+# SDK
+compileSdk = "37"
+minSdk = "31"
+targetSdk = "37"
+
+# AndroidX
+coreKtx = "1.19.0"
+appcompat = "1.8.0"
+material = "1.14.0"
+activityCompose = "1.13.0"
+composeBom = "2026.06.01"
+lifecycleRuntimeKtx = "2.11.0"
+navigationCompose = "2.9.8"
+webkit = "1.17.0"
+fragmentKtx = "1.9.0"
+coreSplashscreen = "1.2.0"
+
+# 第三方
+gson = "2.14.0"
+aboutLibraries = "11.6.3"
+jsoup = "1.14.1"
+
+# 测试
+junit = "4.13.2"
+robolectric = "4.16.1"
+mockitoCore = "5.23.0"
+mockitoKotlin = "6.3.0"
+androidxTestJunit = "1.3.0"
+espresso = "3.6.1"
+androidxTestRunner = "1.6.2"
+androidxTestRules = "1.6.1"
+orchestrator = "1.5.1"
+
+[libraries]
+# AndroidX
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-compose-material-icons = { group = "androidx.compose.material", name = "material-icons-core" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
+androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragmentKtx" }
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
+
+# 第三方
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+aboutlibraries = { group = "com.mikepenz", name = "aboutlibraries", version.ref = "aboutLibraries" }
+aboutlibraries-core = { group = "com.mikepenz", name = "aboutlibraries-core", version.ref = "aboutLibraries" }
+jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+
+# 测试
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoCore" }
+mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockitoKotlin" }
+androidx-test-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestJunit" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
+androidx-test-rules = { group = "androidx.test", name = "rules", version.ref = "androidxTestRules" }
+androidx-test-orchestrator = { group = "androidx.test", name = "orchestrator", version.ref = "orchestrator" }
+espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+aboutlibraries = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutLibraries" }

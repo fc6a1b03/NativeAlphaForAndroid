@@ -4,19 +4,17 @@ import android.app.Activity
 import android.view.View
 import android.widget.*
 import androidx.appcompat.widget.SwitchCompat
-import androidx.fragment.app.FragmentActivity
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.WebAppSettingsActivity
-import com.cylonid.nativealpha.helper.BiometricPromptHelper
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.ShortcutIconUtils
 import com.cylonid.nativealpha.util.Utility
 import java.util.*
 
-data class AdblockConfig(val label: String, val value: String)
-
 data class WebApp(var baseUrl: String, val ID: Int) {
     var title: String
+    /** 用户自定义显示名称；null 时列表/快捷方式回退用 title */
+    var displayName: String? = null
     var isActiveEntry = true
     var isOverrideGlobalSettings = true
 
@@ -27,7 +25,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     var isAllowJs = true
     var isRequestDesktop = false
     var isClearCache = false
-    var isUseAdblock = false
     var isSendSavedataRequest = false
     var isBlockImages = false
     var isAllowHttp = false
@@ -56,7 +53,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     var isAllowMediaPlaybackInBackground = false
     var order = 0
     var alwaysUseFallbackContextMenu = false
-    var adBlockSettings = mutableListOf<AdblockConfig>()
 
     init {
         title = baseUrl.replace("http://", "").replace("https://", "").replace("www.", "")
@@ -67,12 +63,9 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         this.order = order
     }
 
-    constructor(baseUrl: String, ID: Int, adBlockSettings: MutableList<AdblockConfig>): this(baseUrl, ID) {
-        this.adBlockSettings = adBlockSettings
-    }
-
     constructor(other: WebApp) : this(other.baseUrl, other.ID) {
         title = other.title
+        displayName = other.displayName
         isOverrideGlobalSettings = other.isOverrideGlobalSettings
         containerId = other.containerId
         isUseContainer = other.isUseContainer
@@ -91,7 +84,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         isActiveEntry = other.isActiveEntry
         isRequestDesktop = other.isRequestDesktop
         isClearCache = other.isClearCache
-        isUseAdblock = other.isUseAdblock
         isSendSavedataRequest = other.isSendSavedataRequest
         isBlockImages = other.isBlockImages
         isAllowHttp = other.isAllowHttp
@@ -118,7 +110,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         isAllowMediaPlaybackInBackground = other.isAllowMediaPlaybackInBackground
         order = other.order
         alwaysUseFallbackContextMenu = other.alwaysUseFallbackContextMenu
-        adBlockSettings = other.adBlockSettings
     }
 
     private fun initDefaultSettings() {
@@ -156,69 +147,13 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         }
     }
 
-    private fun disableSwitchBiometricAccessChangeListener(switchBiometricAccess: SwitchCompat) {
-        switchBiometricAccess.setOnCheckedChangeListener(null)
-    }
-
-    private fun enableSwitchBiometricAccessChangeListener(switchBiometricAccess: SwitchCompat,
-                                                          activity: WebAppSettingsActivity) {
-        switchBiometricAccess.setOnCheckedChangeListener { switch, checked ->
-            onSwitchBiometricAccessChanged(
-                switch,
-                checked,
-                activity
-            )
-        }
-    }
-
-    private fun setSwitchBiometricAccessSilently(newValue: Boolean,
-                                                 switchBiometricAccess: SwitchCompat,
-                                                 activity: WebAppSettingsActivity) {
-        disableSwitchBiometricAccessChangeListener(switchBiometricAccess)
-        switchBiometricAccess.isChecked = newValue
-        enableSwitchBiometricAccessChangeListener(switchBiometricAccess, activity)
-    }
-
-    fun onSwitchBiometricAccessChanged(
-        mSwitch: CompoundButton,
-        isChecked: Boolean,
-        activity: WebAppSettingsActivity
-    ) {
-        val switchBiometricAccess =
-            mSwitch.rootView.findViewById<SwitchCompat>(R.id.switchBiometricAccess)
-
-        // reset to value before user toggled, actual setting of value is done by prompt success callback
-        setSwitchBiometricAccessSilently(!switchBiometricAccess.isChecked, switchBiometricAccess, activity)
-
-        if (!switchBiometricAccess.isChecked) {
-            BiometricPromptHelper(activity as FragmentActivity).showPrompt(
-                {
-                    setSwitchBiometricAccessSilently(true, switchBiometricAccess, activity)
-                    isBiometricProtection = true
-                },
-                {}, activity.getString(R.string.bioprompt_enable_restriction)
-            )
-        }
-        if (switchBiometricAccess.isChecked) {
-            BiometricPromptHelper(activity as FragmentActivity).showPrompt({
-                setSwitchBiometricAccessSilently(false, switchBiometricAccess, activity)
-                isBiometricProtection = false
-            }, {}, activity.getString(R.string.bioprompt_disable_restricition)
-            )
-        }
-    }
-
     fun onSwitchJsChanged(mSwitch: CompoundButton, isChecked: Boolean) {
         val switchDesktopVersion = mSwitch.rootView.findViewById<SwitchCompat>(R.id.switchDesktopSite)
-        val switchAdblock = mSwitch.rootView.findViewById<SwitchCompat>(R.id.switchAdblock)
         if (isChecked) {
             switchDesktopVersion.isEnabled = true
-            switchAdblock.isEnabled = true
         } else {
             switchDesktopVersion.isChecked = false
             switchDesktopVersion.isEnabled = false
-            switchAdblock.isChecked = false
-            switchAdblock.isEnabled = false
         }
     }
 
@@ -279,14 +214,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     fun onSwitchExpertSettingsChanged(mSwitch: CompoundButton, isChecked: Boolean) {
         val expertSettings = mSwitch.rootView.findViewById<LinearLayout>(R.id.sectionExpertSettings)
         if (isChecked) expertSettings.visibility = View.VISIBLE else expertSettings.visibility = View.GONE
-    }
-
-    fun onSwitchSandboxChanged(mSwitch: CompoundButton?, isChecked: Boolean) {
-        containerId = if (isChecked) {
-            SandboxManager.getInstance().calculateNextFreeContainerId()
-        } else {
-            Const.NO_CONTAINER
-        }
     }
 
     fun onSwitchOverrideGlobalSettingsChanged(mSwitch: CompoundButton, isChecked: Boolean) {

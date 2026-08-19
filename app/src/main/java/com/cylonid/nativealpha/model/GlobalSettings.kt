@@ -1,7 +1,5 @@
 package com.cylonid.nativealpha.model
 
-import com.cylonid.nativealpha.util.Const
-
 
 data class GlobalSettings(
     var isClearCache: Boolean = false,
@@ -10,7 +8,7 @@ data class GlobalSettings(
     var isShowProgressbar: Boolean = false,
     var isMultitouchReload: Boolean = true,
     var themeId: Int = 0,
-    var globalWebApp: WebApp = WebApp("about:blank", Int.MAX_VALUE, Const.getDefaultAdBlockConfig()),
+    var globalWebApp: WebApp = WebApp("about:blank", Int.MAX_VALUE),
     var alwaysShowSoftwareButtons: Boolean = false,
     var clear_cookies: Boolean = false
 ) {

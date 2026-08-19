@@ -28,6 +28,7 @@ import com.cylonid.nativealpha.model.DataManager;
 import com.cylonid.nativealpha.model.WebApp;
 import com.cylonid.nativealpha.util.App;
 import com.cylonid.nativealpha.util.Const;
+import com.cylonid.nativealpha.util.IconGenerator;
 import com.cylonid.nativealpha.util.NotificationUtils;
 import com.cylonid.nativealpha.util.ShortcutIconUtils;
 import com.cylonid.nativealpha.util.WebViewLauncher;
@@ -336,16 +337,22 @@ public class ShortcutDialogFragment extends DialogFragment  {
         Intent intent = WebViewLauncher.createWebViewIntent(webapp, requireActivity());
 
         IconCompat icon;
-        if (bitmap != null)
+        if (bitmap != null) {
             icon = IconCompat.createWithBitmap(bitmap);
-        else
-            icon = IconCompat.createWithResource(requireActivity(), R.mipmap.native_alpha_shortcut);
+        } else {
+            // favicon 拉取失败：动态生成兜底图标（圆角渐变 + 站点名首字母）
+            Bitmap fallback = IconGenerator.generate(
+                    webapp.getTitle(),
+                    Uri.parse(webapp.getBaseUrl()).getHost(),
+                    192, 48);
+            icon = IconCompat.createWithBitmap(fallback);
+        }
 
 
-        String final_title = uiTitle.getText().toString();
+        String final_title = uiTitle.getText() != null ? uiTitle.getText().toString() : "";
         if (final_title.equals(""))
             final_title = webapp.getTitle();
-        if (webapp.getTitle().equals("")) {
+        if (webapp.getTitle() == null || webapp.getTitle().equals("")) {
             final_title = "Unknown";
         }
 
@@ -359,7 +366,9 @@ public class ShortcutDialogFragment extends DialogFragment  {
                     .build();
             String newScId = pinShortcutInfo.getId();
             ShortcutManager scManager = App.getAppContext().getSystemService(ShortcutManager.class);
-            if(!scManager.getPinnedShortcuts().stream().anyMatch(s -> s.getId().equals(newScId))) {
+            if (scManager == null) {
+                ShortcutManagerCompat.requestPinShortcut(requireActivity(), pinShortcutInfo, null);
+            } else if(!scManager.getPinnedShortcuts().stream().anyMatch(s -> s.getId().equals(newScId))) {
                 ShortcutManagerCompat.requestPinShortcut(requireActivity(), pinShortcutInfo, null);
             } else {
                 NotificationUtils.showToast(requireActivity(), getString(R.string.shortcut_already_exists));
