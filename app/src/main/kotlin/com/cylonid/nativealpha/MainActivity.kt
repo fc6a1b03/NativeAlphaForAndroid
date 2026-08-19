@@ -53,9 +53,6 @@ class MainActivity : AppCompatActivity() {
                     },
                     onGlobalSettingsClick = {
                         startActivity(Intent(this, SettingsActivity::class.java))
-                    },
-                    onAboutClick = {
-                        startActivity(Intent(this, AboutActivity::class.java))
                     }
                 )
             }

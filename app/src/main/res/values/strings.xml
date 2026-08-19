@@ -51,11 +51,6 @@
     <string name="shortcut_icon">Shortcut Icon</string>
     <string name="shortcut_title">Shortcut Title</string>
 
-    <string name="open_source_libs">Show used libraries</string>
-    <string name="gnu_license">This software is released under GNU General Public License - Version 3.\nhttps://www.gnu.org/licenses/gpl-3.0.txt</string>
-    <string name="about">About</string>
-    <string name="app_info">About</string>
-    <string name="os_libraries_title">Open source libraries</string>
     <string name="web_app_settings">Web App Settings</string>
     <string name="do_not_load_images">Do not load images</string>
     <string name="request_data_saving_page">Send \"Save Data\" request</string>

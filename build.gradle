@@ -14,7 +14,6 @@ buildscript {
 
 plugins {
     alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.aboutlibraries) apply false
     // AGP 9 内置 Kotlin 支持，无需再声明 org.jetbrains.kotlin.android
 }
 

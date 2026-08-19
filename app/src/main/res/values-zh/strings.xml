@@ -55,12 +55,6 @@
     <string name="shortcut_icon">快捷方式图标</string>
     <string name="shortcut_title">快捷方式标题</string>
 
-    <string name="open_source_libs">显示使用的库</string>
-    <string name="gnu_license">本软件基于 GNU 通用公共许可证 - 版本 3 发布。
-https://www.gnu.org/licenses/gpl-3.0.txt</string>
-    <string name="about">关于</string>
-    <string name="app_info">关于</string>
-    <string name="os_libraries_title">开源库</string>
     <string name="web_app_settings">Web App 设置</string>
     <string name="do_not_load_images">不加载图片</string>
     <string name="request_data_saving_page">发送 "Save Data" 请求</string>

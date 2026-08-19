@@ -70,7 +70,6 @@ fun MainScreen(
     onOpenSettings: (WebApp) -> Unit,
     onDeleteWebApp: (WebApp) -> Unit,
     onGlobalSettingsClick: () -> Unit,
-    onAboutClick: () -> Unit,
 ) {
     // 背景装饰：顶部柔和品牌光晕（低透明度，不干扰内容，缓解纯白空旷感）
     Box(modifier = Modifier.fillMaxSize()) {
@@ -128,28 +127,6 @@ fun MainScreen(
                             contentDescription = stringResource(R.string.global_settings),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                    var aboutMenuExpanded by remember { mutableStateOf(false) }
-                    Box {
-                        IconButton(onClick = { aboutMenuExpanded = true }) {
-                            Icon(
-                                Icons.Default.MoreVert,
-                                contentDescription = stringResource(R.string.more),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = aboutMenuExpanded,
-                            onDismissRequest = { aboutMenuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.about)) },
-                                onClick = {
-                                    aboutMenuExpanded = false
-                                    onAboutClick()
-                                }
-                            )
-                        }
                     }
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(

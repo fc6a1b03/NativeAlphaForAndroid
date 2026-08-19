@@ -1,12 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.kotlin.compose)
     // AGP 9 内置 Kotlin（built-in Kotlin），无需 kotlin-android / kotlin-kapt
-}
-
-aboutLibraries {
-    excludeFields = ["generated"]
 }
 
 android {
@@ -112,8 +107,6 @@ dependencies {
     // 第三方
     implementation libs.gson
     implementation libs.jsoup
-    implementation libs.aboutlibraries
-    implementation libs.aboutlibraries.core
     // 快捷方式对话框 favicon 加载进度圈（保留）
     implementation 'com.mikhaellopez:circularprogressbar:3.1.0'
 
