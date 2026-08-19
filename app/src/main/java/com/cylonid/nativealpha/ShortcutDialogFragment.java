@@ -4,7 +4,6 @@ import android.app.Dialog;
 import android.content.Intent;
 import android.content.pm.ShortcutManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -31,6 +30,7 @@ import com.cylonid.nativealpha.util.Const;
 import com.cylonid.nativealpha.util.IconGenerator;
 import com.cylonid.nativealpha.util.NotificationUtils;
 import com.cylonid.nativealpha.util.ShortcutIconUtils;
+import com.cylonid.nativealpha.util.WebAppDataFetcher;
 import com.cylonid.nativealpha.util.WebViewLauncher;
 import com.google.android.material.snackbar.Snackbar;
 import com.mikhaellopez.circularprogressbar.CircularProgressBar;
@@ -44,8 +44,6 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Map;
 import java.util.TreeMap;
@@ -91,7 +89,7 @@ public class ShortcutDialogFragment extends DialogFragment  {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (faviconFetcherThread.isAlive()) {
+        if (faviconFetcherThread != null && faviconFetcherThread.isAlive()) {
             faviconFetcherThread.interrupt();
             Log.d("CLEANUP", "Stopped running faviconfetcher");
         }
@@ -160,21 +158,9 @@ public class ShortcutDialogFragment extends DialogFragment  {
         return dialog;
     }
 
+    /** 复用 WebAppDataFetcher（支持 ICO 解析 + 尺寸兜底，与原实现一致） */
     private Bitmap loadBitmap(String strUrl)  {
-        Bitmap bitmap;
-        try {
-            URL url = new URL(strUrl);
-            HttpURLConnection con = (HttpURLConnection)url.openConnection();
-            InputStream is = con.getInputStream();
-            bitmap = BitmapFactory.decodeStream(is);
-            if (bitmap == null || bitmap.getWidth() < Const.FAVICON_MIN_WIDTH)
-                return null;
-
-        } catch (Exception e) {
-            bitmap = null;
-            e.printStackTrace();
-        }
-        return bitmap;
+        return WebAppDataFetcher.loadBitmap(strUrl);
     }
     private TreeMap<Integer, String> buildIconMap() {
         TreeMap<Integer, String> found_icons = new TreeMap<>();

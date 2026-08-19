@@ -1,11 +1,7 @@
 package com.cylonid.nativealpha.model
 
 import android.app.Activity
-import android.view.View
-import android.widget.*
-import androidx.appcompat.widget.SwitchCompat
 import com.cylonid.nativealpha.R
-import com.cylonid.nativealpha.WebAppSettingsActivity
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.ShortcutIconUtils
 import com.cylonid.nativealpha.util.Utility
@@ -139,85 +135,7 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     val alphanumericBaseUrl: String
         get() = baseUrl.replace("\\P{Alnum}".toRegex(), "").replace("https", "").replace("http", "").replace("www", "")
 
-    fun onSwitchCookiesChanged(mSwitch: CompoundButton, isChecked: Boolean) {
-        val switchThirdPCookies = mSwitch.rootView.findViewById<SwitchCompat>(R.id.switch3PCookies)
-        if (isChecked) switchThirdPCookies.isEnabled = true else {
-            switchThirdPCookies.isEnabled = false
-            switchThirdPCookies.isChecked = false
-        }
-    }
 
-    fun onSwitchJsChanged(mSwitch: CompoundButton, isChecked: Boolean) {
-        val switchDesktopVersion = mSwitch.rootView.findViewById<SwitchCompat>(R.id.switchDesktopSite)
-        if (isChecked) {
-            switchDesktopVersion.isEnabled = true
-        } else {
-            switchDesktopVersion.isChecked = false
-            switchDesktopVersion.isEnabled = false
-        }
-    }
 
-    fun onSwitchForceDarkChanged(mSwitch: CompoundButton, isChecked: Boolean) {
-        val switchLimit = mSwitch.rootView.findViewById<SwitchCompat>(R.id.switchTimeSpanDarkMode)
-        val txtBegin = mSwitch.rootView.findViewById<EditText>(R.id.textDarkModeBegin)
-        val txtEnd = mSwitch.rootView.findViewById<EditText>(R.id.textDarkModeEnd)
-        if (isChecked) {
-            switchLimit.isEnabled = true
-            txtBegin.isEnabled = true
-            txtEnd.isEnabled = true
-        } else {
-            switchLimit.isChecked = false
-            switchLimit.isEnabled = false
-            txtBegin.isEnabled = false
-            txtEnd.isEnabled = false
-        }
-    }
 
-    fun onSwitchTimeSpanDarkChanged(mSwitch: CompoundButton, isChecked: Boolean) {
-        val lblBegin = mSwitch.rootView.findViewById<TextView>(R.id.lblDarkModeBegin)
-        val lblEnd = mSwitch.rootView.findViewById<TextView>(R.id.lblDarkModeEnd)
-        val txtBegin = mSwitch.rootView.findViewById<EditText>(R.id.textDarkModeBegin)
-        val txtEnd = mSwitch.rootView.findViewById<EditText>(R.id.textDarkModeEnd)
-        if (isChecked) {
-            lblBegin.isEnabled = true
-            lblEnd.isEnabled = true
-            txtBegin.isEnabled = true
-            txtEnd.isEnabled = true
-        } else {
-            lblBegin.isEnabled = false
-            lblEnd.isEnabled = false
-            txtBegin.isEnabled = false
-            txtEnd.isEnabled = false
-        }
-    }
-
-    fun onSwitchUserAgentChanged(mSwitch: CompoundButton, isChecked: Boolean) {
-        val txt = mSwitch.rootView.findViewById<EditText>(R.id.textUserAgent)
-        val switchDesktopVersion = mSwitch.rootView.findViewById<SwitchCompat>(R.id.switchDesktopSite)
-        if (isChecked) {
-            switchDesktopVersion.isChecked = false
-            switchDesktopVersion.isEnabled = false
-            txt.isEnabled = true
-        } else {
-            txt.isEnabled = false
-            switchDesktopVersion.isEnabled = true
-        }
-    }
-
-    fun onSwitchAutoreloadChanged(mSwitch: CompoundButton, isChecked: Boolean) {
-        val text = mSwitch.rootView.findViewById<EditText>(R.id.textReloadInterval)
-        val label = mSwitch.rootView.findViewById<TextView>(R.id.labelReloadInterval)
-        text.isEnabled = isChecked
-        label.isEnabled = isChecked
-    }
-
-    fun onSwitchExpertSettingsChanged(mSwitch: CompoundButton, isChecked: Boolean) {
-        val expertSettings = mSwitch.rootView.findViewById<LinearLayout>(R.id.sectionExpertSettings)
-        if (isChecked) expertSettings.visibility = View.VISIBLE else expertSettings.visibility = View.GONE
-    }
-
-    fun onSwitchOverrideGlobalSettingsChanged(mSwitch: CompoundButton, isChecked: Boolean) {
-        val sectionDetailedWebAppSettings = mSwitch.rootView.findViewById<LinearLayout>(R.id.sectionWebAppDetailSettings)
-        Utility.setViewAndChildrenEnabled(sectionDetailedWebAppSettings, isChecked)
-    }
 }
