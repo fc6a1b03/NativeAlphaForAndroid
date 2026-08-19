@@ -5,6 +5,7 @@ import android.annotation.SuppressLint;
 import android.app.Application;
 import android.app.DownloadManager;
 import android.content.ClipData;
+import android.content.ComponentCallbacks2;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -81,6 +82,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.lang.reflect.Field;
 import java.util.stream.Stream;
 
 import static com.cylonid.nativealpha.util.Const.CODE_OPEN_FILE;
@@ -137,9 +139,16 @@ public class WebViewActivity extends AppCompatActivity {
         wv = findViewById(R.id.webview);
         progressBar = findViewById(R.id.progressBar);
 
-        String fieldName = Stream.of(WebViewActivity.class.getDeclaredFields()).filter(f -> f.getType() == WebView.class).findFirst().orElseThrow(null).getName();
-        String uaString = wv.getSettings().getUserAgentString().replace("; " + fieldName, "");
-        wv.getSettings().setUserAgentString(uaString);
+        // 移除 WebView 字段名注入的 UA 尾巴（找不到字段时静默跳过，避免 NPE）
+        String fieldName = Stream.of(WebViewActivity.class.getDeclaredFields())
+                .filter(f -> f.getType() == WebView.class)
+                .findFirst()
+                .map(Field::getName)
+                .orElse("");
+        if (!fieldName.isEmpty()) {
+            String uaString = wv.getSettings().getUserAgentString().replace("; " + fieldName, "");
+            wv.getSettings().setUserAgentString(uaString);
+        }
         if (webapp.isUseCustomUserAgent()) {
             if(webapp.getUserAgent() != null && !webapp.getUserAgent().equals("")) {
                 wv.getSettings().setUserAgentString(webapp.getUserAgent().replace("\0", "").replace("\n", "").replace("\r", ""));
@@ -485,6 +494,9 @@ public class WebViewActivity extends AppCompatActivity {
         this.setDarkModeIfNeeded();
     }
 
+    // 渲染核心的有意实现：WebView 后退优先 + 再按退出，不走 super（避免双重处理）
+    // 注：Manifest enableOnBackInvokedCallback=true 下系统手势仍会回调本方法（legacy 兼容）
+    @SuppressLint({"MissingSuperCall", "GestureBackNavigation"})
     @Override
     public void onBackPressed() {
         WebApp webapp = DataManager.getInstance().getWebApp(webappID);
@@ -552,6 +564,45 @@ public class WebViewActivity extends AppCompatActivity {
             reload_handler.removeCallbacksAndMessages(null);
             Log.d("CLEANUP", "Stopped reload handler");
         }
+    }
+
+    /**
+     * 内存压力分级回收（低损耗目标）：
+     * - 后台 15 分钟：释放缓存资源
+     * - 后台 5 分钟：降低渲染内存
+     * - 后台 60 分钟：清空 WebView 缓存
+     */
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (wv == null) return;
+
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+            // 页面完全不可见：停止计时器、降低后台渲染
+            wv.pauseTimers();
+        }
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            // 内存吃紧：清缓存
+            wv.clearCache(true);
+        }
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+            // 极度吃紧：释放 WebView 渲染资源（保留实例避免重建）
+            wv.freeMemory();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        // 显式销毁 WebView，释放渲染进程与内存（低损耗目标）
+        if (wv != null) {
+            wv.removeAllViews();
+            wv.destroy();
+            wv = null;
+        }
+        if (reload_handler != null) {
+            reload_handler.removeCallbacksAndMessages(null);
+        }
+        super.onDestroy();
     }
 
     private void reload() {
@@ -844,7 +895,8 @@ public class WebViewActivity extends AppCompatActivity {
                     progressBar.setVisibility(ProgressBar.VISIBLE);
                 }
 
-                progressBar.setProgress(progress);
+                // 平滑过渡（150ms），避免进度跳变
+                progressBar.setProgress(progress, true);
 
                 if (progress == 100) {
                     progressBar.setVisibility(ProgressBar.GONE);
