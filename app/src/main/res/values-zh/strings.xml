@@ -20,6 +20,7 @@
     <string name="add_to_home_screen">添加到主屏幕</string>
     <string name="open_external_links_in_browser_app">在浏览器应用中打开外部链接</string>
     <string name="allow_javascript">允许 JavaScript</string>
+    <string name="warning_js_disabled">已禁用 JavaScript。大多数现代网站（如翻译、AI 对话页面）将无法正常显示。</string>
     <string name="accept_cookies">接受 Cookies</string>
     <string name="accept_third_party_cookies">接受第三方 Cookies</string>
     <string name="clear_cache_after_usage">使用后清除缓存</string>
@@ -57,6 +58,7 @@
 
     <string name="web_app_settings">Web App 设置</string>
     <string name="do_not_load_images">不加载图片</string>
+    <string name="warning_block_images">已禁用图片加载。部分网站可能显示不完整或布局错乱。</string>
     <string name="request_data_saving_page">发送 "Save Data" 请求</string>
     <string name="ssl_error_msg_line1">此页面的 SSL 证书存在问题。</string>
     <string name="ssl_error_unknown_authority">证书颁发机构不受信任。</string>
@@ -109,6 +111,7 @@
     <string name="general">通用</string>
     <string name="backup">备份</string>
     <string name="block_all_third_party_requests">阻止第三方请求</string>
+    <string name="warning_block_third_party">已阻止第三方请求。部分网站可能丢失样式或无法加载内容。</string>
     <string name="show_fullscreen">全屏（沉浸模式）</string>
     <string name="icon_not_found">无法加载图标。</string>
     <string name="webapp_section_kiosk">信息亭模式</string>

@@ -20,6 +20,7 @@
     <string name="add_to_home_screen">Add to home screen</string>
     <string name="open_external_links_in_browser_app">Open external links in browser app</string>
     <string name="allow_javascript">Allow Javascript</string>
+    <string name="warning_js_disabled">JavaScript is disabled. Most modern websites (like translator or AI chat pages) will not display correctly.</string>
     <string name="accept_cookies">Accept cookies</string>
     <string name="accept_third_party_cookies">Accept third-party cookies</string>
     <string name="clear_cache_after_usage">Clear cache after usage</string>
@@ -53,6 +54,7 @@
 
     <string name="web_app_settings">Web App Settings</string>
     <string name="do_not_load_images">Do not load images</string>
+    <string name="warning_block_images">Images are blocked. Some sites may display incompletely or lose layout.</string>
     <string name="request_data_saving_page">Send \"Save Data\" request</string>
     <string name="ssl_error_msg_line1">This page has a problem with its SSL certificate.</string>
     <string name="ssl_error_unknown_authority">The certificate authority is not trusted.</string>
@@ -105,6 +107,7 @@
     <string name="general">General</string>
     <string name="backup">Backup</string>
     <string name="block_all_third_party_requests">Block third-party requests</string>
+    <string name="warning_block_third_party">Third-party requests are blocked. Some sites may lose styles or fail to load content.</string>
     <string name="show_fullscreen">Full Screen (Immersive Mode)</string>
     <string name="icon_not_found">Icon could not be loaded.</string>
     <string name="webapp_section_kiosk">Kiosk Mode</string>

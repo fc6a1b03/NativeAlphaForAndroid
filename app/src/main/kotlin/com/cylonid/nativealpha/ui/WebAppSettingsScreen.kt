@@ -13,10 +13,12 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.cylonid.nativealpha.R
@@ -236,12 +238,14 @@ fun WebAppSettingsScreen(
                 SettingsSwitchRow(
                     title = stringResource(R.string.allow_javascript),
                     checked = modified.isAllowJs,
-                    onCheckedChange = { updateSettings { isAllowJs = it } }
+                    onCheckedChange = { updateSettings { isAllowJs = it } },
+                    warning = if (!modified.isAllowJs) stringResource(R.string.warning_js_disabled) else null
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.block_all_third_party_requests),
                     checked = modified.isBlockThirdPartyRequests,
-                    onCheckedChange = { updateSettings { isBlockThirdPartyRequests = it } }
+                    onCheckedChange = { updateSettings { isBlockThirdPartyRequests = it } },
+                    warning = if (modified.isBlockThirdPartyRequests) stringResource(R.string.warning_block_third_party) else null
                 )
                 SettingsSwitchRow(
                     title = stringResource(R.string.allow_http),
@@ -329,7 +333,8 @@ fun WebAppSettingsScreen(
                 SettingsSwitchRow(
                     title = stringResource(R.string.do_not_load_images),
                     checked = modified.isBlockImages,
-                    onCheckedChange = { updateSettings { isBlockImages = it } }
+                    onCheckedChange = { updateSettings { isBlockImages = it } },
+                    warning = if (modified.isBlockImages) stringResource(R.string.warning_block_images) else null
                 )
             }
 
@@ -566,32 +571,63 @@ private fun SettingsSwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     enabled: Boolean = true,
     icon: (@Composable () -> Unit)? = null,
+    warning: String? = null,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (icon != null) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        RoundedCornerShape(12.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) { icon() }
-            Spacer(modifier = Modifier.width(14.dp))
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (icon != null) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            RoundedCornerShape(12.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) { icon() }
+                Spacer(modifier = Modifier.width(14.dp))
+            }
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.weight(1f)
+            )
+            Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
         }
-        Text(
-            title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (enabled) MaterialTheme.colorScheme.onSurface
-            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-            modifier = Modifier.weight(1f)
-        )
-        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+        // 高风险开关警示：调用方传入 warning 时显示（JS 关闭 / 拦截开启 / 禁图开启）
+        if (warning != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    warning,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
     }
 }
