@@ -129,6 +129,28 @@ fun MainScreen(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    var aboutMenuExpanded by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { aboutMenuExpanded = true }) {
+                            Icon(
+                                Icons.Default.MoreVert,
+                                contentDescription = stringResource(R.string.more),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = aboutMenuExpanded,
+                            onDismissRequest = { aboutMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.about)) },
+                                onClick = {
+                                    aboutMenuExpanded = false
+                                    onAboutClick()
+                                }
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
