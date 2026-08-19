@@ -148,6 +148,34 @@ object WebAppDataFetcher {
                     }
                 }
             }
+
+            // Step 4: 终极兜底 —— 标准 /favicon.ico
+            // 部分站点（如 fanyi.baidu.com）的图标经 JS 动态注入，静态解析拿不到，
+            // 直接探测站点根路径的 favicon.ico（最标准的约定路径）。
+            if (foundIcons.isEmpty()) {
+                val rootUrl = try {
+                    URL(currentUrl).let { URL(it.protocol, it.host, "/favicon.ico") }
+                } catch (_: Exception) {
+                    null
+                }
+                if (rootUrl != null) {
+                    try {
+                        val con = rootUrl.openConnection() as HttpURLConnection
+                        try {
+                            con.requestMethod = "HEAD"
+                            con.connectTimeout = 4000
+                            con.readTimeout = 4000
+                            if (con.responseCode == HttpURLConnection.HTTP_OK) {
+                                foundIcons[8] = rootUrl.toString() // 16x16 以下权重最低，仅作兜底
+                            }
+                        } finally {
+                            con.disconnect()
+                        }
+                    } catch (_: Exception) {
+                        // 站点无 favicon.ico，保持空
+                    }
+                }
+            }
         } catch (e: Exception) {
             // 网络失败：返回已收集的部分数据（可能全空）
         }
