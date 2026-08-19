@@ -3,6 +3,7 @@ name: WebNative CI/CD
 on:
   push:
     branches: [ main, dev ]
+    tags: [ 'v*' ]
     paths-ignore:
       - '**.md'
       - 'doc/**'
