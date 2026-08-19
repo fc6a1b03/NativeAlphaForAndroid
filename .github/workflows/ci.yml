@@ -76,10 +76,17 @@ jobs:
           keyAlias=$KEY_ALIAS
           keyPassword=$KEY_PASSWORD
           EOF
-          # 诊断：校验 keystore 是否有效（alias/密码/指纹）
+          # 诊断：严格校验 keystore（不用管道——head 会吞掉 keytool 退出码）
           echo "--- keystore 诊断 ---"
           ls -la webnative-release.keystore
-          keytool -list -keystore webnative-release.keystore -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" 2>&1 | head -10 || echo "❌ keystore 校验失败（base64 或密码不对）"
+          if keytool -list -keystore webnative-release.keystore -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /tmp/kt.log 2>&1; then
+            echo "✅ keystore 有效"
+            head -8 /tmp/kt.log
+          else
+            echo "❌ keystore 校验失败（base64 内容或密码/alias 不对）"
+            cat /tmp/kt.log
+            exit 1
+          fi
           echo "✅ Signing config injected"
 
       - name: "🏗️ Build Release APK + AAB"
@@ -87,6 +94,13 @@ jobs:
           # pipefail：管道返回 gradlew 真实退出码（否则 tee 会掩盖构建失败）
           set -o pipefail
           ./gradlew assembleRelease bundleRelease --no-daemon 2>&1 | tee /tmp/build.log
+
+      # 失败时打印日志尾部（直接显示在 Actions 页面，方便排查）
+      - name: "🔍 Print build log tail on failure"
+        if: failure()
+        run: |
+          echo "===== build.log 尾部 50 行 ====="
+          tail -50 /tmp/build.log 2>/dev/null || echo "(无日志)"
 
       - name: "📦 Upload build log on failure"
         if: failure()
