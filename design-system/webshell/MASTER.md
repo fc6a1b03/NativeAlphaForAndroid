@@ -6,203 +6,137 @@
 
 ---
 
-**Project:** WebShell
+**Project:** WebNative (WebShell)
 **Generated:** 2026-08-19 10:03:56
-**Category:** SaaS (General)
+**Updated:** 2026-08-19 (UI 全面 Compose 化 + 靛蓝主题落地)
+**Category:** Mobile PWA Shell (Android)
 
 ---
 
 ## Global Rules
 
-### Color Palette
+### Color Palette (Material 3 · seed `#4F46E5` Indigo)
 
-| Role | Hex | CSS Variable |
-|------|-----|--------------|
-| Primary | `#2563EB` | `--color-primary` |
-| On Primary | `#FFFFFF` | `--color-on-primary` |
-| Secondary | `#0891B2` | `--color-secondary` |
-| Accent/CTA | `#EA580C` | `--color-accent` |
-| Background | `#F8FAFC` | `--color-background` |
-| Foreground | `#0F172A` | `--color-foreground` |
-| Muted | `#F1F5FD` | `--color-muted` |
-| Border | `#E4ECFC` | `--color-border` |
-| Destructive | `#DC2626` | `--color-destructive` |
-| Ring | `#2563EB` | `--color-ring` |
+Android 实现（`res/values/colors.xml` + `values-night/colors.xml`），与启动屏、动态图标渐变同源。
 
-**Color Notes:** Global blue + teal + accent orange
+| Role | Light | Dark | Note |
+|------|-------|------|------|
+| Primary | `#4A47D6` | `#C1BFFF` | 品牌靛蓝 |
+| On Primary | `#FFFFFF` | `#1A1B80` | |
+| Primary Container | `#E0DFFF` | `#3232AD` | 顶栏/图标底 |
+| On Primary Container | `#000066` | `#E0DFFF` | |
+| Secondary | `#5B5D72` | `#C4C5DD` | 中性蓝灰 |
+| Tertiary | `#77536D` | `#E9B9DC` | 点缀 |
+| Error | `#BA1A1A` | `#FFB4AB` | |
+| Background | `#FBF8FF` | `#131318` | 近白/近黑 |
+| Surface | `#FBF8FF` | `#131318` | |
+| Surface Variant | `#E3E1EC` | `#46464F` | |
+| Surface Container Low | `#F5F2FB` | `#1B1B21` | 卡片底色 |
+| Outline | `#767680` | `#91909A` | |
+| Splash | `#4F46E5` | `#4F46E5` | 开屏 |
+
+**Color Notes:** 靛蓝品牌色 + 中性蓝灰 secondary + 柔和 tertiary，全面替代旧棕红系。
 
 ### Typography
 
-- **Heading Font:** Atkinson Hyperlegible
-- **Body Font:** Atkinson Hyperlegible
-- **Mood:** accessible, readable, inclusive, WCAG, dyslexia-friendly, clear
-- **Google Fonts:** [Atkinson Hyperlegible + Atkinson Hyperlegible](https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap)
+Android 端使用系统默认字体（Material3 默认），满足可读性：
+- Heading: `headlineSmall/Medium`（粗体，用于页标题/品牌卡）
+- Body: `bodyLarge/bodyMedium`（设置项/正文）
+- Label: `labelLarge`（区块标题，primary 色）
+- 不使用自定义字体（避免 APK 体积与加载损耗，符合「低损耗」目标）
 
-**CSS Import:**
-```css
-@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap');
-```
-
-### Spacing Variables
+### Spacing (dp)
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--space-xs` | `4px` / `0.25rem` | Tight gaps |
-| `--space-sm` | `8px` / `0.5rem` | Icon gaps, inline spacing |
-| `--space-md` | `16px` / `1rem` | Standard padding |
-| `--space-lg` | `24px` / `1.5rem` | Section padding |
-| `--space-xl` | `32px` / `2rem` | Large gaps |
-| `--space-2xl` | `48px` / `3rem` | Section margins |
-| `--space-3xl` | `64px` / `4rem` | Hero padding |
+| `--space-xs` | 4dp | 微间隙 |
+| `--space-sm` | 8dp | 图标与文字间隙 |
+| `--space-md` | 16dp | 卡片内边距、列表间距 |
+| `--space-lg` | 24dp | 区块间距、页面边距 |
+| `--space-xl` | 32dp | 大区块间距 |
 
-### Shadow Depths
+### Shape
 
-| Level | Value | Usage |
+| Token | Value | Usage |
 |-------|-------|-------|
-| `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle lift |
-| `--shadow-md` | `0 4px 6px rgba(0,0,0,0.1)` | Cards, buttons |
-| `--shadow-lg` | `0 10px 15px rgba(0,0,0,0.1)` | Modals, dropdowns |
-| `--shadow-xl` | `0 20px 25px rgba(0,0,0,0.15)` | Hero images, featured cards |
+| 卡片 | 16dp 圆角 | 列表卡片 / 设置区块卡片 |
+| 图标底 | 12dp 圆角 | 设置行图标容器 |
+| 品牌 Logo | 20-24dp 圆角 | 关于页 W 图标 |
+| 输入框 | M3 默认 OutlinedTextField | 全应用 |
 
 ---
 
-## Component Specs
+## Component Specs (Compose Material 3)
 
-### Buttons
-
-```css
-/* Primary Button */
-.btn-primary {
-  background: #EA580C;
-  color: white;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  transition: all 200ms ease;
-  cursor: pointer;
-}
-
-.btn-primary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-/* Secondary Button */
-.btn-secondary {
-  background: transparent;
-  color: #2563EB;
-  border: 2px solid #2563EB;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  transition: all 200ms ease;
-  cursor: pointer;
-}
+### TopAppBar
+```kotlin
+TopAppBarDefaults.topAppBarColors(
+    containerColor = MaterialTheme.colorScheme.primaryContainer,
+    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+)
 ```
+- 所有二级页面统一：返回箭头 + 标题 + primaryContainer 底
 
 ### Cards
+- 列表卡 / 设置区块卡：`RoundedCornerShape(16.dp)` + `surfaceContainerLow` + `elevation 1dp`
 
-```css
-.card {
-  background: #F8FAFC;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: var(--shadow-md);
-  transition: all 200ms ease;
-  cursor: pointer;
-}
-
-.card:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
-}
-```
+### Buttons
+- 主操作：`Button`（primary 填充）
+- 次操作：`OutlinedButton` / `TextButton`
 
 ### Inputs
+- 一律 `OutlinedTextField`（M3 轮廓式，浮动标签 + helper/error text）
+- 添加向导 Step1：`KeyboardType.Uri` + `ImeAction.Next`
+- 名称输入：`ImeAction.Done`
 
-```css
-.input {
-  padding: 12px 16px;
-  border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  font-size: 16px;
-  transition: border-color 200ms ease;
-}
+### 设置行（SettingsRow）
+- 左侧 40dp 圆角色块图标容器（primaryContainer 底）
+- 中间标题（bodyLarge）
+- 右侧 `Switch`（行为开关）或 chevron（跳转项）
 
-.input:focus {
-  border-color: #2563EB;
-  outline: none;
-  box-shadow: 0 0 0 3px #2563EB20;
-}
-```
+---
 
-### Modals
+## Pages
 
-```css
-.modal-overlay {
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-}
-
-.modal {
-  background: white;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: var(--shadow-xl);
-  max-width: 500px;
-  width: 90%;
-}
-```
+| 页面 | 实现 | 状态 |
+|------|------|------|
+| 主界面（卡片列表） | Compose `MainScreen` | ✅ 已完成 |
+| 添加向导（两步） | Compose `AddWebAppScreen` | ✅ 已完成 |
+| 全局设置 | Compose `GlobalSettingsScreen` | ✅ 已完成 |
+| WebApp 设置 | Compose `WebAppSettingsScreen` | ✅ 已完成 |
+| 关于 | Compose `AboutScreen` | ✅ 已完成 |
+| WebView 渲染 | Java View（保留） | ✅ 保留不动 |
 
 ---
 
 ## Style Guidelines
 
-**Style:** Flat Design Mobile (Touch-First)
+**Style:** Material 3 · 靛蓝 · 卡片化
+**Keywords:** M3, indigo, card-based, touch-first, minimal, flat, modern
 
-**Keywords:** flat, 2D, no shadow, color blocking, geometric, bold, poster, icon, touch-first, minimal, clean, tailored, cross-platform
-
-**Best For:** Cross-platform apps (iOS+Android parity), information-dense dashboards, system UI, brand illustration, onboarding flows, marketing pages, icon design
-
-**Key Effects:** Immediate press feedback (scale 0.97, no delay), color section blocking (full-width contrasting View), zero elevation/shadow, solid icon containers (colored squares/circles), geometric low-opacity shape overlays, bottom tabs solid fill (no floating)
-
-### Page Pattern
-
-**Pattern Name:** App Store Style Landing
-
-- **Conversion Strategy:** Show real screenshots. Include ratings (4.5+ stars). QR code for mobile. Platform-specific CTAs.
-- **CTA Placement:** Download buttons prominent (App Store + Play Store) throughout
-- **Section Order:** 1. Hero with device mockup, 2. Screenshots carousel, 3. Features with icons, 4. Reviews/ratings, 5. Download CTAs
+- 全部交互即时反馈（Switch 默认动画）
+- 不使用 emoji 作为图标（一律 Material Icons）
+- 支持深色模式（跟随系统，values-night 色板）
+- 触控目标 ≥ 48dp（行高）
 
 ---
 
 ## Anti-Patterns (Do NOT Use)
 
-- ❌ Excessive animation
-- ❌ Dark mode by default
-
-### Additional Forbidden Patterns
-
-- ❌ **Emojis as icons** — Use SVG icons (Heroicons, Lucide, Simple Icons)
-- ❌ **Missing cursor:pointer** — All clickable elements must have cursor:pointer
-- ❌ **Layout-shifting hovers** — Avoid scale transforms that shift layout
-- ❌ **Low contrast text** — Maintain 4.5:1 minimum contrast ratio
-- ❌ **Instant state changes** — Always use transitions (150-300ms)
-- ❌ **Invisible focus states** — Focus states must be visible for a11y
+- ❌ 旧棕红配色（#904A43 系）— 已全面移除
+- ❌ 旧版 underline 输入框（TextInputLayout）— 全部改 M3 OutlinedTextField
+- ❌ 原 AlertDialog 双输入框一次性添加 — 改两步向导
+- ❌ emoji 图标
+- ❌ 无圆角/零阴影的旧布局
+- ❌ 一次性把所有设置堆在一个长页（分组卡片已按语义分区）
 
 ---
 
 ## Pre-Delivery Checklist
 
-Before delivering any UI code, verify:
-
-- [ ] No emojis used as icons (use SVG instead)
-- [ ] All icons from consistent icon set (Heroicons/Lucide)
-- [ ] `cursor-pointer` on all clickable elements
-- [ ] Hover states with smooth transitions (150-300ms)
-- [ ] Light mode: text contrast 4.5:1 minimum
-- [ ] Focus states visible for keyboard navigation
-- [ ] `prefers-reduced-motion` respected
-- [ ] Responsive: 375px, 768px, 1024px, 1440px
-- [ ] No content hidden behind fixed navbars
-- [ ] No horizontal scroll on mobile
+- [x] 无 emoji 图标（全部 Material Icons）
+- [x] 触控目标 ≥ 48dp
+- [x] 深色模式色板同步（values-night）
+- [x] 对比度：primary on container 均符合 WCAG（M3 tonal palette 保证）
+- [x] 键盘优化：添加向导 IME Next/Done
+- [x] 动画：仅系统默认（150-300ms 级），无过度动画

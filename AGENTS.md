@@ -21,9 +21,9 @@ output, long documents, code blocks).
 ## Tech Stack
 
 - **Language**: Kotlin only (Java legacy fully migrated/removed). Java 17 bytecode.
-- **UI**: Jetpack Compose + Material 3 (main screen, cards, dynamic icons);
-  legacy View/XML only for WebViewActivity (render core) and settings screens.
-  DataBinding + ViewBinding enabled.
+- **UI**: Jetpack Compose + Material 3（全部页面：主界面/添加向导/全局设置/WebApp 设置/关于）。
+  仅 WebViewActivity（渲染核心）保持 Java View 实现。DataBinding 已移除，ViewBinding 仅剩
+  WebViewActivity 未用（保留为渲染层）。
 - **Build**: Gradle 9.7.0 (wrapper) + AGP 9.3.1 + built-in Kotlin 2.3.20 +
   `org.jetbrains.kotlin.plugin.compose` (required for Compose).
 - **Version Catalog**: all dependency versions in `gradle/libs.versions.toml`
@@ -54,14 +54,21 @@ output, long documents, code blocks).
 - **Main screen**: `MainActivity` (Compose, `setContent`) hosts `MainScreen`
   (card list + FAB + empty state). Data from `DataManager.activeWebsites`,
   refreshed via `MainActivity.refreshTrigger` on resume.
+- **Add flow**: `AddWebAppActivity` (Compose) — two-step wizard: URL →
+  auto-detected title/icon → shortcut. `WebAppDataFetcher` (extracted from the
+  old `ShortcutDialogFragment`) handles title/icon/start_url detection.
+- **Settings**: `SettingsActivity` + `WebAppSettingsActivity` + `AboutActivity`
+  are all Compose (`GlobalSettingsScreen` / `WebAppSettingsScreen` / `AboutScreen`).
 - **Browser screen**: `WebViewActivity` (Java, kept as View) renders the site
   via `CustomBrowser`/`CustomWebChromeClient`. PWA text-stream optimizations
   live in `setupWebView()`: `RenderPriority.HIGH`, hardware acceleration,
   `textZoom(100)`, `OffscreenPreRaster`, `LOAD_DEFAULT` cache, overlay scrollbars.
 - **Dynamic icons**: `IconGenerator` (gradient + first letter) used in list
-  and shortcut fallback; `ShortcutDialogFragment` fetches real favicons.
+  and shortcut fallback; `ShortcutDialogFragment` (legacy) still powers the
+  "Re-create shortcut" flow from WebApp settings; the add-flow uses the new
+  `WebAppDataFetcher`.
 - **i18n**: `values/` (en) + `values-zh/` (zh), default Chinese via
-  `AppCompatDelegate.setApplicationLocales` (setting spinner in SettingsActivity).
+  `AppCompatDelegate.setApplicationLocales` (language dropdown in SettingsActivity).
 - **Backup**: versioned JSON (`{checksum, data:{version, websites, settings}}`)
   via SAF, SHA-256 verified. `BACKUP_FORMAT_VERSION = 2` in `DataManager`.
 

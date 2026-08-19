@@ -14,3 +14,4 @@ webnative-release.keystore
 key.properties
 /.kotlin/
 /.idea/
+/doc/*.png
