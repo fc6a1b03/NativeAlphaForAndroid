@@ -169,7 +169,7 @@ public class WebViewActivity extends AppCompatActivity {
         wv.getSettings().setBlockNetworkLoads(false);
 //        wv.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
 
-        // ===== PWA 高频文本流渲染优化（Kimi Code 流式输出场景） =====
+        // ===== PWA 高频文本流渲染优化（流式输出/长文档滚动场景） =====
         // 渲染优先级拉满（文本流/长文档滚动核心）
         wv.getSettings().setRenderPriority(WebSettings.RenderPriority.HIGH);
         // 硬件加速强制（避免软件层合成拖慢流式更新）
