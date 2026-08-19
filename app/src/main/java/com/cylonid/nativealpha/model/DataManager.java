@@ -140,7 +140,20 @@ public class DataManager {
 
 
 
+    /** 是否已从 SharedPreferences 加载过数据（幂等优化：启动路径多次调用不再重复 Gson 解析） */
+    private boolean dataLoaded = false;
+
     public void loadAppData() {
+        loadAppData(false);
+    }
+
+    /**
+     * 加载应用数据。
+     * @param force true 时强制重新解析（数据变更后调用，如设置保存/导入备份）
+     */
+    public void loadAppData(boolean force) {
+        if (dataLoaded && !force) return;
+
         Utility.Assert(App.getAppContext() != null, "App.getAppContext() null before loading sharedpref");
 
         appdata = App.getAppContext().getSharedPreferences(SHARED_PREF_KEY, MODE_PRIVATE);
@@ -175,6 +188,7 @@ public class DataManager {
             }
         }
 
+        dataLoaded = true;
     }
 
     public void loadGlobalSettingsLegacy() {
