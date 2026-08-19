@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">Native Alpha</string>
+    <string name="app_name" translatable="false">WebNative</string>
     <string name="action_settings">Settings</string>
     <!-- Strings used for fragments for navigation -->
     <string name="spinner_prompt">UI Mode</string>
@@ -15,7 +15,6 @@
     <string name="accept_cookies">Accept cookies</string>
     <string name="accept_third_party_cookies">Accept third-party cookies</string>
     <string name="clear_cache_after_usage">Clear cache after usage</string>
-    <string name="enable_adblock_experimental">Enable adblock</string>
     <string name="timeout_for_page_restore_in_minutes">Timeout in min</string>
     <string name="re_create_shortcut">Re-Create shortcut</string>
     <string name="create_shortcut_on_home_screen">Create shortcut on home screen</string>
@@ -31,6 +30,13 @@
     <string name="icon_fetch_failed_line3">• The website has no suitable icon stored.</string>
     <string name="delete_question">Are you sure you want to remove this website?</string>
     <string name="enter_valid_url">Please enter a valid web address.</string>
+    <string name="display_name_hint">Display name (optional)</string>
+    <string name="language">Language</string>
+    <string-array name="language_options">
+        <item>Follow system</item>
+        <item>中文</item>
+        <item>English</item>
+    </string-array>
     <string name="edit_webapp_settings">Edit Web App settings</string>
     <string name="add_webapp">Add Web App</string>
     <string name="welcome_msg">Welcome!\nAdd your first Web App:</string>
@@ -39,8 +45,6 @@
     <string name="shortcut_icon">Shortcut Icon</string>
     <string name="shortcut_title">Shortcut Title</string>
 
-    <string name="eula_title">End-user license agreement</string>
-    <string name="eula_content">The software is provided “as is”, without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the software or the use or other dealings in the software.</string>
     <string name="open_source_libs">Show used libraries</string>
     <string name="gnu_license">This software is released under GNU General Public License - Version 3.\nhttps://www.gnu.org/licenses/gpl-3.0.txt</string>
     <string name="app_info">About</string>
@@ -65,7 +69,6 @@
     <string name="webapp_section_cookies">Cookies &amp; Ads</string>
     <string name="webapp_section_datasaving">Data saving</string>
     <string name="webapp_section_misc">Miscellaneous</string>
-    <string name="paypal" translatable="false">" ☕ Buy me a coffee on PayPal"</string>
     <string name="webapp_section_restorepage">Restore page</string>
     <string name="import_failed">The backup could not restored.</string>
     <string name="import_success">Backup with %1$d Web App(s) was restored successfully.</string>
@@ -120,10 +123,6 @@
     <string name="backup">Backup</string>
     <string name="use_google_safe_browsing">Use Google Safe Browsing</string>
     <string name="block_all_third_party_requests">Block third-party requests</string>
-    <string name="sandbox">Sandbox</string>
-    <string name="no_sandbox">Do not use sandbox.</string>
-    <string name="all_sandboxes_used">All sandboxes are currently in use.</string>
-    <string name="enable_sandbox">Enable Sandbox</string>
     <string name="show_fullscreen">Full Screen (Immersive Mode)</string>
     <string name="site_not_found">Page could not be loaded.</string>
     <string name="icon_not_found">Icon could not be loaded.</string>
@@ -136,7 +135,7 @@
     <string name="allow_microphone_access">Allow microphone access</string>
     <string name="dialog_permission_microphone_title">Microphone Access</string>
     <string name="dialog_permission_microphone_txt">Do you want to grant this Web App access to your microphone? You can revoke this decision any time in the Web App Settings menu.</string>
-    <string name="app_name_plus" translatable="false">Native Alpha +</string>
+    <string name="app_name_plus" translatable="false">WebNative</string>
     <string name="shortcut_already_exists">A shortcut with this name already exists. Please choose another name or delete the existing shortcut.</string>
     <string name="back">Back</string>
     <string name="forward">Forward</string>
@@ -145,10 +144,7 @@
     <string name="reload">Reload</string>
     <string name="activate_two_finger_zoom">Enable Pinch-To-Zoom</string>
     <string name="webapp_section_access_restriction">Access Restriction</string>
-    <string name="bioprompt_restricted_webapp">Access Restriction</string>
-    <string name="bioprompt_disable_restricition">Disable access restriction?</string>
     <string name="enable_access_restriction">Enable access restriction</string>
-    <string name="bioprompt_enable_restriction">Enable access restriction?</string>
     <string name="allow_media_playback_in_background">Allow media playback in background</string>
     <string name="start_url">Start URL</string>
     <string name="more">More</string>
@@ -158,18 +154,12 @@
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
     <string name="accept">Accept</string>
-    <string name="cancel_eula">You must accept the EULA to continue.</string>
-    <string name="no_biometric_devices">Your device does not support biometric authentication.</string>
-    <string name="no_biometric_keys_enrolled">Your device does support biometric  authentication, but you did not enroll any method yet.</string>
     <string name="webview_activity_launch_failed">Web App could not be started.</string>
     <string name="no_url_entered">Please enter an URL.</string>
     <string name="scroll_to_bottom">Please scroll to the bottom.</string>
     <string name="always_show_software_buttons">Always show software navigation buttons</string>
     <string name="use_standard_context_menu_temporarily">Temporarily use standard context menu</string>
     <string name="use_standard_context_menu_permanently">Use standard context menu</string>
-    <string name="adblock_config">Adblock settings</string>
-    <string name="adblock_description">The entries created here serve as sources for the ad blocker. The blocking rules are downloaded from the specified URL and kept up to date. Please note that adding too many sources may negatively impact performance. You can create up to 8 entries.</string>
-    <string name="add_a_new_adblock_provider">Add a new adblock provider</string>
     <string name="question_delete_item">Are you sure you want to delete this item?</string>
     <string name="undo">Undo</string>
     <string name="x_was_removed">%1$s was removed.</string>
@@ -179,8 +169,6 @@
     <string name="password">Password</string>
     <string name="enter_http_auth_credentials">Enter credentials for %1$s at %2$s:</string>
     <string name="entry_already_exists">This entry already exists.</string>
-    <string name="support_liberapay">Support me on Liberapay</string>
-    <string name="adblock_warning_text">Your current ad blocker settings may cause problems or crashes. Unfortunately, not all filter lists work on every device.\n\nIt is recommended to clear the filter lists and repopulate them as a test.</string>
     <string name="warning">Warning</string>
 
 </resources>
