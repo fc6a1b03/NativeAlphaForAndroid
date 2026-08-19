@@ -87,11 +87,19 @@ A: Android 12（API 31）及以上。
 * [AboutLibraries](https://github.com/mikepenz/AboutLibraries) — 开源声明
 * [CircularProgressBar](https://github.com/lopspower/CircularProgressBar) — 快捷方式图标加载进度
 
-完整开源库列表见应用内「关于」页。
+完整开源库依赖声明见 `app/build.gradle` 与 [gradle/libs.versions.toml](gradle/libs.versions.toml)。
 
 ## Screenshots
 
-*待补充（模拟器验收后截图）*
+| 主界面 | 添加向导 · 第一步 | 添加向导 · 第二步 |
+|:---:|:---:|:---:|
+| ![Main](doc/screenshots/main.png) | ![Add Step 1](doc/screenshots/add_step1.png) | ![Add Step 2](doc/screenshots/add_step2.png) |
+
+| Web App 设置 | 全局设置 | 浏览页面 |
+|:---:|:---:|:---:|
+| ![Web App Settings](doc/screenshots/webapp_settings.png) | ![Global Settings](doc/screenshots/global_settings.png) | ![WebView](doc/screenshots/webview.png) |
+
+> 截图基于 Android 模拟器（Pixel 9a, API 37）实测采集。
 
 ## License
 
