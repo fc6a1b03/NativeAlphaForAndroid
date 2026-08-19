@@ -28,7 +28,10 @@ class WebAppSettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         webappID = intent.getIntExtra(Const.INTENT_WEBAPPID, -1)
-        Utility.Assert(webappID != -1, "WebApp ID could not be retrieved.")
+        if (webappID == -1) {
+            finish()
+            return
+        }
         isGlobalWebApp = webappID == DataManager.getInstance().settings.globalWebApp.ID
 
         webapp = if (isGlobalWebApp) {
