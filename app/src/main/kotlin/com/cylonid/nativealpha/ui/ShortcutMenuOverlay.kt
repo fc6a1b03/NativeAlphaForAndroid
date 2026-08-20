@@ -175,6 +175,12 @@ private fun ShortcutMenuSheetContent(
             Spacer(modifier = Modifier.height(8.dp))
 
             // 提示
+            Text(
+                stringResource(R.string.shortcut_focus_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Default.Settings, contentDescription = null,

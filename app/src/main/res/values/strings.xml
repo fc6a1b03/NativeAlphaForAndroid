@@ -273,4 +273,5 @@
     <string name="shortcut_max_reached">Up to %1$d shortcuts per app</string>
 
 <string name="load_count_times">%1$d×</string>
+    <string name="shortcut_focus_hint">Like a desktop browser: tap the page input field first, then send the shortcut</string>
 </resources>

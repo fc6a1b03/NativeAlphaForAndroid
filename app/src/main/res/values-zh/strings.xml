@@ -277,4 +277,5 @@
     <string name="shortcut_max_reached">每个应用最多 %1$d 个快捷键</string>
 
 <string name="load_count_times">%1$d次</string>
+    <string name="shortcut_focus_hint">与电脑浏览器一致：先点击页面输入框聚焦，再发送快捷键</string>
 </resources>
