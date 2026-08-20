@@ -109,7 +109,7 @@ fun WebAppSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(if (isGlobal) R.string.global_web_app_settings else R.string.web_app_settings)) },
+                title = { Text(stringResource(if (isGlobal) R.string.global_web_app_settings else R.string.settings)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
@@ -177,10 +177,10 @@ fun WebAppSettingsScreen(
             if (!isGlobal) {
                 SettingsSectionTitle(stringResource(R.string.label))
                 SettingsCard {
-                    // 名称
+                    // 名称（WebApp 本身的显示名称：主界面/快捷方式显示的就是它）
                     OutlinedTextField(
-                        value = modified.title,
-                        onValueChange = { update { title = it } },
+                        value = modified.displayName ?: modified.title,
+                        onValueChange = { update { displayName = it.ifBlank { null } } },
                         label = { Text(stringResource(R.string.label)) },
                         singleLine = true,
                         modifier = Modifier

@@ -52,7 +52,7 @@
     <string name="shortcut_icon">Shortcut Icon</string>
     <string name="shortcut_title">Shortcut Title</string>
 
-    <string name="web_app_settings">Web App Settings</string>
+    <string name="settings">Settings</string>
     <string name="do_not_load_images">Do not load images</string>
     <string name="warning_block_images">Images are blocked. Some sites may display incompletely or lose layout.</string>
     <string name="request_data_saving_page">Send \"Save Data\" request</string>
