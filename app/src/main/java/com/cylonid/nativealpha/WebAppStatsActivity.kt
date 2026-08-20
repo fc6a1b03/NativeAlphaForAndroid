@@ -107,9 +107,22 @@ class WebAppStatsActivity : AppCompatActivity() {
         }
     }
 
-    /** 导入页面错误文件（只读展示层合并，不落盘） */
+    /** 导入页面错误文件（只读展示层合并，不落盘；应用错误文件仅导出不导入，识别提示） */
     private fun importPageErrorsFromUri(uri: android.net.Uri) {
         CoroutineScope(Dispatchers.IO).launch {
+            // 应用错误文件识别：文件名含 app_errors → 提示不导入（只导出）
+            val displayName = try {
+                contentResolver.query(
+                    uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),
+                    null, null, null
+                )?.use { c ->
+                    if (c.moveToFirst()) c.getString(0) else null
+                }
+            } catch (e: Exception) { null }
+            if (displayName?.contains("app_errors") == true) {
+                snackbarHostState.showSnackbar("应用错误日志仅导出，请在全局设置查看")
+                return@launch
+            }
             val json = try {
                 contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
             } catch (e: Exception) { null }

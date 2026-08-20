@@ -50,6 +50,14 @@
     </string-array>
     <string name="edit_webapp_settings">编辑</string>
     <string name="stats">统计</string>
+    <string name="shortcuts_section">快捷键</string>
+    <string name="shortcut_send_to_page">发送组合键到当前页面（只触发页面功能，不触发浏览器默认）。</string>
+    <string name="shortcut_add">添加组合键</string>
+    <string name="shortcut_confirm">确认绑定</string>
+    <string name="shortcut_empty">暂无快捷键。</string>
+    <string name="shortcut_exist">该组合已存在。</string>
+    <string name="shortcut_max">每个应用最多 5 个快捷键。</string>
+    <string name="shortcut_select_key">主键</string>
     <string name="add_webapp">添加 Web App</string>
     <string name="welcome_msg">欢迎！
 添加你的第一个 Web App：</string>

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.ZoomIn
@@ -135,6 +136,7 @@ private fun WebViewMenuSheetContent(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 MenuIconButton(Icons.Default.Home, "主页") { onSave(); onAction("home") }
+                MenuIconButton(Icons.Default.Settings, "设置") { onSave(); onAction("settings") }
                 MenuIconButton(Icons.Default.Keyboard, "快捷键") { onSave(); onAction("shortcuts") }
                 MenuIconButton(Icons.Default.Close, "关闭") { onSave(); onAction("close") }
             }

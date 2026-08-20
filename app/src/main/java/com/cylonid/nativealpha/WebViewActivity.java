@@ -542,10 +542,16 @@ public class WebViewActivity extends AppCompatActivity {
                 // 组合快捷键面板（录制/发送，页面独有快捷键）
                 showShortcutMenuSheet();
                 break;
+            case "settings":
+                // 跳转 WebApp 设置页（小菜单直达管理，与快捷键面板「管理」一致）
+                Intent settingsIntent = new Intent(this, WebAppSettingsActivity.class);
+                settingsIntent.putExtra(Const.INTENT_WEBAPPID, webappID);
+                startActivity(settingsIntent);
+                break;
         }
     }
 
-    /** 显示组合快捷键面板（ModalBottomSheet） */
+    /** 显示组合快捷键面板（ModalBottomSheet，纯发送；管理在设置页） */
     private void showShortcutMenuSheet() {
         ShortcutMenuOverlayKt.showShortcutMenuOverlay(
                 this,
@@ -555,12 +561,13 @@ public class WebViewActivity extends AppCompatActivity {
                     sendShortcutToPage(shortcut);
                     return kotlin.Unit.INSTANCE;
                 },
-                recording -> {
-                    // 录制状态联动：面板点「添加」置 true，关闭/完成置 false
-                    shortcutRecording = recording;
+                () -> {
+                    // 管理入口：跳转 WebApp 设置页
+                    Intent intent = new Intent(this, WebAppSettingsActivity.class);
+                    intent.putExtra(Const.INTENT_WEBAPPID, webappID);
+                    startActivity(intent);
                     return kotlin.Unit.INSTANCE;
-                },
-                () -> { saveShortcutSettings(); return kotlin.Unit.INSTANCE; }
+                }
         );
     }
 
@@ -785,12 +792,9 @@ public class WebViewActivity extends AppCompatActivity {
         }
     }
 
-    /** 快捷键录制中标记（面板打开且用户点「添加」后置 true，由 dispatchKeyEvent 捕获） */
-    private boolean shortcutRecording = false;
-
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        // 组合快捷键：录制模式捕获组合键；已绑定组合键拦截发送（不触发浏览器默认）
+        // 组合快捷键：已绑定组合键拦截发送（不触发浏览器默认），管理在设置页点选录入
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             boolean ctrl = event.isCtrlPressed();
             boolean shift = event.isShiftPressed();
@@ -801,12 +805,6 @@ public class WebViewActivity extends AppCompatActivity {
                 String key = keyCodeToChar(keyCode, shift);
                 if (key != null) {
                     String shortcut = buildShortcutString(ctrl, shift, alt, key);
-                    if (shortcutRecording) {
-                        // 录制：捕获组合键 → 保存到 WebApp → 通知面板刷新列表
-                        shortcutRecording = false;
-                        onShortcutRecorded(shortcut);
-                        return true;
-                    }
                     // 已绑定快捷键：拦截发送（不触发浏览器默认）
                     if (isBoundShortcut(shortcut)) {
                         sendShortcutToPage(shortcut);
@@ -816,25 +814,6 @@ public class WebViewActivity extends AppCompatActivity {
             }
         }
         return super.dispatchKeyEvent(event);
-    }
-
-    /** 录制回调：保存组合键到 WebApp + 通知面板刷新（面板负责 Toast 与列表更新） */
-    private void onShortcutRecorded(String shortcut) {
-        WebApp original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
-        if (original == null) return;
-        if (original.getKeyShortcuts() == null) original.setKeyShortcuts(new java.util.ArrayList<>());
-        if (original.getKeyShortcuts().size() >= Const.MAX_KEY_SHORTCUTS) {
-            ShortcutMenuOverlayKt.notifyShortcutRecorded(shortcut);
-            return;
-        }
-        if (original.getKeyShortcuts().contains(shortcut)) {
-            ShortcutMenuOverlayKt.notifyShortcutRecorded(shortcut);
-            return;
-        }
-        original.getKeyShortcuts().add(shortcut);
-        DataManager.getInstance().replaceWebApp(original);
-        // 通知面板：加入列表 + 退出录制 + Toast（面板统一处理）
-        ShortcutMenuOverlayKt.notifyShortcutRecorded(shortcut);
     }
 
     /** 是否已绑定的组合键 */

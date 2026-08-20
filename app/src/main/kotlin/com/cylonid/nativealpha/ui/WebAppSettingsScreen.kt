@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
@@ -28,6 +29,7 @@ import com.cylonid.nativealpha.util.DateUtils
 import android.app.TimePickerDialog
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import java.util.Calendar
 
 /**
@@ -61,6 +63,8 @@ fun WebAppSettingsScreen(
                 val source = if (!isGlobal && !webapp.isOverrideGlobalSettings) globalTemplate else webapp
                 copySettings(source)
                 isOverrideGlobalSettings = webapp.isOverrideGlobalSettings
+                // 统计/快捷键不参与全局合并：始终保留 WebApp 自身值（防设置保存清空）
+                copyStatsAndShortcuts(webapp)
             },
             neverEqualPolicy()
         )
@@ -73,6 +77,7 @@ fun WebAppSettingsScreen(
             displayName = modified.displayName
             copySettings(modified)
             isOverrideGlobalSettings = modified.isOverrideGlobalSettings
+            copyStatsAndShortcuts(modified)
         }
         copy.block()
         modified = copy
@@ -84,6 +89,7 @@ fun WebAppSettingsScreen(
             title = modified.title
             displayName = modified.displayName
             copySettings(modified)
+            copyStatsAndShortcuts(modified)
         }
         copy.isOverrideGlobalSettings = true
         copy.block()
@@ -98,6 +104,7 @@ fun WebAppSettingsScreen(
             displayName = modified.displayName
             copySettings(globalTemplate)
             isOverrideGlobalSettings = false
+            copyStatsAndShortcuts(modified)
         }
         modified = copy
     }
@@ -470,6 +477,58 @@ fun WebAppSettingsScreen(
                 )
             }
 
+            // 快捷键（手机点选录入，管理入口）
+            SettingsSectionTitle(stringResource(R.string.shortcuts_section))
+            SettingsCard {
+                Text(
+                    stringResource(R.string.shortcut_send_to_page),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                // 已绑定列表
+                if (modified.keyShortcuts.isEmpty()) {
+                    Text(
+                        stringResource(R.string.shortcut_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+                } else {
+                    modified.keyShortcuts.forEach { shortcut ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                shortcut,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(onClick = {
+                                updateSettings { keyShortcuts = keyShortcuts.filter { it != shortcut }.toMutableList() }
+                            }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
+                // 添加（点选录入）
+                ShortcutAddRow(
+                    existing = modified.keyShortcuts,
+                    onAdd = { combo ->
+                        updateSettings { keyShortcuts = (keyShortcuts + combo).toMutableList() }
+                    }
+                )
+            }
+
             // 高级
             SettingsSectionTitle(stringResource(R.string.expert_settings))
             SettingsCard {
@@ -740,3 +799,92 @@ private fun SettingsSliderRow(
         )
     }
 }
+
+/** 快捷键点选录入行（手机触摸操作，无需物理键盘） */
+@Composable
+private fun ShortcutAddRow(
+    existing: List<String>,
+    onAdd: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    var ctrl by remember { mutableStateOf(false) }
+    var shift by remember { mutableStateOf(false) }
+    var alt by remember { mutableStateOf(false) }
+    // 主键下拉（字母/数字/功能键）
+    var key by remember { mutableStateOf("S") }
+    var keyExpanded by remember { mutableStateOf(false) }
+
+    fun buildCombo(): String? {
+        val parts = buildList {
+            if (ctrl) add("Ctrl")
+            if (shift) add("Shift")
+            if (alt) add("Alt")
+            add(key)
+        }
+        return if (parts.size >= 2) parts.joinToString("+") else null
+    }
+
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        // 修饰键点选
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = ctrl,
+                onClick = { ctrl = !ctrl },
+                label = { Text("Ctrl") }
+            )
+            FilterChip(
+                selected = shift,
+                onClick = { shift = !shift },
+                label = { Text("Shift") }
+            )
+            FilterChip(
+                selected = alt,
+                onClick = { alt = !alt },
+                label = { Text("Alt") }
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        // 主键下拉 + 确认
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box {
+                OutlinedButton(onClick = { keyExpanded = true }) { Text("主键: $key") }
+                DropdownMenu(expanded = keyExpanded, onDismissRequest = { keyExpanded = false }) {
+                    ShortcutKeys.forEach { k ->
+                        DropdownMenuItem(
+                            text = { Text(k) },
+                            onClick = { key = k; keyExpanded = false }
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Button(
+                onClick = {
+                    val combo = buildCombo() ?: run {
+                        android.widget.Toast.makeText(context, "请至少选择一个修饰键", android.widget.Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    if (existing.contains(combo)) {
+                        android.widget.Toast.makeText(context, "该组合已存在", android.widget.Toast.LENGTH_SHORT).show()
+                    } else if (existing.size >= 5) {
+                        android.widget.Toast.makeText(context, "每个应用最多 5 个快捷键", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        onAdd(combo)
+                        ctrl = false; shift = false; alt = false
+                        android.widget.Toast.makeText(context, "已绑定 $combo", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
+                enabled = ctrl || shift || alt
+            ) { Text("确认绑定") }
+        }
+    }
+}
+
+/** 可选主键（字母/数字/功能键） */
+private val ShortcutKeys = listOf(
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+    "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"
+)

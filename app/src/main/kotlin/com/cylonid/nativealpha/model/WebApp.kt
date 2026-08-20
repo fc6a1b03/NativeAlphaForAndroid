@@ -101,8 +101,7 @@ data class WebApp(var baseUrl: String, val ID: Int) {
 
 
     //This part of the copy ctor should be callable independently from actual object construction to copy values of the global web app template
-    fun copySettings(other: WebApp) {
-        isOpenUrlExternal = other.isOpenUrlExternal
+    fun copySettings(other: WebApp) {        isOpenUrlExternal = other.isOpenUrlExternal
         isAllowCookies = other.isAllowCookies
         isAllowThirdPartyCookies = other.isAllowThirdPartyCookies
         isRestorePage = other.isRestorePage
@@ -142,6 +141,26 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         isAllowMediaPlaybackInBackground = other.isAllowMediaPlaybackInBackground
         order = other.order
         alwaysUseFallbackContextMenu = other.alwaysUseFallbackContextMenu
+    }
+
+    /**
+     * 复制非设置字段（统计 + 组合快捷键）。
+     * 这些字段**不参与 copySettings 全局合并**（防覆盖），但设置页构造副本时必须保留，
+     * 否则保存设置会清空统计/快捷键（P0 防护）。
+     */
+    fun copyStatsAndShortcuts(other: WebApp) {
+        statLaunches = other.statLaunches
+        statLoadTimeSum = other.statLoadTimeSum
+        statLoadTimeCount = other.statLoadTimeCount
+        statMaxLoadTime = other.statMaxLoadTime
+        statCacheHttpBytes = other.statCacheHttpBytes
+        statCacheStoreBytes = other.statCacheStoreBytes
+        statErrors = other.statErrors
+        statLastError = other.statLastError
+        statFirstLoadedAt = other.statFirstLoadedAt
+        statLastUsedAt = other.statLastUsedAt
+        // 深拷贝防共享引用（Gson 旧数据可能 null）
+        keyShortcuts = (other.keyShortcuts ?: mutableListOf()).toMutableList()
     }
 
     private fun initDefaultSettings() {

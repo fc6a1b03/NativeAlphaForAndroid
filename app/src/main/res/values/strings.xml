@@ -47,6 +47,14 @@
     </string-array>
     <string name="edit_webapp_settings">Edit</string>
     <string name="stats">Statistics</string>
+    <string name="shortcuts_section">Shortcuts</string>
+    <string name="shortcut_send_to_page">Send key combinations to this page (page-only, no browser defaults).</string>
+    <string name="shortcut_add">Add shortcut</string>
+    <string name="shortcut_confirm">Confirm</string>
+    <string name="shortcut_empty">No shortcuts yet.</string>
+    <string name="shortcut_exist">This combination already exists.</string>
+    <string name="shortcut_max">Up to 5 shortcuts per app.</string>
+    <string name="shortcut_select_key">Key</string>
     <string name="add_webapp">Add Web App</string>
     <string name="welcome_msg">Welcome!\nAdd your first Web App:</string>
     <string name="request_website_in_desktop_version">Request website in desktop version</string>

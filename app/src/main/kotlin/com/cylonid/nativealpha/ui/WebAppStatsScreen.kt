@@ -77,7 +77,9 @@ fun WebAppStatsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                // 自适应边距：innerPadding 含系统栏 inset，再加 topPadding 留出与标题栏间距（避免内容顶上去）
                 .padding(innerPadding)
+                .padding(top = 20.dp)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
