@@ -98,6 +98,8 @@ public class WebViewActivity extends AppCompatActivity {
     private static final int NONE = 0;
     private static final int SWIPE = 1;
     private static final int TRESHOLD = 100;
+    // 白屏检测：进度在 20s 内无推进即判定白屏（AI 流式页进度会动，不误判）
+    private static final int BLANK_SCREEN_TIMEOUT_MS = 20_000;
     int webappID = -1;
     private WebView wv;
     private ProgressBar progressBar;
@@ -114,6 +116,12 @@ public class WebViewActivity extends AppCompatActivity {
     private String urlOnFirstPageload = "";
     private boolean fallbackToDefaultLongClickBehaviour = false;
     private PopupMenu mPopupMenu = null;
+    // 白屏检测：当前加载最后进度 + 进度推进时间戳（无推进超时判定白屏）
+    private int lastProgress = 0;
+    private long lastProgressTime = 0L;
+    private final Handler blankScreenHandler = new Handler();
+    private final Runnable blankScreenCheck = this::handleBlankScreen;
+    private boolean pageLoadFinished = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -703,6 +711,7 @@ public class WebViewActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         // 显式销毁 WebView，释放渲染进程与内存（低损耗目标）
+        cancelBlankScreenCheck();
         if (wv != null) {
             wv.removeAllViews();
             wv.destroy();
@@ -999,6 +1008,14 @@ public class WebViewActivity extends AppCompatActivity {
 
         public void onProgressChanged(WebView view, int progress) {
 
+            // 白屏检测：记录进度推进（用于 20s 无推进超时判定）
+            if (progress > lastProgress) {
+                lastProgress = progress;
+                lastProgressTime = System.currentTimeMillis();
+                // 进度有推进 → 重新计时（每次推进重置 20s）
+                scheduleBlankScreenCheck();
+            }
+
             if (DataManager.getInstance().getSettings().isShowProgressbar() || currently_reloading) {
                 if (progressBar.getVisibility() == ProgressBar.GONE && progress < 100) {
                     progressBar.setVisibility(ProgressBar.VISIBLE);
@@ -1021,6 +1038,39 @@ public class WebViewActivity extends AppCompatActivity {
             mGeoPermissionRequestOrigin = origin;
             this.handlePermissionRequest("location", webapp.isAllowLocationAccess(), new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, Const.PERMISSION_RC_LOCATION, Arrays.asList(new String[]{}), new String[]{}, () -> webapp.setAllowLocationAccess(true));
 
+        }
+    }
+
+    /**
+     * 白屏检测：进度在 20s 内无推进 → 判定加载卡死，加载错误页并提示重试。
+     * 只在新页面加载开始后计时，进度推进即重置；加载完成即取消。
+     * AI 流式页进度持续推进（onProgressChanged 持续回调），不会误判。
+     */
+    private void scheduleBlankScreenCheck() {
+        blankScreenHandler.removeCallbacks(blankScreenCheck);
+        if (!pageLoadFinished) {
+            blankScreenHandler.postDelayed(blankScreenCheck, BLANK_SCREEN_TIMEOUT_MS);
+        }
+    }
+
+    private void cancelBlankScreenCheck() {
+        blankScreenHandler.removeCallbacks(blankScreenCheck);
+    }
+
+    private void handleBlankScreen() {
+        if (pageLoadFinished || wv == null) return;
+        long idle = System.currentTimeMillis() - lastProgressTime;
+        if (idle >= BLANK_SCREEN_TIMEOUT_MS && lastProgress < 100) {
+            // 加载卡死：加载本地错误页（带重试），避免白屏挂起
+            runOnUiThread(() -> {
+                NotificationUtils.showInfoSnackbar(
+                    WebViewActivity.this,
+                    getString(R.string.blank_screen_detected),
+                    Snackbar.LENGTH_LONG
+                );
+                wv.stopLoading();
+                wv.loadUrl("file:///android_asset/errorSite/error_" + LocaleUtils.getFileEnding() + ".html");
+            });
         }
     }
 
@@ -1050,6 +1100,9 @@ public class WebViewActivity extends AppCompatActivity {
 
         @Override
         public void onPageFinished(WebView view, String url) {
+            // 加载完成：取消白屏检测（避免误判）
+            pageLoadFinished = true;
+            cancelBlankScreenCheck();
             if(url.equals("about:blank")) {
                 String langExtension = LocaleUtils.getFileEnding();
                 wv.loadUrl("file:///android_asset/errorSite/error_" + langExtension + ".html");
@@ -1062,6 +1115,11 @@ public class WebViewActivity extends AppCompatActivity {
 
         @Override
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
+            // 新页面加载：重置白屏检测（进度从 0 重新计时）
+            pageLoadFinished = false;
+            lastProgress = 0;
+            lastProgressTime = System.currentTimeMillis();
+            scheduleBlankScreenCheck();
             super.onPageStarted(view, url, favicon);
         }
 

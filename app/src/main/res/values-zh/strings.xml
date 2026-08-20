@@ -194,4 +194,5 @@
     <string name="desc_restrict_js_popups">防止页面自动弹出窗口。</string>
     <string name="enable_safe_browsing">恶意网站防护</string>
     <string name="desc_enable_safe_browsing">对已知危险网站显示警告。</string>
+    <string name="blank_screen_detected">页面加载似乎卡住，已显示错误页，点击重试可重新加载。</string>
 </resources>
