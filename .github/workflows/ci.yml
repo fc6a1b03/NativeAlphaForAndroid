@@ -130,7 +130,9 @@ jobs:
       - name: "🚀 Create GitHub Release"
         uses: softprops/action-gh-release@v3
         with:
-          files: artifacts/*
+          files: |
+            artifacts/WebNative-*.apk
+            artifacts/WebNative-*.aab
           body_path: artifacts/release_body.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
