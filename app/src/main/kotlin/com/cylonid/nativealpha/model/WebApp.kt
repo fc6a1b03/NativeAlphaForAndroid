@@ -25,6 +25,12 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     var isBlockImages = false
     var isAllowHttp = false
     var isAllowLocationAccess = false
+    /** 字体缩放（50~200，100=默认）。Gson 反序列化旧数据可能为 0，getter 归一化 */
+    var textZoom: Int = 100
+        get() = if (field in 50..200) field else 100
+    /** 页面缩放（50~200，100=默认）。Gson 反序列化旧数据可能为 0，getter 归一化 */
+    var pageZoom: Int = 100
+        get() = if (field in 50..200) field else 100
     var userAgent: String? = null
     var isUseCustomUserAgent = false
     var isAutoreload = false
@@ -84,6 +90,8 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         isBlockImages = other.isBlockImages
         isAllowHttp = other.isAllowHttp
         isAllowLocationAccess = other.isAllowLocationAccess
+        textZoom = other.textZoom
+        pageZoom = other.pageZoom
         userAgent = other.userAgent
         isUseCustomUserAgent = other.isUseCustomUserAgent
         isAutoreload = other.isAutoreload

@@ -259,6 +259,9 @@ public class DataManager {
                 merged.setTitle(webApp.getTitle());
                 merged.setDisplayName(webApp.getDisplayName());
                 merged.copySettings(settings.getGlobalWebApp());
+                // 外观设置（字体/页面缩放）不参与全局合并：始终用 WebApp 自身的值
+                merged.setTextZoom(webApp.getTextZoom());
+                merged.setPageZoom(webApp.getPageZoom());
                 merged.setOverrideGlobalSettings(false);
                 return merged;
             }
