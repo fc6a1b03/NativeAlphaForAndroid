@@ -79,6 +79,10 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     var statLastError: String? = null// 最近页面错误描述
     var statFirstLoadedAt: Long = 0  // 首次使用（0 = 未使用，展示时处理）
     var statLastUsedAt: Long = 0     // 最近使用
+    /** 最近 20 次加载耗时明细（ms，用于分布图；超出丢最旧） */
+    var statLoadTimes: MutableList<Long> = mutableListOf()
+    /** 快捷键发送次数（key=组合键，value=发送次数，展示反馈用） */
+    var keyShortcutSendCounts: MutableMap<String, Int> = mutableMapOf()
 
     init {
         title = baseUrl.replace("http://", "").replace("https://", "").replace("www.", "")
@@ -160,7 +164,9 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         statFirstLoadedAt = other.statFirstLoadedAt
         statLastUsedAt = other.statLastUsedAt
         // 深拷贝防共享引用（Gson 旧数据可能 null）
+        statLoadTimes = (other.statLoadTimes ?: mutableListOf()).toMutableList()
         keyShortcuts = (other.keyShortcuts ?: mutableListOf()).toMutableList()
+        keyShortcutSendCounts = (other.keyShortcutSendCounts ?: mutableMapOf()).toMutableMap()
     }
 
     private fun initDefaultSettings() {

@@ -36,7 +36,6 @@ import com.cylonid.nativealpha.util.AppMaterialTheme
 fun Activity.showShortcutMenuOverlay(
     webappID: Int,
     onSendShortcut: (String) -> Unit,
-    onOpenSettings: () -> Unit,
 ) {
     val root = findViewById<ViewGroup>(android.R.id.content) ?: return
     val composeView = ComposeView(this)
@@ -46,7 +45,6 @@ fun Activity.showShortcutMenuOverlay(
             ShortcutMenuSheetContent(
                 webappID = webappID,
                 onSendShortcut = onSendShortcut,
-                onOpenSettings = onOpenSettings,
                 onDismiss = { root.removeView(composeView) }
             )
         }
@@ -63,7 +61,6 @@ fun Activity.showShortcutMenuOverlay(
 private fun ShortcutMenuSheetContent(
     webappID: Int,
     onSendShortcut: (String) -> Unit,
-    onOpenSettings: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -71,6 +68,10 @@ private fun ShortcutMenuSheetContent(
     // 已绑定快捷键（Gson 旧数据可能 null → 安全兜底）
     val shortcuts = remember(webappID) {
         (webapp?.keyShortcuts ?: mutableListOf()).toList()
+    }
+    // 发送次数（key=组合键，value=次数；反馈「常用/未用」）
+    val sendCounts = remember(webappID) {
+        (webapp?.keyShortcutSendCounts ?: mutableMapOf())
     }
 
     ModalBottomSheet(
@@ -84,7 +85,7 @@ private fun ShortcutMenuSheetContent(
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
-            // 标题行
+            // 标题行（管理入口在小菜单「设置」，此处精简避免重复导航）
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Default.Keyboard, contentDescription = null,
@@ -95,11 +96,6 @@ private fun ShortcutMenuSheetContent(
                     "快捷键", style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)
                 )
-                // 管理入口：跳 WebApp 设置页
-                TextButton(onClick = {
-                    onDismiss()
-                    onOpenSettings()
-                }) { Text("管理") }
             }
             Text(
                 "发送到当前页面的组合键",
@@ -159,6 +155,16 @@ private fun ShortcutMenuSheetContent(
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
+                            // 发送次数（反馈：用过的显示次数，未用不显示）
+                            val count = sendCounts[shortcut] ?: 0
+                            if (count > 0) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "×$count",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }

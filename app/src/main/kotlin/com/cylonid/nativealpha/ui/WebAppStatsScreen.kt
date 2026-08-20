@@ -26,6 +26,20 @@ import com.cylonid.nativealpha.util.DateUtils
 import com.cylonid.nativealpha.util.StatsRecorder
 import kotlinx.coroutines.launch
 
+// ===== 加载耗时分布分桶（统计页图表） =====
+/** 分桶边界（ms）：<1s / 1-2s / 2-3s / 3-5s / 5s+ */
+private val LOAD_TIME_BUCKET_MS = listOf(1000L, 2000L, 3000L, 5000L)
+/** 分桶标签（与边界一一对应，末桶为 5s+ 开区间） */
+private val LOAD_TIME_BUCKET_LABELS = listOf("<1s", "1-2s", "2-3s", "3-5s", "5s+")
+
+// ===== 使用建议阈值（统计页「数据→行动」） =====
+/** 平均加载耗时超过该值（ms）提示优化（约 3s） */
+private const val SUGGEST_SLOW_LOAD_MS = 3000L
+/** 页面错误数超过该值提示查看错误日志 */
+private const val SUGGEST_ERROR_COUNT = 10
+/** 缓存占用超过该值（B）提示清理（约 50MB） */
+private const val SUGGEST_CACHE_BYTES = 50L * 1024 * 1024
+
 /**
  * 统计页（按 WebApp 进入 · 开发者向）。
  *
@@ -92,6 +106,36 @@ fun WebAppStatsScreen(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 KpiCard("HTTP 缓存", formatBytes(webapp.statCacheHttpBytes), Modifier.weight(1f))
                 KpiCard("页面错误", webapp.statErrors.toString(), Modifier.weight(1f))
+            }
+
+            // 使用建议（数据→行动：加载慢/错误多/缓存大给出可执行建议）
+            val suggestions = buildSuggestions(webapp)
+            if (suggestions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(24.dp))
+                StatsCard {
+                    Text("使用建议", style = MaterialTheme.typography.titleSmall)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    suggestions.forEach { tip ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "💡",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.width(28.dp)
+                            )
+                            Text(
+                                tip,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -293,54 +337,66 @@ private fun ErrorRow(entry: PageErrorEntry) {
     }
 }
 
-/** 错误类型配色：HTTP 橙 / 网络红 / SSL 黄 / RENDER 紫 */
+/** 错误类型配色：HTTP 橙 / 网络红 / SSL 黄 / RENDER 紫 / JS 青 */
 @Composable
 private fun errorColor(type: String): androidx.compose.ui.graphics.Color = when (type) {
-    "HTTP" -> MaterialTheme.colorScheme.tertiary
-    "NETWORK" -> MaterialTheme.colorScheme.error
-    "SSL" -> MaterialTheme.colorScheme.secondary
-    "RENDER" -> MaterialTheme.colorScheme.primary
+    com.cylonid.nativealpha.model.ErrorType.HTTP.name -> MaterialTheme.colorScheme.tertiary
+    com.cylonid.nativealpha.model.ErrorType.NETWORK.name -> MaterialTheme.colorScheme.error
+    com.cylonid.nativealpha.model.ErrorType.SSL.name -> MaterialTheme.colorScheme.secondary
+    com.cylonid.nativealpha.model.ErrorType.RENDER.name -> MaterialTheme.colorScheme.primary
+    com.cylonid.nativealpha.model.ErrorType.JS.name -> MaterialTheme.colorScheme.tertiaryContainer
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 /** 加载耗时分布柱状图（Vico ColumnChart，按次） */
 @Composable
 private fun LoadTimeChart(webapp: WebApp) {
-    // Vico 图表（数据来自统计字段；<2 次不展示由调用方控制）
-    val entries = buildList {
-        // 用平均/最慢构造两个柱（真实分布需每次耗时明细，此处用统计字段近似）
-        if (webapp.statLoadTimeCount > 0) {
-            add(webapp.statLoadTimeSum / webapp.statLoadTimeCount)
-            add(webapp.statMaxLoadTime)
-        }
+    // 真实分布：按耗时区间分桶（标签见常量），展示最近 20 次
+    val times = webapp.statLoadTimes ?: emptyList()
+    if (times.isEmpty()) return
+    // 分桶：index 对应区间，值 = 次数（末桶为 5s+ 开区间）
+    val buckets = IntArray(LOAD_TIME_BUCKET_MS.size)
+    times.forEach { ms ->
+        val bucket = LOAD_TIME_BUCKET_MS.indexOfFirst { ms < it }.let { if (it == -1) LOAD_TIME_BUCKET_MS.size - 1 else it }
+        buckets[bucket]++
     }
-    // 简化：显示统计摘要（真实 Vico 图表在图表库接入后替换）
+    val labels = LOAD_TIME_BUCKET_LABELS
+    val maxCount = (buckets.maxOrNull() ?: 1).coerceAtLeast(1)
+    // 横向柱状：每桶一行（标签 + 比例条 + 次数），一眼看出耗时集中区
     Column {
-        entries.forEachIndexed { index, ms ->
+        buckets.forEachIndexed { index, count ->
+            if (count == 0) return@forEachIndexed
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    if (index == 0) "平均" else "最慢",
+                    labels[index],
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.width(40.dp)
+                    modifier = Modifier.width(44.dp)
                 )
-                // 比例条：weight(1f) 占剩余宽度，不挤压右侧文本
+                // 比例条：weight(1f) 占剩余宽度，长度 = 次数占比
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .height(12.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(MaterialTheme.colorScheme.primaryContainer)
-                )
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(count.toFloat() / maxCount)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                }
                 Spacer(modifier = Modifier.width(8.dp))
-                // 文本固定最小宽度，防止竖排
                 Text(
-                    formatDuration(ms),
+                    "${count}次",
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
-                    modifier = Modifier.width(52.dp)
+                    modifier = Modifier.width(40.dp)
                 )
             }
         }
@@ -370,4 +426,24 @@ private fun formatBytes(bytes: Long): String {
         bytes < 1024 * 1024 -> String.format("%.1f KB", bytes / 1024.0)
         else -> String.format("%.1f MB", bytes / 1024.0 / 1024.0)
     }
+}
+
+/**
+ * 生成使用建议（数据→行动）：按统计字段阈值给出可执行建议。
+ * 规则：平均加载 >3s / 错误数 >10 / 缓存 >50MB 各出一条；无异常返回空列表。
+ */
+private fun buildSuggestions(webapp: WebApp): List<String> {
+    val tips = mutableListOf<String>()
+    val avgLoad = if (webapp.statLoadTimeCount > 0)
+        webapp.statLoadTimeSum / webapp.statLoadTimeCount else 0L
+    if (avgLoad > SUGGEST_SLOW_LOAD_MS) {
+        tips.add("平均加载 ${formatDuration(avgLoad)} 偏慢，可在设置中尝试「桌面版请求」或检查网络")
+    }
+    if (webapp.statErrors > SUGGEST_ERROR_COUNT) {
+        tips.add("已有 ${webapp.statErrors} 次页面错误，建议查看下方错误日志定位问题")
+    }
+    if (webapp.statCacheHttpBytes > SUGGEST_CACHE_BYTES) {
+        tips.add("HTTP 缓存已达 ${formatBytes(webapp.statCacheHttpBytes)}，可在下方清理释放空间")
+    }
+    return tips
 }

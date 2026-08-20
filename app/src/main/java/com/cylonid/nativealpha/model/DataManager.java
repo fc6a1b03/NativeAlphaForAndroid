@@ -274,6 +274,13 @@ public class DataManager {
                 merged.setStatLastError(webApp.getStatLastError());
                 merged.setStatFirstLoadedAt(webApp.getStatFirstLoadedAt());
                 merged.setStatLastUsedAt(webApp.getStatLastUsedAt());
+                // 加载耗时明细 + 发送计数（新统计字段，合并时保留）
+                if (webApp.getStatLoadTimes() != null) {
+                    merged.setStatLoadTimes(new java.util.ArrayList<>(webApp.getStatLoadTimes()));
+                }
+                if (webApp.getKeyShortcutSendCounts() != null) {
+                    merged.setKeyShortcutSendCounts(new java.util.HashMap<>(webApp.getKeyShortcutSendCounts()));
+                }
                 // 组合快捷键不参与 copySettings 合并：从原对象复制（每站独立）
                 if (webApp.getKeyShortcuts() != null) {
                     merged.setKeyShortcuts(new java.util.ArrayList<>(webApp.getKeyShortcuts()));

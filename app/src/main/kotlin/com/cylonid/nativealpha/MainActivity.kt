@@ -3,12 +3,15 @@ package com.cylonid.nativealpha
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.cylonid.nativealpha.model.AppErrorEntry
+import com.cylonid.nativealpha.model.AppErrorLogRepository
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
@@ -18,6 +21,9 @@ import com.cylonid.nativealpha.ui.MainScreen
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.EntryPointUtils.entryPointReached
 import com.cylonid.nativealpha.util.WebViewLauncher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -27,6 +33,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         entryPointReached(this)
+
+        // 崩溃恢复提示：上次进程崩溃过 → 引导导出错误日志（异步检查，不阻塞启动）
+        checkAndPromptCrashLog()
 
         setContent {
             AppMaterialTheme {
@@ -60,6 +69,36 @@ class MainActivity : AppCompatActivity() {
                         startActivity(Intent(this, SettingsActivity::class.java))
                     }
                 )
+            }
+        }
+    }
+
+    /**
+     * 崩溃恢复提示：检查近 3 天是否有 CRASH 级应用错误日志，
+     * 有则弹窗引导去全局设置导出（错误日志入口较深，主动提示形成闭环）。
+     * 异步执行（IO 协程），不阻塞启动；无崩溃或检查失败静默。
+     */
+    private fun checkAndPromptCrashLog() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val entries = AppErrorLogRepository.getAll(applicationContext)
+            // 近 3 天 CRASH 级记录（常量 APP_ERROR_DAYS）
+            val cutoff = System.currentTimeMillis() - Const.APP_ERROR_DAYS * 24L * 60 * 60 * 1000
+            val recentCrash = entries.any { it.level == AppErrorEntry.LEVEL_CRASH && it.time >= cutoff }
+            if (recentCrash) {
+                runOnUiThread {
+                    try {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle(getString(R.string.crash_detected_title))
+                            .setMessage(getString(R.string.crash_detected_msg))
+                            .setPositiveButton(getString(R.string.crash_export_logs)) { _, _ ->
+                                startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                            }
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .show()
+                    } catch (ignored: Exception) {
+                        // 弹窗失败（Activity 已销毁等）静默
+                    }
+                }
             }
         }
     }

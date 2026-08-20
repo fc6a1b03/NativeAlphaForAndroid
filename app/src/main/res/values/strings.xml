@@ -55,6 +55,9 @@
     <string name="shortcut_exist">This combination already exists.</string>
     <string name="shortcut_max">Up to 5 shortcuts per app.</string>
     <string name="shortcut_select_key">Key</string>
+    <string name="crash_detected_title">App crashed last time</string>
+    <string name="crash_detected_msg">The app crashed during your last session. Export the error log so we can investigate?</string>
+    <string name="crash_export_logs">Export logs</string>
     <string name="add_webapp">Add</string>
     <string name="next">Next</string>
     <string name="welcome_msg">Welcome!\nAdd your first app:</string>

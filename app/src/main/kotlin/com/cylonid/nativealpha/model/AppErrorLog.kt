@@ -12,12 +12,18 @@ import java.util.Collections
  */
 data class AppErrorEntry(
     val time: Long = 0L,          // 发生时间（epoch ms）
-    val level: String = "ERROR",  // 级别：ERROR / WARNING / CRASH
+    val level: String = LEVEL_ERROR,  // 级别：ERROR / WARNING / CRASH（见 companion 常量）
     val tag: String = "",         // 来源（类名/线程）
     val message: String = "",     // 错误信息
     val stackTrace: String = ""   // 堆栈（崩溃时记录，其余可为空）
 ) {
     companion object {
+        /** 级别：崩溃（未捕获异常/进程终止） */
+        const val LEVEL_CRASH = "CRASH"
+        /** 级别：一般错误 */
+        const val LEVEL_ERROR = "ERROR"
+        /** 级别：警告 */
+        const val LEVEL_WARNING = "WARNING"
         private val gson = Gson()
 
         /** 序列化为 JSON 数组 */

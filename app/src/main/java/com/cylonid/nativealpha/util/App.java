@@ -59,8 +59,7 @@ public class App extends Application {
                     com.cylonid.nativealpha.model.AppErrorEntry entry =
                             new com.cylonid.nativealpha.model.AppErrorEntry(
                                     System.currentTimeMillis(),
-                                    "CRASH",
-                                    thread != null ? thread.getName() : "",
+                                    com.cylonid.nativealpha.model.AppErrorEntry.LEVEL_CRASH,                                    thread != null ? thread.getName() : "",
                                     throwable != null ? String.valueOf(throwable.getMessage()) : "",
                                     stack
                             );

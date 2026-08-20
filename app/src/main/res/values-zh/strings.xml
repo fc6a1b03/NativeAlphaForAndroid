@@ -58,6 +58,9 @@
     <string name="shortcut_exist">该组合已存在。</string>
     <string name="shortcut_max">每个应用最多 5 个快捷键。</string>
     <string name="shortcut_select_key">主键</string>
+    <string name="crash_detected_title">上次应用崩溃了</string>
+    <string name="crash_detected_msg">上次使用过程中应用发生了崩溃，是否导出错误日志以便排查？</string>
+    <string name="crash_export_logs">导出日志</string>
     <string name="add_webapp">添加</string>
     <string name="next">下一步</string>
     <string name="welcome_msg">欢迎！

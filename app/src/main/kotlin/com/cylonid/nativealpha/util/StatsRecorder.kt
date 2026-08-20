@@ -25,6 +25,9 @@ import java.util.concurrent.RejectedExecutionException
  */
 object StatsRecorder {
 
+    /** 加载耗时明细上限（最近 N 次，分布图数据源） */
+    private const val STAT_LOAD_TIMES_LIMIT = 20
+
     // 单线程队列（守护线程：进程结束自动退出，不阻塞）
     private val executor: ExecutorService = Executors.newSingleThreadExecutor { r ->
         Thread(r, "stats-recorder").apply { isDaemon = true }
@@ -94,6 +97,9 @@ object StatsRecorder {
                 w.statLoadTimeCount++
                 if (loadMs > w.statMaxLoadTime) w.statMaxLoadTime = loadMs
                 w.statLastUsedAt = System.currentTimeMillis()
+                // 耗时明细（最近 20 次，超出丢最旧——分布图数据源；Gson 旧数据可能 null → 兜底）
+                val times = (w.statLoadTimes ?: mutableListOf()) + loadMs
+                w.statLoadTimes = times.takeLast(STAT_LOAD_TIMES_LIMIT).toMutableList()
             }
         }
     }
@@ -111,6 +117,19 @@ object StatsRecorder {
             // 页面错误明细写入 DataStore（KEY_PAGE_ERRORS，按站）
             recordSuspend {
                 PageErrorRepository.append(appContext ?: return@recordSuspend, webappId, type, code, description)
+            }
+        }
+    }
+
+    /**
+     * 记录快捷键发送次数（统计反馈：面板/统计页显示使用频率）。
+     */
+    fun recordShortcutSent(webappId: Int, shortcut: String) {
+        record {
+            updateStats(webappId) { w ->
+                val counts = (w.keyShortcutSendCounts ?: mutableMapOf()).toMutableMap()
+                counts[shortcut] = (counts[shortcut] ?: 0) + 1
+                w.keyShortcutSendCounts = counts
             }
         }
     }

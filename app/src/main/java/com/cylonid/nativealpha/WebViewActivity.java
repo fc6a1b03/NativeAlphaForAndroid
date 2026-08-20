@@ -68,6 +68,7 @@ import android.content.pm.PackageManager;
 import com.cylonid.nativealpha.databinding.DialogHttpAuthBinding;
 import com.cylonid.nativealpha.helper.IconPopupMenuHelper;
 import com.cylonid.nativealpha.model.DataManager;
+import com.cylonid.nativealpha.model.ErrorType;
 import com.cylonid.nativealpha.model.WebApp;
 import com.cylonid.nativealpha.ui.ShortcutMenuOverlayKt;
 import com.cylonid.nativealpha.ui.WebViewMenuOverlayKt;
@@ -560,13 +561,6 @@ public class WebViewActivity extends AppCompatActivity {
                     // 发送组合键到当前页面（JS 合成 KeyboardEvent）
                     sendShortcutToPage(shortcut);
                     return kotlin.Unit.INSTANCE;
-                },
-                () -> {
-                    // 管理入口：跳转 WebApp 设置页
-                    Intent intent = new Intent(this, WebAppSettingsActivity.class);
-                    intent.putExtra(Const.INTENT_WEBAPPID, webappID);
-                    startActivity(intent);
-                    return kotlin.Unit.INSTANCE;
                 }
         );
     }
@@ -584,6 +578,8 @@ public class WebViewActivity extends AppCompatActivity {
      */
     private void sendShortcutToPage(String shortcut) {
         if (wv == null || shortcut == null || shortcut.isEmpty()) return;
+        // 统计：记录发送次数（面板/统计页反馈）
+        StatsRecorder.INSTANCE.recordShortcutSent(webappID, shortcut);
         String[] parts = shortcut.split("\\+");
         boolean ctrl = false, shift = false, alt = false;
         String key = "";
@@ -1048,6 +1044,20 @@ public class WebViewActivity extends AppCompatActivity {
         private int mOriginalOrientation;
         private int mOriginalSystemUiVisibility;
 
+        @Override
+        public boolean onConsoleMessage(android.webkit.ConsoleMessage consoleMessage) {
+            // 统计埋点：页面 JS 错误（未捕获异常/语法错误走 console.error 上报）
+            if (consoleMessage != null
+                    && consoleMessage.messageLevel() == android.webkit.ConsoleMessage.MessageLevel.ERROR) {
+                StatsRecorder.INSTANCE.recordPageError(
+                    webappID, ErrorType.JS.name(),
+                    ErrorType.JS.getCode(),
+                    consoleMessage.message() != null ? consoleMessage.message() : "JS error"
+                );
+            }
+            return false; // 不阻断页面（仅采集）
+        }
+
         private void handlePermissionRequest(String resId,
                                              boolean currentState,
                                              String[] androidPermissions,
@@ -1342,7 +1352,7 @@ public class WebViewActivity extends AppCompatActivity {
             if (request != null && request.isForMainFrame()) {
                 StatsRecorder.INSTANCE.recordPageError(
                     webappID,
-                    "NETWORK",
+                    ErrorType.NETWORK.name(),
                     error != null ? String.valueOf(error.getErrorCode()) : "unknown",
                     error != null && error.getDescription() != null ? error.getDescription().toString() : ""
                 );
@@ -1356,7 +1366,7 @@ public class WebViewActivity extends AppCompatActivity {
             if (request != null && request.isForMainFrame()) {
                 StatsRecorder.INSTANCE.recordPageError(
                     webappID,
-                    "HTTP",
+                    ErrorType.HTTP.name(),
                     errorResponse != null ? String.valueOf(errorResponse.getStatusCode()) : "unknown",
                     "HTTP error"
                 );
@@ -1366,7 +1376,7 @@ public class WebViewActivity extends AppCompatActivity {
         @Override
         public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
             // 渲染进程崩溃/OOM：避免整个应用崩溃，提示用户并关闭页面
-            StatsRecorder.INSTANCE.recordPageError(webappID, "RENDER", "render_gone", "Render process gone");
+            StatsRecorder.INSTANCE.recordPageError(webappID, ErrorType.RENDER.name(), ErrorType.RENDER.getCode(), "Render process gone");
             runOnUiThread(() -> {
                 NotificationUtils.showInfoSnackbar(
                     WebViewActivity.this,
@@ -1406,7 +1416,7 @@ public class WebViewActivity extends AppCompatActivity {
             }
 
             // 统计埋点：SSL 错误
-            StatsRecorder.INSTANCE.recordPageError(webappID, "SSL", String.valueOf(error.getPrimaryError()), "SSL error");
+            StatsRecorder.INSTANCE.recordPageError(webappID, ErrorType.SSL.name(), String.valueOf(error.getPrimaryError()), "SSL error");
 
             final AlertDialog.Builder builder = new AlertDialog.Builder(WebViewActivity.this);
 
