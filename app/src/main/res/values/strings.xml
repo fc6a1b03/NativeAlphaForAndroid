@@ -193,4 +193,9 @@
     <string name="blank_screen_detected">Page loading seems stuck. Showing error page, tap retry to reload.</string>
     <string name="permission_permanently_denied_msg">You permanently denied %1$s. Enable it in system settings to use this feature.</string>
     <string name="permission_go_to_settings">Open settings</string>
+    <string name="export_app_errors">Export error logs (last 3 days)</string>
+    <string name="desc_export_app_errors">Export the app\'s own error logs of the last 3 days for debugging.</string>
+    <string name="app_errors_export_success">Error logs exported</string>
+    <string name="app_errors_export_failed">Failed to export error logs</string>
+    <string name="app_errors_none">No error logs in the last 3 days</string>
 </resources>

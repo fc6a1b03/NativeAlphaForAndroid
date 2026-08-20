@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Restore
@@ -41,6 +42,7 @@ fun GlobalSettingsScreen(
     onSave: (com.cylonid.nativealpha.model.GlobalSettings) -> Unit,
     onExport: () -> Unit = {},
     onImport: () -> Unit = {},
+    onExportAppErrors: () -> Unit = {},
     onGlobalWebApp: () -> Unit = {},
 ) {
     val settings = DataManager.getInstance().settings
@@ -273,6 +275,13 @@ fun GlobalSettingsScreen(
                     icon = { Icon(Icons.Default.Restore, contentDescription = null) },
                     title = stringResource(R.string.import_settings_web_apps),
                     onClick = onImport
+                )
+                HorizontalDivider()
+                SettingsActionRow(
+                    icon = { Icon(Icons.Default.BugReport, contentDescription = null) },
+                    title = stringResource(R.string.export_app_errors),
+                    subtitle = stringResource(R.string.desc_export_app_errors),
+                    onClick = onExportAppErrors
                 )
             }
 

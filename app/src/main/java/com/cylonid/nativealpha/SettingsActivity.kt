@@ -8,8 +8,11 @@ import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.widget.Toast
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
+import com.cylonid.nativealpha.model.AppErrorEntry
+import com.cylonid.nativealpha.model.AppErrorLogRepository
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
@@ -17,6 +20,10 @@ import com.cylonid.nativealpha.ui.GlobalSettingsScreen
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -25,6 +32,15 @@ import java.util.Locale
  * 全局设置页：Compose 实现（分区块卡片：通用 / 备份）。
  */
 class SettingsActivity : AppCompatActivity() {
+
+    // 导出错误日志（SAF 新 API，替代 startActivityForResult）
+    private val exportAppErrorsLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            exportAppErrorsToUri(uri)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeUtils.applyUiMode()
@@ -43,6 +59,7 @@ class SettingsActivity : AppCompatActivity() {
                     },
                     onExport = { export() },
                     onImport = { importBackup() },
+                    onExportAppErrors = { exportAppErrors() },
                     onGlobalWebApp = {
                         val intent = Intent(this, WebAppSettingsActivity::class.java)
                         intent.putExtra(
@@ -53,6 +70,63 @@ class SettingsActivity : AppCompatActivity() {
                         startActivity(intent)
                     }
                 )
+            }
+        }
+    }
+
+    /**
+     * 导出应用错误日志（近 3 天）：SAF 创建文件 → 读 DataStore → 过滤 → 写 JSON。
+     * 三态：成功 / 失败 / 近 3 天无日志（不创建空文件）。
+     */
+    private fun exportAppErrors() {
+        val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+        // CreateDocument 注册器已指定 application/json，launch 传文件名即可
+        try {
+            exportAppErrorsLauncher.launch("WebNative_app_errors_" + sdf.format(Date()) + ".json")
+        } catch (e: Exception) {
+            NotificationUtils.showInfoSnackbar(
+                this,
+                getString(R.string.no_filemanager),
+                Snackbar.LENGTH_LONG
+            )
+        }
+    }
+
+    /** 写错误日志到所选 URI（异步：读 DataStore 不阻塞主线程） */
+    private fun exportAppErrorsToUri(uri: android.net.Uri) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val entries = AppErrorLogRepository.getAll(applicationContext)
+            // 过滤近 3 天（常量 APP_ERROR_DAYS=3）
+            val cutoff = System.currentTimeMillis() - 3L * 24 * 60 * 60 * 1000
+            val recent = entries.filter { it.time >= cutoff }
+            runOnUiThread {
+                if (recent.isEmpty()) {
+                    // 无日志：不创建空文件，提示
+                    NotificationUtils.showInfoSnackbar(
+                        this@SettingsActivity,
+                        getString(R.string.app_errors_none),
+                        Snackbar.LENGTH_LONG
+                    )
+                    return@runOnUiThread
+                }
+                try {
+                    contentResolver.openOutputStream(uri)?.use { stream ->
+                        OutputStreamWriter(stream, Charsets.UTF_8).use { writer ->
+                            writer.write(AppErrorEntry.toJson(recent))
+                        }
+                    }
+                    NotificationUtils.showInfoSnackbar(
+                        this@SettingsActivity,
+                        getString(R.string.app_errors_export_success),
+                        Snackbar.LENGTH_SHORT
+                    )
+                } catch (e: Exception) {
+                    NotificationUtils.showInfoSnackbar(
+                        this@SettingsActivity,
+                        getString(R.string.app_errors_export_failed),
+                        Snackbar.LENGTH_LONG
+                    )
+                }
             }
         }
     }
