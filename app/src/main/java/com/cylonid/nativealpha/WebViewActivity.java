@@ -1160,6 +1160,18 @@ public class WebViewActivity extends AppCompatActivity {
                 return true;
             }
 
+            // 非 http/https 协议（tbopen://、weixin:// 等 App 唤起协议）：
+            // 交给系统处理（可唤起对应 App），避免 ERR_UNKNOWN_URL_SCHEME 错误页
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(intent);
+                } catch (Exception e) {
+                    // 无对应 App：留在当前页不崩溃
+                }
+                return true;
+            }
+
             if (webapp == null) {
                 return false;
             }

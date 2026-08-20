@@ -117,18 +117,18 @@ private fun WebViewMenuSheetContent(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // ===== 常用操作（图标行）=====
+            // ===== 常用操作（图标行）：先保存缩放再执行动作（操作即触发持久化）=====
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                MenuIconButton(Icons.AutoMirrored.Filled.ArrowBack, "返回", enabled = canGoBack) { onAction("back") }
-                MenuIconButton(Icons.AutoMirrored.Filled.ArrowForward, "前进", enabled = canGoForward) { onAction("forward") }
-                MenuIconButton(Icons.Default.Refresh, "刷新") { onAction("reload") }
-                MenuIconButton(Icons.Default.ContentCopy, "复制") { onAction("copy") }
-                MenuIconButton(Icons.Default.Share, "分享") { onAction("share") }
-                MenuIconButton(Icons.Default.Home, "主页") { onAction("home") }
-                MenuIconButton(Icons.Default.Close, "关闭") { onAction("close") }
+                MenuIconButton(Icons.AutoMirrored.Filled.ArrowBack, "返回", enabled = canGoBack) { onSave(); onAction("back") }
+                MenuIconButton(Icons.AutoMirrored.Filled.ArrowForward, "前进", enabled = canGoForward) { onSave(); onAction("forward") }
+                MenuIconButton(Icons.Default.Refresh, "刷新") { onSave(); onAction("reload") }
+                MenuIconButton(Icons.Default.ContentCopy, "复制") { onSave(); onAction("copy") }
+                MenuIconButton(Icons.Default.Share, "分享") { onSave(); onAction("share") }
+                MenuIconButton(Icons.Default.Home, "主页") { onSave(); onAction("home") }
+                MenuIconButton(Icons.Default.Close, "关闭") { onSave(); onAction("close") }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
