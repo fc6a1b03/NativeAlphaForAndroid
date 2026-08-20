@@ -42,6 +42,55 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    // 备份导出（SAF 新 API）
+    private val exportBackupLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("*/*")
+    ) { uri ->
+        if (uri != null) {
+            DataManager.getInstance().saveGlobalSettings()
+            if (DataManager.getInstance().saveSharedPreferencesToFile(uri)) {
+                NotificationUtils.showInfoSnackbar(
+                    this,
+                    getString(R.string.export_success),
+                    Snackbar.LENGTH_SHORT
+                )
+            } else {
+                NotificationUtils.showInfoSnackbar(
+                    this,
+                    getString(R.string.export_failed),
+                    Snackbar.LENGTH_LONG
+                )
+            }
+        }
+    }
+
+    // 备份导入（SAF 新 API）
+    private val importBackupLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null && DataManager.getInstance().loadSharedPreferencesFromFile(uri)) {
+            WebStorage.getInstance().deleteAllData()
+            CookieManager.getInstance().removeAllCookies(null)
+            DataManager.getInstance().loadAppData()
+            // 成功提示用 Toast：页面即将 finish，Snackbar 无法显示
+            Toast.makeText(
+                this,
+                getString(R.string.import_success, DataManager.getInstance().getActiveWebsitesCount()),
+                Toast.LENGTH_LONG
+            ).show()
+            val i = Intent(this, MainActivity::class.java)
+            i.putExtra(Const.INTENT_BACKUP_RESTORED, true)
+            finish()
+            startActivity(i)
+        } else {
+            NotificationUtils.showInfoSnackbar(
+                this,
+                getString(R.string.import_failed),
+                Snackbar.LENGTH_LONG
+            )
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeUtils.applyUiMode()
         setTheme(ThemeUtils.resolveTheme())
@@ -139,13 +188,9 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun export() {
-        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
-            .addCategory(Intent.CATEGORY_OPENABLE)
-            .setType("*/*")
         val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-        intent.putExtra(Intent.EXTRA_TITLE, "WebNative_" + sdf.format(Date()))
         try {
-            startActivityForResult(intent, Const.CODE_WRITE_FILE)
+            exportBackupLauncher.launch("WebNative_" + sdf.format(Date()) + ".json")
         } catch (e: ActivityNotFoundException) {
             NotificationUtils.showInfoSnackbar(
                 this,
@@ -156,63 +201,14 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun importBackup() {
-        val intent = Intent().setType("*/*").setAction(Intent.ACTION_GET_CONTENT)
         try {
-            startActivityForResult(
-                Intent.createChooser(intent, "Select a file"),
-                Const.CODE_OPEN_FILE
-            )
+            importBackupLauncher.launch(arrayOf("*/*"))
         } catch (e: ActivityNotFoundException) {
             NotificationUtils.showInfoSnackbar(
                 this,
                 getString(R.string.no_filemanager),
                 Snackbar.LENGTH_LONG
             )
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == Const.CODE_WRITE_FILE && resultCode == RESULT_OK) {
-            val uri = data?.data
-            DataManager.getInstance().saveGlobalSettings()
-            if (uri != null && DataManager.getInstance().saveSharedPreferencesToFile(uri)) {
-                NotificationUtils.showInfoSnackbar(
-                    this,
-                    getString(R.string.export_success),
-                    Snackbar.LENGTH_SHORT
-                )
-            } else {
-                NotificationUtils.showInfoSnackbar(
-                    this,
-                    getString(R.string.export_failed),
-                    Snackbar.LENGTH_LONG
-                )
-            }
-        }
-        if (requestCode == Const.CODE_OPEN_FILE && resultCode == RESULT_OK) {
-            val uri = data?.data
-            if (uri != null && DataManager.getInstance().loadSharedPreferencesFromFile(uri)) {
-                WebStorage.getInstance().deleteAllData()
-                CookieManager.getInstance().removeAllCookies(null)
-                DataManager.getInstance().loadAppData()
-                // 成功提示用 Toast：页面即将 finish，Snackbar 无法显示
-                Toast.makeText(
-                    this,
-                    getString(R.string.import_success, DataManager.getInstance().getActiveWebsitesCount()),
-                    Toast.LENGTH_LONG
-                ).show()
-                val i = Intent(this, MainActivity::class.java)
-                i.putExtra(Const.INTENT_BACKUP_RESTORED, true)
-                finish()
-                startActivity(i)
-            } else {
-                NotificationUtils.showInfoSnackbar(
-                    this,
-                    getString(R.string.import_failed),
-                    Snackbar.LENGTH_LONG
-                )
-            }
         }
     }
 }
