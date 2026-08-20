@@ -5,6 +5,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.PageErrorEntry
 import com.cylonid.nativealpha.model.PageErrorRepository
@@ -28,6 +31,8 @@ class WebAppStatsActivity : AppCompatActivity() {
 
     private var webappID: Int = -1
     private val snackbarHostState = SnackbarHostState()
+    // 导入的错误记录（只读展示层合并，不落盘；mutableStateOf 触发 Compose 重组）
+    private var importedErrors by androidx.compose.runtime.mutableStateOf<List<PageErrorEntry>>(emptyList())
 
     // 导出页面错误（SAF 新 API）
     private val exportLauncher = registerForActivityResult(
@@ -74,6 +79,7 @@ class WebAppStatsActivity : AppCompatActivity() {
                             // 无保存器：静默
                         }
                     },
+                    importedErrors = importedErrors,
                     snackbarHostState = snackbarHostState
                 )
             }
@@ -111,9 +117,9 @@ class WebAppStatsActivity : AppCompatActivity() {
             if (entries.isEmpty()) {
                 snackbarHostState.showSnackbar("文件中无错误记录或格式不正确")
             } else {
+                // 展示层合并：更新状态触发 Compose 重组（仅展示不落盘，退出页面即失效）
+                importedErrors = entries.sortedByDescending { it.time }
                 snackbarHostState.showSnackbar("已导入 ${entries.size} 条错误记录（仅展示）")
-                // 展示层合并：通过状态传递（简化：刷新页面重载）
-                // 注：导入仅展示不落盘，退出页面即失效（符合设计）
             }
         }
     }

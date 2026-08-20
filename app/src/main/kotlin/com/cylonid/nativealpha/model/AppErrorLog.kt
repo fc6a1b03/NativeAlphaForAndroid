@@ -46,7 +46,7 @@ data class AppErrorEntry(
 
 /** 应用错误日志仓库：DataStore 唯一读写（异步，不阻塞主线程） */
 object AppErrorLogRepository {
-    private const val MAX_ENTRIES = 200  // 上限（条），超出丢最旧
+    private const val MAX_ENTRIES = com.cylonid.nativealpha.util.Const.ERROR_LOG_LIMIT  // 上限（条），超出丢最旧
 
     /** 追加一条错误日志（异步，协程内调用） */
     suspend fun append(

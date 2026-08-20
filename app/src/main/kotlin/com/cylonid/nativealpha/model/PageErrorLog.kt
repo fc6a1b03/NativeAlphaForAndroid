@@ -39,7 +39,7 @@ data class PageErrorEntry(
 
 /** 页面错误日志仓库：DataStore 唯一读写（异步，不阻塞主线程） */
 object PageErrorRepository {
-    private const val MAX_ENTRIES = 200  // 上限（条），超出丢最旧
+    private const val MAX_ENTRIES = com.cylonid.nativealpha.util.Const.ERROR_LOG_LIMIT  // 上限（条），超出丢最旧
 
     /** 追加一条页面错误（挂起函数，协程内调用） */
     suspend fun append(context: Context, webappId: Int, type: String, code: String, description: String) {

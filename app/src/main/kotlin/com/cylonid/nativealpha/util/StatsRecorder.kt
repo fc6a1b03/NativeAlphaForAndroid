@@ -130,7 +130,8 @@ object StatsRecorder {
 
     /** 更新指定 WebApp 统计字段（内存 + 持久化标记） */
     private fun updateStats(webappId: Int, block: (WebApp) -> Unit) {
-        val w = DataManager.getInstance().getWebApp(webappId) ?: return
+        // 统一拿原对象（忽略全局合并）：副本 replace 会破坏统计字段
+        val w = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappId, true) ?: return
         block(w)
         DataManager.getInstance().replaceWebApp(w)
     }

@@ -39,13 +39,13 @@ fun WebAppStatsScreen(
     onBack: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
+    importedErrors: List<PageErrorEntry>,
     snackbarHostState: SnackbarHostState,
 ) {
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     // 页面错误列表（DataStore 异步加载）
     var pageErrors by remember { mutableStateOf<List<PageErrorEntry>>(emptyList()) }
-    var importedErrors by remember { mutableStateOf<List<PageErrorEntry>>(emptyList()) }
 
     // 加载该站错误日志
     LaunchedEffect(webapp.ID) {

@@ -97,7 +97,7 @@ class SettingsActivity : AppCompatActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             val entries = AppErrorLogRepository.getAll(applicationContext)
             // 过滤近 3 天（常量 APP_ERROR_DAYS=3）
-            val cutoff = System.currentTimeMillis() - 3L * 24 * 60 * 60 * 1000
+            val cutoff = System.currentTimeMillis() - Const.APP_ERROR_DAYS * 24L * 60 * 60 * 1000
             val recent = entries.filter { it.time >= cutoff }
             runOnUiThread {
                 if (recent.isEmpty()) {
@@ -110,10 +110,17 @@ class SettingsActivity : AppCompatActivity() {
                     return@runOnUiThread
                 }
                 try {
-                    contentResolver.openOutputStream(uri)?.use { stream ->
-                        OutputStreamWriter(stream, Charsets.UTF_8).use { writer ->
-                            writer.write(AppErrorEntry.toJson(recent))
-                        }
+                    val stream = contentResolver.openOutputStream(uri)
+                    if (stream == null) {
+                        NotificationUtils.showInfoSnackbar(
+                            this@SettingsActivity,
+                            getString(R.string.app_errors_export_failed),
+                            Snackbar.LENGTH_LONG
+                        )
+                        return@runOnUiThread
+                    }
+                    OutputStreamWriter(stream, Charsets.UTF_8).use { writer ->
+                        writer.write(AppErrorEntry.toJson(recent))
                     }
                     NotificationUtils.showInfoSnackbar(
                         this@SettingsActivity,

@@ -1,7 +1,6 @@
 package com.cylonid.nativealpha.ui
 
 import android.app.Activity
-import android.view.KeyEvent
 import android.view.ViewGroup
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,17 +26,20 @@ import com.cylonid.nativealpha.util.AppMaterialTheme
 /**
  * 组合快捷键面板（ModalBottomSheet）。
  *
- * - 已绑定列表：每条左侧「发送」按钮（向页面派发该组合键）、右侧删除
- * - 添加（录制模式）：点「＋」→ 按钮变「请按下组合键...」→ 用户按组合键 → 捕获绑定
- * - 操作反馈：发送 Toast；录制支持 Ctrl/Shift/Alt + 字母/数字/功能键
- * - 限制：每条 WebApp 最多 5 个组合键（防冗余），重复绑定提示
+ * 录制闭环：
+ * - 面板点「添加组合键」→ onRecordingChanged(true) → Activity 置 shortcutRecording
+ * - 用户按组合键 → Activity dispatchKeyEvent 捕获 → 保存 WebApp → notifyShortcutRecorded()
+ * - notifyShortcutRecorded 调用本文件注册槽 → 面板加入列表 + 退出录制态 + Toast
  *
- * Java 调用：ShortcutMenuOverlayKt.showShortcutMenu(activity, webappID, onSendShortcut, ...)
+ * 限制：每条 WebApp 最多 5 个组合键（防冗余），重复绑定提示。
+ *
+ * Java 调用：ShortcutMenuOverlayKt.showShortcutMenuOverlay(activity, webappID, ...)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 fun Activity.showShortcutMenuOverlay(
     webappID: Int,
     onSendShortcut: (String) -> Unit,
+    onRecordingChanged: (Boolean) -> Unit,
     onSave: () -> Unit,
 ) {
     val root = findViewById<ViewGroup>(android.R.id.content) ?: return
@@ -48,6 +50,7 @@ fun Activity.showShortcutMenuOverlay(
             ShortcutMenuSheetContent(
                 webappID = webappID,
                 onSendShortcut = onSendShortcut,
+                onRecordingChanged = onRecordingChanged,
                 onSave = onSave,
                 onDismiss = { root.removeView(composeView) }
             )
@@ -59,29 +62,63 @@ fun Activity.showShortcutMenuOverlay(
     )
 }
 
+/**
+ * 录制完成处理器注册槽（面板打开时注册，关闭时清空）。
+ * Activity 捕获组合键并保存到 WebApp 后调用 notifyShortcutRecorded 触发面板刷新。
+ */
+private var recordedHandler: ((String) -> Unit)? = null
+
+/** 每 WebApp 最大快捷键数（防冗余） */
+private const val MAX_SHORTCUTS = 5
+
+/** Activity 层调用：通知面板「组合键已录制」 */
+fun notifyShortcutRecorded(shortcut: String) {
+    recordedHandler?.invoke(shortcut)
+}
+
 /** 快捷键面板内容 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ShortcutMenuSheetContent(
     webappID: Int,
     onSendShortcut: (String) -> Unit,
+    onRecordingChanged: (Boolean) -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val webapp = DataManager.getInstance().getWebApp(webappID)
-    // 快捷键列表（本地状态，保存时写回）
+    // 快捷键列表（本地状态，保存时写回；Gson 旧数据可能为 null → 安全兜底）
     var shortcuts by remember {
         mutableStateOf((webapp?.keyShortcuts ?: mutableListOf()).toMutableList())
     }
-    // 录制状态：null = 未录制；否则显示「请按下组合键...」
+    // 录制状态：true = 等待用户按键（由 Activity dispatchKeyEvent 捕获）
     var recording by remember { mutableStateOf(false) }
-    var toastMsg by remember { mutableStateOf<String?>(null) }
+
+    // 注册录制完成处理器（面板生命周期内有效）
+    DisposableEffect(Unit) {
+        recordedHandler = { shortcut ->
+            if (shortcut.isNotBlank()) {
+                if (shortcuts.contains(shortcut)) {
+                    android.widget.Toast.makeText(context, "已存在该组合键", android.widget.Toast.LENGTH_SHORT).show()
+                } else if (shortcuts.size >= MAX_SHORTCUTS) {
+                    android.widget.Toast.makeText(context, "最多 $MAX_SHORTCUTS 个组合键", android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    shortcuts = (shortcuts + shortcut).toMutableList()
+                    android.widget.Toast.makeText(context, "已绑定 $shortcut", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+            recording = false
+            onRecordingChanged(false)
+        }
+        onDispose {
+            recordedHandler = null
+        }
+    }
 
     // 发送快捷键：调用回调 + Toast
     fun sendShortcut(shortcut: String) {
         onSendShortcut(shortcut)
-        toastMsg = "已发送 $shortcut"
         android.widget.Toast.makeText(context, "已发送 $shortcut", android.widget.Toast.LENGTH_SHORT).show()
     }
 
@@ -96,6 +133,7 @@ private fun ShortcutMenuSheetContent(
     ModalBottomSheet(
         onDismissRequest = {
             saveShortcuts()
+            onRecordingChanged(false)
             onDismiss()
         },
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -118,7 +156,11 @@ private fun ShortcutMenuSheetContent(
                     "快捷键", style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = { saveShortcuts(); onDismiss() }) { Text("完成") }
+                TextButton(onClick = {
+                    saveShortcuts()
+                    onRecordingChanged(false)
+                    onDismiss()
+                }) { Text("完成") }
             }
             Text(
                 "发送到当前页面的组合键",
@@ -167,7 +209,7 @@ private fun ShortcutMenuSheetContent(
             // 添加按钮 / 录制状态
             if (recording) {
                 OutlinedButton(
-                    onClick = { /* 录制由 dispatchKeyEvent 捕获，此处仅提示 */ },
+                    onClick = { /* 录制由 Activity dispatchKeyEvent 捕获 */ },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.primary
@@ -178,11 +220,11 @@ private fun ShortcutMenuSheetContent(
             } else {
                 OutlinedButton(
                     onClick = {
-                        if (shortcuts.size >= 5) {
-                            android.widget.Toast.makeText(context, "最多 5 个组合键", android.widget.Toast.LENGTH_SHORT).show()
+                        if (shortcuts.size >= MAX_SHORTCUTS) {
+                            android.widget.Toast.makeText(context, "最多 $MAX_SHORTCUTS 个组合键", android.widget.Toast.LENGTH_SHORT).show()
                         } else {
                             recording = true
-                            // 提示用户按键（由 Activity 层 dispatchKeyEvent 捕获）
+                            onRecordingChanged(true)
                             android.widget.Toast.makeText(context, "请按下组合键", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     },

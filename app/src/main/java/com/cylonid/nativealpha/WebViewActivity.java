@@ -105,8 +105,6 @@ public class WebViewActivity extends AppCompatActivity {
     private static final int NONE = 0;
     private static final int SWIPE = 1;
     private static final int TRESHOLD = 100;
-    // 白屏检测：进度在 20s 内无推进即判定白屏（AI 流式页进度会动，不误判）
-    private static final int BLANK_SCREEN_TIMEOUT_MS = 20_000;
     int webappID = -1;
     private WebView wv;
     private ProgressBar progressBar;
@@ -557,6 +555,11 @@ public class WebViewActivity extends AppCompatActivity {
                     sendShortcutToPage(shortcut);
                     return kotlin.Unit.INSTANCE;
                 },
+                recording -> {
+                    // 录制状态联动：面板点「添加」置 true，关闭/完成置 false
+                    shortcutRecording = recording;
+                    return kotlin.Unit.INSTANCE;
+                },
                 () -> { saveShortcutSettings(); return kotlin.Unit.INSTANCE; }
         );
     }
@@ -799,7 +802,7 @@ public class WebViewActivity extends AppCompatActivity {
                 if (key != null) {
                     String shortcut = buildShortcutString(ctrl, shift, alt, key);
                     if (shortcutRecording) {
-                        // 录制：捕获组合键 → 保存到 WebApp（由面板状态管理）
+                        // 录制：捕获组合键 → 保存到 WebApp → 通知面板刷新列表
                         shortcutRecording = false;
                         onShortcutRecorded(shortcut);
                         return true;
@@ -815,22 +818,23 @@ public class WebViewActivity extends AppCompatActivity {
         return super.dispatchKeyEvent(event);
     }
 
-    /** 录制回调：保存组合键到 WebApp */
+    /** 录制回调：保存组合键到 WebApp + 通知面板刷新（面板负责 Toast 与列表更新） */
     private void onShortcutRecorded(String shortcut) {
         WebApp original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
         if (original == null) return;
         if (original.getKeyShortcuts() == null) original.setKeyShortcuts(new java.util.ArrayList<>());
-        if (original.getKeyShortcuts().size() >= 5) {
-            runOnUiThread(() -> NotificationUtils.showInfoSnackbar(this, "最多 5 个组合键", Snackbar.LENGTH_SHORT));
+        if (original.getKeyShortcuts().size() >= Const.MAX_KEY_SHORTCUTS) {
+            ShortcutMenuOverlayKt.notifyShortcutRecorded(shortcut);
             return;
         }
         if (original.getKeyShortcuts().contains(shortcut)) {
-            runOnUiThread(() -> NotificationUtils.showInfoSnackbar(this, "已存在该组合键", Snackbar.LENGTH_SHORT));
+            ShortcutMenuOverlayKt.notifyShortcutRecorded(shortcut);
             return;
         }
         original.getKeyShortcuts().add(shortcut);
         DataManager.getInstance().replaceWebApp(original);
-        runOnUiThread(() -> NotificationUtils.showInfoSnackbar(this, "已绑定 " + shortcut, Snackbar.LENGTH_SHORT));
+        // 通知面板：加入列表 + 退出录制 + Toast（面板统一处理）
+        ShortcutMenuOverlayKt.notifyShortcutRecorded(shortcut);
     }
 
     /** 是否已绑定的组合键 */
@@ -1269,7 +1273,7 @@ public class WebViewActivity extends AppCompatActivity {
     private void scheduleBlankScreenCheck() {
         blankScreenHandler.removeCallbacks(blankScreenCheck);
         if (!pageLoadFinished) {
-            blankScreenHandler.postDelayed(blankScreenCheck, BLANK_SCREEN_TIMEOUT_MS);
+            blankScreenHandler.postDelayed(blankScreenCheck, Const.BLANK_SCREEN_TIMEOUT_MS);
         }
     }
 
@@ -1280,7 +1284,7 @@ public class WebViewActivity extends AppCompatActivity {
     private void handleBlankScreen() {
         if (pageLoadFinished || wv == null) return;
         long idle = System.currentTimeMillis() - lastProgressTime;
-        if (idle >= BLANK_SCREEN_TIMEOUT_MS && lastProgress < 100) {
+        if (idle >= Const.BLANK_SCREEN_TIMEOUT_MS && lastProgress < 100) {
             // 加载卡死：加载本地错误页（带重试），避免白屏挂起
             runOnUiThread(() -> {
                 NotificationUtils.showInfoSnackbar(
@@ -1288,6 +1292,8 @@ public class WebViewActivity extends AppCompatActivity {
                     getString(R.string.blank_screen_detected),
                     Snackbar.LENGTH_LONG
                 );
+                // 加载中断：重置计时起点，避免错误页误计为页面加载耗时
+                pageLoadStartTime = 0;
                 wv.stopLoading();
                 wv.loadUrl("file:///android_asset/errorSite/error_" + LocaleUtils.getFileEnding() + ".html");
             });
