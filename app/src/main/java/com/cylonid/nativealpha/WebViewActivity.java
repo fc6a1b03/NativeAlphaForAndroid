@@ -647,14 +647,21 @@ public class WebViewActivity extends AppCompatActivity {
      * 发送组合键到当前页面：JS 合成 KeyboardEvent（keydown + keyup）。
      * 合成事件天然不触发浏览器默认行为，只被页面监听器收到（页面独有快捷键）。
      */
+    /**
+     * 发送组合键到当前页面。
+     *
+     * 优先：注入真实 KeyEvent（wv.dispatchKeyEvent）——WebView 将其转为
+     * `isTrusted=true` 的 DOM 事件，严格校验可信度的页面（kimi code 等）也能收到。
+     * 兜底：JS 合成 KeyboardEvent（isTrusted=false，部分页面忽略）。
+     */
     private void sendShortcutToPage(String shortcut) {
         if (wv == null || shortcut == null || shortcut.isEmpty()) return;
         // 统计：记录发送次数（面板/统计页反馈）
         StatsRecorder.INSTANCE.recordShortcutSent(webappID, shortcut);
-        String[] parts = shortcut.split("\\+");
+        // 解析组合键 → keyCode + metaState
         boolean ctrl = false, shift = false, alt = false;
         String key = "";
-        for (String part : parts) {
+        for (String part : shortcut.split("\\+")) {
             String p = part.trim();
             switch (p) {
                 case "Ctrl": ctrl = true; break;
@@ -664,9 +671,26 @@ public class WebViewActivity extends AppCompatActivity {
             }
         }
         if (key.isEmpty()) return;
-        // Shift+S → key 大写；否则小写（浏览器 keydown 语义）
+        int keyCode = keyCodeOf(key);
+        if (keyCode == KeyEvent.KEYCODE_UNKNOWN) return;
+        int metaState = (ctrl ? KeyEvent.META_CTRL_ON : 0)
+                | (shift ? KeyEvent.META_SHIFT_ON : 0)
+                | (alt ? KeyEvent.META_ALT_ON : 0);
+
+        // 方案一：注入真实 KeyEvent（可信事件，页面 isTrusted=true）
+        try {
+            wv.requestFocus();
+            long now = android.os.SystemClock.uptimeMillis();
+            KeyEvent down = new KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, metaState);
+            KeyEvent up = new KeyEvent(now, now + 50, KeyEvent.ACTION_UP, keyCode, 0, metaState);
+            wv.dispatchKeyEvent(down);
+            wv.dispatchKeyEvent(up);
+            return;
+        } catch (Exception ignored) {
+            // 注入失败：降级 JS 合成（部分页面忽略 isTrusted=false，尽力而为）
+        }
+        // 方案二：JS 合成 KeyboardEvent（兜底）
         String jsKey = shift ? key.toUpperCase() : key.toLowerCase();
-        // 注意：key 值规范化为单字符（Ctrl+S → "s"；F5 → "F5"）
         String js = "var t=document.activeElement||document.body;"
                 + "t.dispatchEvent(new KeyboardEvent('keydown',{key:'" + jsKey + "',ctrlKey:" + ctrl
                 + ",shiftKey:" + shift + ",altKey:" + alt + ",bubbles:true}));"
@@ -676,6 +700,35 @@ public class WebViewActivity extends AppCompatActivity {
             wv.evaluateJavascript(js, null);
         } catch (Exception ignored) {
             // JS 注入失败静默
+        }
+    }
+
+    /** 组合键主键字符串 → Android KeyCode（A-Z / 0-9 / F1-F12 / Enter / Space / Tab / Backspace） */
+    private int keyCodeOf(String key) {
+        if (key.length() == 1) {
+            char c = key.charAt(0);
+            if (c >= 'A' && c <= 'Z') return KeyEvent.KEYCODE_A + (c - 'A');
+            if (c >= 'a' && c <= 'z') return KeyEvent.KEYCODE_A + (c - 'a');
+            if (c >= '0' && c <= '9') return KeyEvent.KEYCODE_0 + (c - '0');
+        }
+        switch (key) {
+            case "Enter": return KeyEvent.KEYCODE_ENTER;
+            case "Space": return KeyEvent.KEYCODE_SPACE;
+            case "Tab": return KeyEvent.KEYCODE_TAB;
+            case "Backspace": return KeyEvent.KEYCODE_DEL;
+            case "F1": return KeyEvent.KEYCODE_F1;
+            case "F2": return KeyEvent.KEYCODE_F2;
+            case "F3": return KeyEvent.KEYCODE_F3;
+            case "F4": return KeyEvent.KEYCODE_F4;
+            case "F5": return KeyEvent.KEYCODE_F5;
+            case "F6": return KeyEvent.KEYCODE_F6;
+            case "F7": return KeyEvent.KEYCODE_F7;
+            case "F8": return KeyEvent.KEYCODE_F8;
+            case "F9": return KeyEvent.KEYCODE_F9;
+            case "F10": return KeyEvent.KEYCODE_F10;
+            case "F11": return KeyEvent.KEYCODE_F11;
+            case "F12": return KeyEvent.KEYCODE_F12;
+            default: return KeyEvent.KEYCODE_UNKNOWN;
         }
     }
 
