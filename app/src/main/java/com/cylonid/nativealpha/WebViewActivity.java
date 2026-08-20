@@ -474,16 +474,14 @@ public class WebViewActivity extends AppCompatActivity {
     }
 
     /**
-     * 页面缩放：WebView.zoomBy（模拟捏合，对任何页面可靠）。
-     * 先复位 initialScale 再按目标比例缩放（zoomBy 是相对当前值的倍数）。
+     * 页面缩放：setInitialScale（内容缩放，不改 viewport 布局模式）。
+     * 必须在页面加载完成后调用才稳定（加载前设置对移动自适应页面无效）。
+     * 不用 zoomBy：模拟捏合会触发缩放状态机，破坏 viewport 导致页面空白/布局错乱。
      */
     private void applyPageZoom() {
         if (wv == null || webapp == null) return;
         int zoom = webapp.getPageZoom();
-        if (zoom == 100) return;
-        float scale = zoom / 100f;
-        wv.setInitialScale(100);
-        wv.zoomBy(scale);
+        wv.setInitialScale(zoom);
     }
 
     /** 菜单动作处理 */
