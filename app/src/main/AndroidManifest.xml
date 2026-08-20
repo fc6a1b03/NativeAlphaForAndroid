@@ -67,6 +67,14 @@
             android:roundIcon="@mipmap/webnative"
             android:theme="@style/AppTheme">
         </activity>
+        <activity
+            android:name="com.cylonid.nativealpha.WebAppStatsActivity"
+            android:parentActivityName=".MainActivity"
+            android:icon="@mipmap/webnative"
+            android:roundIcon="@mipmap/webnative"
+            android:theme="@style/AppTheme"
+            android:exported="false">
+        </activity>
 
         <activity
             android:name="com.cylonid.nativealpha.ui.AddWebAppActivity"

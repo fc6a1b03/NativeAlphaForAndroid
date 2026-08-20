@@ -68,6 +68,7 @@ fun MainScreen(
     onAddClick: () -> Unit,
     onOpenWebApp: (WebApp) -> Unit,
     onOpenSettings: (WebApp) -> Unit,
+    onOpenStats: (WebApp) -> Unit,
     onDeleteWebApp: (WebApp) -> Unit,
     onGlobalSettingsClick: () -> Unit,
 ) {
@@ -182,6 +183,7 @@ fun MainScreen(
                         webApp = webApp,
                         onClick = { onOpenWebApp(webApp) },
                         onSettings = { onOpenSettings(webApp) },
+                        onStats = { onOpenStats(webApp) },
                         onDelete = { onDeleteWebApp(webApp) }
                     )
                 }
@@ -196,6 +198,7 @@ private fun WebAppCard(
     webApp: WebApp,
     onClick: () -> Unit,
     onSettings: () -> Unit,
+    onStats: () -> Unit,
     onDelete: () -> Unit,
 ) {
     Card(
@@ -266,6 +269,13 @@ private fun WebAppCard(
                         onClick = {
                             menuExpanded = false
                             onSettings()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.stats)) },
+                        onClick = {
+                            menuExpanded = false
+                            onStats()
                         }
                     )
                     DropdownMenuItem(

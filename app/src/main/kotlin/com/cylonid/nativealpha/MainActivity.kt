@@ -48,6 +48,11 @@ class MainActivity : AppCompatActivity() {
                         intent.putExtra(Const.INTENT_WEBAPPID, webApp.ID)
                         startActivity(intent)
                     },
+                    onOpenStats = { webApp ->
+                        val intent = Intent(this, WebAppStatsActivity::class.java)
+                        intent.putExtra(Const.INTENT_WEBAPPID, webApp.ID)
+                        startActivity(intent)
+                    },
                     onDeleteWebApp = { webApp ->
                         deleteWebApp(webApp)
                     },

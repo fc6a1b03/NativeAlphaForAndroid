@@ -49,6 +49,7 @@
         <item>English</item>
     </string-array>
     <string name="edit_webapp_settings">编辑</string>
+    <string name="stats">统计</string>
     <string name="add_webapp">添加 Web App</string>
     <string name="welcome_msg">欢迎！
 添加你的第一个 Web App：</string>

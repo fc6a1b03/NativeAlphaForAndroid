@@ -46,6 +46,7 @@
         <item>English</item>
     </string-array>
     <string name="edit_webapp_settings">Edit</string>
+    <string name="stats">Statistics</string>
     <string name="add_webapp">Add Web App</string>
     <string name="welcome_msg">Welcome!\nAdd your first Web App:</string>
     <string name="request_website_in_desktop_version">Request website in desktop version</string>

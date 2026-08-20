@@ -115,6 +115,8 @@ dependencies {
     // 第三方
     implementation libs.gson
     implementation libs.jsoup
+    // Vico Compose 图表（统计页）
+    implementation libs.vico.compose.m3
     // 快捷方式对话框 favicon 加载进度圈（保留）
     implementation 'com.mikhaellopez:circularprogressbar:3.1.0'
 

@@ -263,6 +263,17 @@ public class DataManager {
                 merged.setTextZoom(webApp.getTextZoom());
                 merged.setPageZoom(webApp.getPageZoom());
                 merged.setOverrideGlobalSettings(false);
+                // 统计字段不参与 copySettings 合并：从原对象单独复制（防统计丢失）
+                merged.setStatLaunches(webApp.getStatLaunches());
+                merged.setStatLoadTimeSum(webApp.getStatLoadTimeSum());
+                merged.setStatLoadTimeCount(webApp.getStatLoadTimeCount());
+                merged.setStatMaxLoadTime(webApp.getStatMaxLoadTime());
+                merged.setStatCacheHttpBytes(webApp.getStatCacheHttpBytes());
+                merged.setStatCacheStoreBytes(webApp.getStatCacheStoreBytes());
+                merged.setStatErrors(webApp.getStatErrors());
+                merged.setStatLastError(webApp.getStatLastError());
+                merged.setStatFirstLoadedAt(webApp.getStatFirstLoadedAt());
+                merged.setStatLastUsedAt(webApp.getStatLastUsedAt());
                 return merged;
             }
             return websites.get(i);

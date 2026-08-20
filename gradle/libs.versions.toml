@@ -29,6 +29,7 @@ datastore = "1.2.1"
 # 第三方
 gson = "2.14.0"
 jsoup = "1.14.1"
+vico = "2.2.1"
 
 # 测试
 junit = "4.13.2"
@@ -64,6 +65,7 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 
 # 第三方
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 
 # 测试

@@ -62,4 +62,16 @@ object DateUtils {
         val daysInMillis = days * 24L * 60 * 60 * 1000
         return (targetTime - timestamp) > daysInMillis
     }
+
+    /** epoch ms → 可读时间（yyyy-MM-dd HH:mm） */
+    @JvmStatic
+    @SuppressLint("SimpleDateFormat")
+    fun formatTimestamp(timestamp: Long): String {
+        if (timestamp <= 0) return "—"
+        return try {
+            SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(java.util.Date(timestamp))
+        } catch (e: Exception) {
+            "—"
+        }
+    }
 }
