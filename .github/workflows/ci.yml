@@ -40,15 +40,23 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
+      # Gradle 构建缓存（跨 job 共享：release 复用 test 的编译产物）
+      - name: "📦 Cache Gradle Build Cache"
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: gradle-buildcache-${{ runner.os }}-${{ hashFiles('**/*.gradle', '**/libs.versions.toml') }}
+          restore-keys: gradle-buildcache-${{ runner.os }}-
+
       # 合并为单次 Gradle 调用：避免多次 JVM/daemon 启动，任务间共享增量编译
       - name: "🧪 Test + Lint + Debug Build"
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --no-daemon
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
 
   # ============ Release（tag v* 触发，自动签名） ============
+  # 与 test job 并行（release 自带构建验证，无需等 test）
   release:
     name: "🚀 Release APK + AAB"
     runs-on: ubuntu-latest
-    needs: test
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     timeout-minutes: 30
     permissions:
@@ -66,6 +74,14 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
+
+      # Gradle 构建缓存（复用 test job 的编译产物）
+      - name: "📦 Cache Gradle Build Cache"
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: gradle-buildcache-${{ runner.os }}-${{ hashFiles('**/*.gradle', '**/libs.versions.toml') }}
+          restore-keys: gradle-buildcache-${{ runner.os }}-
 
       - name: "🔑 Setup Signing Keystore"
         env:
@@ -99,7 +115,7 @@ jobs:
         run: |
           # pipefail：管道返回 gradlew 真实退出码（否则 tee 会掩盖构建失败）
           set -o pipefail
-          ./gradlew assembleRelease bundleRelease --no-daemon 2>&1 | tee /tmp/build.log
+          ./gradlew assembleRelease bundleRelease 2>&1 | tee /tmp/build.log
 
       # 失败时打印日志尾部（直接显示在 Actions 页面，方便排查）
       - name: "🔍 Print build log tail on failure"
