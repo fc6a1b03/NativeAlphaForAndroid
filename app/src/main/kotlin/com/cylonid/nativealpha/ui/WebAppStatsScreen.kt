@@ -53,6 +53,8 @@ fun WebAppStatsScreen(
     onBack: () -> Unit,
     onImport: () -> Unit,
     onExport: () -> Unit,
+    onClearCache: () -> Unit,
+    onClearStats: () -> Unit,
     importedErrors: List<PageErrorEntry>,
     snackbarHostState: SnackbarHostState,
 ) {
@@ -60,6 +62,9 @@ fun WebAppStatsScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     // 页面错误列表（DataStore 异步加载）
     var pageErrors by remember { mutableStateOf<List<PageErrorEntry>>(emptyList()) }
+    // 清缓存/清空统计确认对话框（状态驱动，防误触）
+    var showClearCacheDialog by remember { mutableStateOf(false) }
+    var showClearStatsDialog by remember { mutableStateOf(false) }
 
     // 加载该站错误日志
     LaunchedEffect(webapp.ID) {
@@ -177,12 +182,29 @@ fun WebAppStatsScreen(
                 CacheRow("站点存储（localStorage 等）", formatBytes(webapp.statCacheStoreBytes))
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = { scope.launch { /* 清缓存确认对话框 */ } },
+                    onClick = { showClearCacheDialog = true },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("清缓存")
+                }
+                // 清缓存确认对话框（状态驱动，防误触）
+                if (showClearCacheDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showClearCacheDialog = false },
+                        title = { Text("清缓存") },
+                        text = { Text("将清除本应用的全部 WebView 缓存与站点存储，确定？") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showClearCacheDialog = false
+                                onClearCache()
+                            }) { Text("确定") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showClearCacheDialog = false }) { Text("取消") }
+                        }
+                    )
                 }
             }
 
@@ -230,7 +252,7 @@ fun WebAppStatsScreen(
                 CacheRow("最近使用", if (webapp.statLastUsedAt > 0) DateUtils.formatTimestamp(webapp.statLastUsedAt) else "—")
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = { /* 清空统计确认 */ },
+                    onClick = { showClearStatsDialog = true },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
@@ -239,6 +261,23 @@ fun WebAppStatsScreen(
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("清空统计")
+                }
+                // 清空统计确认对话框（状态驱动，防误触）
+                if (showClearStatsDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showClearStatsDialog = false },
+                        title = { Text("清空统计") },
+                        text = { Text("将重置本应用的打开次数、加载耗时与错误计数，确定？") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showClearStatsDialog = false
+                                onClearStats()
+                            }) { Text("确定") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showClearStatsDialog = false }) { Text("取消") }
+                        }
+                    )
                 }
             }
 

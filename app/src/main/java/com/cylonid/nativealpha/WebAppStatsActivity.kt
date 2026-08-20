@@ -79,9 +79,67 @@ class WebAppStatsActivity : AppCompatActivity() {
                             // 无保存器：静默
                         }
                     },
+                    onClearCache = { clearCache() },
+                    onClearStats = { clearStats() },
                     importedErrors = importedErrors,
                     snackbarHostState = snackbarHostState
                 )
+            }
+        }
+    }
+
+    /**
+     * 清缓存：清空 WebStorage（localStorage 等）+ WebView cacheDir，重置缓存统计字段。
+     * 异步执行（IO），完成主线程提示。
+     */
+    private fun clearCache() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                android.webkit.WebStorage.getInstance().deleteAllData()
+                // 清空 cacheDir（WebView HTTP 缓存）
+                val cacheDir = cacheDir
+                cacheDir.listFiles()?.forEach { file ->
+                    file.deleteRecursively()
+                }
+                // 重置缓存统计字段（原对象）
+                val original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true)
+                if (original != null) {
+                    original.statCacheHttpBytes = 0L
+                    original.statCacheStoreBytes = 0L
+                    DataManager.getInstance().replaceWebApp(original)
+                }
+                snackbarHostState.showSnackbar("缓存已清空")
+            } catch (e: Exception) {
+                snackbarHostState.showSnackbar("清理失败，请重试")
+            }
+        }
+    }
+
+    /**
+     * 清空统计：重置打开次数/加载耗时/错误计数 + 清空该站页面错误日志。
+     * 异步执行（IO），完成主线程提示。
+     */
+    private fun clearStats() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true)
+                if (original != null) {
+                    original.statLaunches = 0
+                    original.statLoadTimeSum = 0L
+                    original.statLoadTimeCount = 0
+                    original.statMaxLoadTime = 0L
+                    original.statErrors = 0
+                    original.statLastError = null
+                    original.statLoadTimes = mutableListOf()
+                    original.statFirstLoadedAt = 0L
+                    original.statLastUsedAt = 0L
+                    DataManager.getInstance().replaceWebApp(original)
+                }
+                // 清空该站页面错误日志（DataStore）
+                PageErrorRepository.clearForSite(applicationContext, webappID)
+                snackbarHostState.showSnackbar("统计已清空")
+            } catch (e: Exception) {
+                snackbarHostState.showSnackbar("清空失败，请重试")
             }
         }
     }
