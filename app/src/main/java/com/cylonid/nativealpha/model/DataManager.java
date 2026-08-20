@@ -274,6 +274,10 @@ public class DataManager {
                 merged.setStatLastError(webApp.getStatLastError());
                 merged.setStatFirstLoadedAt(webApp.getStatFirstLoadedAt());
                 merged.setStatLastUsedAt(webApp.getStatLastUsedAt());
+                // 组合快捷键不参与 copySettings 合并：从原对象复制（每站独立）
+                if (webApp.getKeyShortcuts() != null) {
+                    merged.setKeyShortcuts(new java.util.ArrayList<>(webApp.getKeyShortcuts()));
+                }
                 return merged;
             }
             return websites.get(i);

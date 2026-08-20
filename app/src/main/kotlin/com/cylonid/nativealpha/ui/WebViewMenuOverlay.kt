@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TextFields
@@ -127,7 +128,14 @@ private fun WebViewMenuSheetContent(
                 MenuIconButton(Icons.Default.Refresh, "刷新") { onSave(); onAction("reload") }
                 MenuIconButton(Icons.Default.ContentCopy, "复制") { onSave(); onAction("copy") }
                 MenuIconButton(Icons.Default.Share, "分享") { onSave(); onAction("share") }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 MenuIconButton(Icons.Default.Home, "主页") { onSave(); onAction("home") }
+                MenuIconButton(Icons.Default.Keyboard, "快捷键") { onSave(); onAction("shortcuts") }
                 MenuIconButton(Icons.Default.Close, "关闭") { onSave(); onAction("close") }
             }
 
