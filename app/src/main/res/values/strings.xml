@@ -169,6 +169,10 @@
     <string name="desc_request_desktop">Request the desktop version of the website.</string>
     <string name="desc_open_external">Open links to other domains in the external browser.</string>
     <string name="desc_two_finger_zoom">Enable pinch and double-finger zoom gestures.</string>
+    <string name="text_zoom">Font size</string>
+    <string name="desc_text_zoom">Adjust text size of the page (50% ~ 200%).</string>
+    <string name="page_zoom">Page zoom</string>
+    <string name="desc_page_zoom">Adjust overall page scale (50% ~ 200%).</string>
     <string name="desc_standard_menu">Use the system text selection menu instead of the custom menu.</string>
     <string name="desc_media_background">Keep playing audio/video when the app is in background.</string>
     <string name="desc_expert_settings">Show advanced options (start URL, user agent, SSL).</string>

@@ -412,6 +412,18 @@ fun WebAppSettingsScreen(
                     onCheckedChange = { updateSettings { isEnableZooming = it } },
                     description = stringResource(R.string.desc_two_finger_zoom)
                 )
+                SettingsSliderRow(
+                    title = stringResource(R.string.text_zoom),
+                    description = stringResource(R.string.desc_text_zoom),
+                    value = modified.textZoom,
+                    onValueChange = { updateSettings { textZoom = it } }
+                )
+                SettingsSliderRow(
+                    title = stringResource(R.string.page_zoom),
+                    description = stringResource(R.string.desc_page_zoom),
+                    value = modified.pageZoom,
+                    onValueChange = { updateSettings { pageZoom = it } }
+                )
                 SettingsSwitchRow(
                     title = stringResource(R.string.use_standard_context_menu_permanently),
                     checked = modified.alwaysUseFallbackContextMenu,
@@ -437,17 +449,6 @@ fun WebAppSettingsScreen(
                 )
                 if (modified.isShowExpertSettings) {
                     HorizontalDivider()
-                    // 起始 URL
-                    OutlinedTextField(
-                        value = modified.baseUrl,
-                        onValueChange = { if (!isGlobal) update { baseUrl = it } },
-                        label = { Text(stringResource(R.string.start_url)) },
-                        singleLine = true,
-                        enabled = !isGlobal,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
                     // 自定义 UA
                     SettingsSwitchRow(
                         title = stringResource(R.string.use_custom_user_agent),
@@ -665,5 +666,45 @@ private fun SettingsSwitchRow(
                 )
             }
         }
+    }
+}
+
+/** 滑杆设置行（字体/页面缩放），50~200% 步进 10 */
+@Composable
+private fun SettingsSliderRow(
+    title: String,
+    description: String? = null,
+    value: Int,
+    onValueChange: (Int) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+                if (description != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Text(
+                "$value%",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onValueChange(it.toInt().coerceIn(50, 200)) },
+            valueRange = 50f..200f,
+            steps = 14
+        )
     }
 }

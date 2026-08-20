@@ -173,6 +173,10 @@
     <string name="desc_request_desktop">请求网站返回桌面版页面。</string>
     <string name="desc_open_external">其他域名的链接在外部浏览器打开。</string>
     <string name="desc_two_finger_zoom">启用双指捏合缩放手势。</string>
+    <string name="text_zoom">字体大小</string>
+    <string name="desc_text_zoom">调整页面文字大小（50% ~ 200%）。</string>
+    <string name="page_zoom">页面缩放</string>
+    <string name="desc_page_zoom">调整页面整体缩放比例（50% ~ 200%）。</string>
     <string name="desc_standard_menu">使用系统文本选择菜单代替自定义菜单。</string>
     <string name="desc_media_background">应用退到后台时继续播放音视频。</string>
     <string name="desc_expert_settings">显示高级选项（起始 URL、UA、SSL）。</string>
