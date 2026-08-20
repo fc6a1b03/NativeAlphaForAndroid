@@ -2,7 +2,6 @@ package com.cylonid.nativealpha.util;
 
 import android.app.Application;
 import android.content.Context;
-import android.webkit.WebView;
 
 public class App extends Application {
 
@@ -20,22 +19,10 @@ public class App extends Application {
         // 此时加载最可靠——早于任何 Activity 的 setTheme）
         ThemeUtils.applyUiMode();
 
-        // WebView 预热：后台线程初始化（省首次打开 WebView 的 1-2s 冷启动延迟）
-        // 官方推荐：WebView 首次创建开销大，提前初始化可显著提速
-        try {
-            Thread webviewWarmup = new Thread(() -> {
-                try {
-                    WebView wv = new WebView(App.this);
-                    wv.getSettings().setJavaScriptEnabled(true);
-                    wv.setBackgroundColor(0);
-                    wv.destroy();
-                } catch (Exception ignored) {
-                    // 预热失败不影响主流程
-                }
-            }, "webview-warmup");
-            webviewWarmup.start();
-        } catch (Exception ignored) {
-        }
+        // WebView 预热已移除：后台线程 new WebView() 在部分 WebView 版本
+        // （TrichromeWebViewGoogle 6432 等）会破坏内核状态，导致后续 inflate
+        // WebView 崩溃（AwContents must be created if we are not posting）。
+        // 收益 1-2s 冷启动提速 vs 实机崩溃风险——取稳定性，移除预热。
     }
 
     public static Context getAppContext() {

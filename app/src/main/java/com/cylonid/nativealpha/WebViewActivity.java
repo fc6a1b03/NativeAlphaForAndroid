@@ -695,7 +695,11 @@ public class WebViewActivity extends AppCompatActivity {
                 | (shift ? KeyEvent.META_SHIFT_ON : 0)
                 | (alt ? KeyEvent.META_ALT_ON : 0);
 
-        // 方案一：注入真实 KeyEvent（可信事件，页面 isTrusted=true）
+        // 方案一：JS 合成 KeyboardEvent（主方案——kimi code 源码确认不校验 isTrusted）
+        // 带 code 字段（CodeMirror 类编辑器按 e.code 匹配）+ 聚焦输入框（target 正确）
+        injectJsWithFocus(ctrl, shift, alt, key);
+        // 方案二：注入真实 KeyEvent（补充——对校验 isTrusted 的站点生效）
+        // 保持当前页面焦点（不强行聚焦输入框——兼容多种网页）
         try {
             wv.requestFocus();
             long now = android.os.SystemClock.uptimeMillis();
@@ -703,21 +707,67 @@ public class WebViewActivity extends AppCompatActivity {
             KeyEvent up = new KeyEvent(now, now + 50, KeyEvent.ACTION_UP, keyCode, 0, metaState);
             wv.dispatchKeyEvent(down);
             wv.dispatchKeyEvent(up);
-            return;
         } catch (Exception ignored) {
-            // 注入失败：降级 JS 合成（部分页面忽略 isTrusted=false，尽力而为）
+            // KeyEvent 注入失败静默（JS 合成已发）
         }
-        // 方案二：JS 合成 KeyboardEvent（兜底）
+    }
+
+    /**
+     * JS 合成 + 聚焦输入框：先聚焦页面输入框（kimi code 的 inject 需输入框有焦点），
+     * 再向 activeElement 派发带 code 的 KeyboardEvent（CodeMirror 按 e.code 匹配）。
+     */
+    private void injectJsWithFocus(boolean ctrl, boolean shift, boolean alt, String key) {
+        // 聚焦脚本：当前焦点是 body 时聚焦第一个输入框（textarea/contenteditable/input）
+        String focusJs = "(function(){var t=document.activeElement;"
+                + "if(!t||t===document.body){"
+                + "var els=document.querySelectorAll('textarea,[contenteditable=true],input[type=text],input:not([type])');"
+                + "if(els.length>0)els[0].focus();"
+                + "}return true;})()";
+        try {
+            wv.evaluateJavascript(focusJs, value -> {
+                injectJsFallback(ctrl, shift, alt, key);
+            });
+        } catch (Exception ignored) {
+            injectJsFallback(ctrl, shift, alt, key);
+        }
+    }
+
+    /** JS 合成 KeyboardEvent（kimi code 等不校验 isTrusted，合成事件可收到） */
+    private void injectJsFallback(boolean ctrl, boolean shift, boolean alt, String key) {
         String jsKey = shift ? key.toUpperCase() : key.toLowerCase();
+        // code 字段：CodeMirror 类编辑器按 e.code（KeyS）匹配，必须带上
+        String jsCode = keyCodeToJsCode(key);
         String js = "var t=document.activeElement||document.body;"
-                + "t.dispatchEvent(new KeyboardEvent('keydown',{key:'" + jsKey + "',ctrlKey:" + ctrl
-                + ",shiftKey:" + shift + ",altKey:" + alt + ",bubbles:true}));"
-                + "t.dispatchEvent(new KeyboardEvent('keyup',{key:'" + jsKey + "',ctrlKey:" + ctrl
-                + ",shiftKey:" + shift + ",altKey:" + alt + ",bubbles:true}));";
+                + "t.dispatchEvent(new KeyboardEvent('keydown',{key:'" + jsKey + "',code:'" + jsCode
+                + "',ctrlKey:" + ctrl + ",shiftKey:" + shift + ",altKey:" + alt
+                + ",bubbles:true,cancelable:true}));"
+                + "t.dispatchEvent(new KeyboardEvent('keyup',{key:'" + jsKey + "',code:'" + jsCode
+                + "',ctrlKey:" + ctrl + ",shiftKey:" + shift + ",altKey:" + alt
+                + ",bubbles:true,cancelable:true}));";
         try {
             wv.evaluateJavascript(js, null);
         } catch (Exception ignored) {
             // JS 注入失败静默
+        }
+    }
+
+    /** 主键 → JS KeyboardEvent.code（KeyA..KeyZ / Digit0..9 / F1..F12 / Enter / Space / Tab / Backspace） */
+    private String keyCodeToJsCode(String key) {
+        if (key.length() == 1) {
+            char c = key.charAt(0);
+            if (c >= 'A' && c <= 'Z') return "Key" + c;
+            if (c >= 'a' && c <= 'z') return "Key" + Character.toUpperCase(c);
+            if (c >= '0' && c <= '9') return "Digit" + c;
+        }
+        switch (key) {
+            case "Enter": return "Enter";
+            case "Space": return "Space";
+            case "Tab": return "Tab";
+            case "Backspace": return "Backspace";
+            case "F1": case "F2": case "F3": case "F4": case "F5": case "F6":
+            case "F7": case "F8": case "F9": case "F10": case "F11": case "F12":
+                return key;
+            default: return "";
         }
     }
 
