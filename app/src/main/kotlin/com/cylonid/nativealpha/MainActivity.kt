@@ -85,18 +85,26 @@ class MainActivity : AppCompatActivity() {
             val cutoff = System.currentTimeMillis() - Const.APP_ERROR_DAYS * 24L * 60 * 60 * 1000
             val recentCrash = entries.any { it.level == AppErrorEntry.LEVEL_CRASH && it.time >= cutoff }
             if (recentCrash) {
-                runOnUiThread {
-                    try {
-                        AlertDialog.Builder(this@MainActivity)
-                            .setTitle(getString(R.string.crash_detected_title))
-                            .setMessage(getString(R.string.crash_detected_msg))
-                            .setPositiveButton(getString(R.string.crash_export_logs)) { _, _ ->
-                                startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
-                            }
-                            .setNegativeButton(android.R.string.cancel, null)
-                            .show()
-                    } catch (ignored: Exception) {
-                        // 弹窗失败（Activity 已销毁等）静默
+                // 同一次崩溃只提示一次：记录最近提示的崩溃时间戳，避免每次启动重复弹
+                val prefs = getSharedPreferences(PREFS_CRASH_PROMPT, MODE_PRIVATE)
+                val lastPrompted = prefs.getLong(KEY_LAST_PROMPTED_CRASH, 0L)
+                val latestCrashTime = entries.filter { it.level == AppErrorEntry.LEVEL_CRASH }
+                    .maxOfOrNull { it.time } ?: 0L
+                if (latestCrashTime > lastPrompted) {
+                    prefs.edit().putLong(KEY_LAST_PROMPTED_CRASH, latestCrashTime).apply()
+                    runOnUiThread {
+                        try {
+                            AlertDialog.Builder(this@MainActivity)
+                                .setTitle(getString(R.string.crash_detected_title))
+                                .setMessage(getString(R.string.crash_detected_msg))
+                                .setPositiveButton(getString(R.string.crash_export_logs)) { _, _ ->
+                                    startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                                }
+                                .setNegativeButton(android.R.string.cancel, null)
+                                .show()
+                        } catch (ignored: Exception) {
+                            // 弹窗失败（Activity 已销毁等）静默
+                        }
                     }
                 }
             }
@@ -113,6 +121,9 @@ class MainActivity : AppCompatActivity() {
     companion object {
         /** 用于触发 Compose 列表刷新的计数器（onResume 时自增）——必须用 Compose state，普通变量无法触发重组 */
         var refreshTrigger: Int by mutableIntStateOf(0)
+        /** 崩溃提示去重：记录最近提示过的崩溃时间戳（同次崩溃只弹一次） */
+        private const val PREFS_CRASH_PROMPT = "crash_prompt"
+        private const val KEY_LAST_PROMPTED_CRASH = "last_prompted_crash_time"
     }
 
     /** 删除 WebApp：直接删除，不弹确认（用户要求） */
