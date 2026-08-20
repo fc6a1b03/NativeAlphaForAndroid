@@ -38,7 +38,7 @@ import java.util.Calendar
  *   数据节省 / 自动刷新 / 信息亭 / 其他 / 高级
  * - 各开关直接修改传入的 WebApp 副本，保存时由 Activity 层统一写入 DataManager
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun WebAppSettingsScreen(
     webapp: WebApp,
@@ -522,27 +522,41 @@ fun WebAppSettingsScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                     )
                 } else {
-                    modified.keyShortcuts.forEach { shortcut ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                shortcut,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.weight(1f)
-                            )
-                            IconButton(onClick = {
-                                updateSettings { keyShortcuts = keyShortcuts.filter { it != shortcut }.toMutableList() }
-                            }) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error
+                    // 已绑定列表：自适应网格卡片（键名+删除紧凑，自动换行填满宽度）
+                    FlowRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        modified.keyShortcuts.forEach { shortcut ->
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                    .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    shortcut,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
                                 )
+                                // 删除按钮紧贴卡片右侧
+                                IconButton(
+                                    onClick = {
+                                        updateSettings { keyShortcuts = keyShortcuts.filter { it != shortcut }.toMutableList() }
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "删除 $shortcut",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         }
                     }
