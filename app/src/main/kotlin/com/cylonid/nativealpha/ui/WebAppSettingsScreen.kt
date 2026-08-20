@@ -496,7 +496,7 @@ fun WebAppSettingsScreen(
                                 ) {
                                     Icon(
                                         Icons.Default.Delete,
-                                        contentDescription = "删除 $shortcut",
+                                        contentDescription = stringResource(R.string.shortcut_delete_desc, shortcut),
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(16.dp)
                                     )
@@ -833,7 +833,7 @@ private fun ShortcutAddRow(
         // 主键下拉 + 确认
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box {
-                OutlinedButton(onClick = { keyExpanded = true }) { Text("主键: $key") }
+                OutlinedButton(onClick = { keyExpanded = true }) { Text(stringResource(R.string.shortcut_key_label, key)) }
                 DropdownMenu(expanded = keyExpanded, onDismissRequest = { keyExpanded = false }) {
                     ShortcutKeys.forEach { k ->
                         DropdownMenuItem(
@@ -847,17 +847,17 @@ private fun ShortcutAddRow(
             Button(
                 onClick = {
                     val combo = buildCombo() ?: run {
-                        android.widget.Toast.makeText(context, "请至少选择一个修饰键", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, context.getString(R.string.shortcut_need_modifier), android.widget.Toast.LENGTH_SHORT).show()
                         return@Button
                     }
                     if (existing.contains(combo)) {
-                        android.widget.Toast.makeText(context, "该组合已存在", android.widget.Toast.LENGTH_SHORT).show()
-                    } else if (existing.size >= 5) {
-                        android.widget.Toast.makeText(context, "每个应用最多 5 个快捷键", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, context.getString(R.string.shortcut_exist), android.widget.Toast.LENGTH_SHORT).show()
+                    } else if (existing.size >= MAX_KEY_SHORTCUTS) {
+                        android.widget.Toast.makeText(context, context.getString(R.string.shortcut_max_reached, MAX_KEY_SHORTCUTS), android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         onAdd(combo)
                         ctrl = false; shift = false; alt = false
-                        android.widget.Toast.makeText(context, "已绑定 $combo", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, context.getString(R.string.shortcut_bound, combo), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 },
                 enabled = ctrl || shift || alt
@@ -865,6 +865,9 @@ private fun ShortcutAddRow(
         }
     }
 }
+
+/** 每 WebApp 最大快捷键数（防冗余） */
+private const val MAX_KEY_SHORTCUTS = 5
 
 /** 可选主键（字母/数字/功能键） */
 private val ShortcutKeys = listOf(

@@ -25,6 +25,7 @@ import android.text.style.StyleSpan;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
@@ -123,6 +124,8 @@ public class WebViewActivity extends AppCompatActivity {
     private String urlOnFirstPageload = "";
     private boolean fallbackToDefaultLongClickBehaviour = false;
     private PopupMenu mPopupMenu = null;
+    // 长按动态分流：系统是否已启动文本/链接选择 ActionMode（区分「有内容」vs「空白处」）
+    private boolean actionModeActive = false;
     // 权限审计：记录已发起过系统请求的权限（区分「首次请求」vs「永久拒绝」）
     private final Set<String> requestedPermissions = new HashSet<>();
     // 白屏检测：当前加载最后进度 + 进度推进时间戳（无推进超时判定白屏）
@@ -282,20 +285,18 @@ public class WebViewActivity extends AppCompatActivity {
                 fallbackToDefaultLongClickBehaviour = false;
                 return false;
             }
-            // 长按动态分流（修复：文本区域长按无法选择复制）：
-            // - 输入框（EDIT_TEXT）→ 纯系统处理（光标/粘贴菜单），不弹小菜单
-            // - 普通文本/空白（UNKNOWN）→ 纯系统处理（文本选择菜单自带复制），
-            //   系统不启动选择则无事发生（不再用延迟兜底弹小菜单——会抢占文本选择）
-            // - 链接/图片等其他 → 弹小菜单（复制链接/图片等操作）
-            // 长按动态分流：View 参数强转 WebView 取 HitTestResult
-            WebView.HitTestResult hit = ((WebView) view).getHitTestResult();
-            int hitType = hit != null ? hit.getType() : WebView.HitTestResult.UNKNOWN_TYPE;
-            if (hitType == WebView.HitTestResult.EDIT_TEXT_TYPE
-                    || hitType == WebView.HitTestResult.UNKNOWN_TYPE) {
-                return false;
-            }
-            showWebViewMenuSheet();
-            return true;
+            // 长按动态分流（修复：文本可复制 + 空白处保留小菜单）：
+            // 一律 return false 让系统先处理（文本→选择复制、输入框→光标/粘贴、
+            // 链接→系统链接菜单），系统不启动 ActionMode（空白处）则延迟补弹小菜单。
+            // 不用 HitTestResult 判断（长按时实测恒为 UNKNOWN，不可靠）。
+            actionModeActive = false;
+            view.postDelayed(() -> {
+                // 系统未启动文本/链接选择（空白处）→ 弹小菜单兜底（返回/刷新/快捷键等）
+                if (!actionModeActive && !isFinishing()) {
+                    showWebViewMenuSheet();
+                }
+            }, 300L);
+            return false;
         });
 
 
@@ -995,6 +996,22 @@ public class WebViewActivity extends AppCompatActivity {
     }
 
 
+
+    /**
+     * 文本/链接选择 ActionMode 启动（系统长按选择时回调）：
+     * 标记 actionModeActive，供长按延迟检测区分「有内容可操作」vs「空白处」。
+     */
+    @Override
+    public void onActionModeStarted(android.view.ActionMode mode) {
+        actionModeActive = true;
+        super.onActionModeStarted(mode);
+    }
+
+    @Override
+    public void onActionModeFinished(android.view.ActionMode mode) {
+        actionModeActive = false;
+        super.onActionModeFinished(mode);
+    }
 
     @Override
     protected void onDestroy() {

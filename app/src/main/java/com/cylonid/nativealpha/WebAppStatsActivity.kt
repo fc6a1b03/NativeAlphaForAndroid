@@ -116,9 +116,9 @@ class WebAppStatsActivity : AppCompatActivity() {
                     // 刷新统计页数据（重组重读最新值）
                     webappState = DataManager.getInstance().getWebApp(webappID)
                 }
-                snackbarHostState.showSnackbar("缓存已清空")
+                snackbarHostState.showSnackbar(getString(R.string.cache_cleared))
             } catch (e: Exception) {
-                snackbarHostState.showSnackbar("清理失败，请重试")
+                snackbarHostState.showSnackbar(getString(R.string.cache_clear_failed))
             }
         }
     }
@@ -147,9 +147,9 @@ class WebAppStatsActivity : AppCompatActivity() {
                 }
                 // 清空该站页面错误日志（DataStore）
                 PageErrorRepository.clearForSite(applicationContext, webappID)
-                snackbarHostState.showSnackbar("统计已清空")
+                snackbarHostState.showSnackbar(getString(R.string.stats_cleared))
             } catch (e: Exception) {
-                snackbarHostState.showSnackbar("清空失败，请重试")
+                snackbarHostState.showSnackbar(getString(R.string.stats_clear_failed))
             }
         }
     }
@@ -159,7 +159,7 @@ class WebAppStatsActivity : AppCompatActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             val entries = PageErrorRepository.getForSite(applicationContext, webappID)
             if (entries.isEmpty()) {
-                snackbarHostState.showSnackbar("此站点无错误记录")
+                snackbarHostState.showSnackbar(getString(R.string.stats_no_errors_site))
                 return@launch
             }
             try {
@@ -170,7 +170,7 @@ class WebAppStatsActivity : AppCompatActivity() {
                 }
                 snackbarHostState.showSnackbar("错误日志已导出")
             } catch (e: Exception) {
-                snackbarHostState.showSnackbar("导出失败，请重试")
+                snackbarHostState.showSnackbar(getString(R.string.export_failed_generic))
             }
         }
     }
@@ -188,7 +188,7 @@ class WebAppStatsActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) { null }
             if (displayName?.contains("app_errors") == true) {
-                snackbarHostState.showSnackbar("应用错误日志仅导出，请在全局设置查看")
+                snackbarHostState.showSnackbar(getString(R.string.stats_app_errors_export_only))
                 return@launch
             }
             val json = try {
@@ -196,11 +196,11 @@ class WebAppStatsActivity : AppCompatActivity() {
             } catch (e: Exception) { null }
             val entries = json?.let { PageErrorEntry.fromJson(it) } ?: emptyList()
             if (entries.isEmpty()) {
-                snackbarHostState.showSnackbar("文件中无错误记录或格式不正确")
+                snackbarHostState.showSnackbar(getString(R.string.stats_import_invalid))
             } else {
                 // 展示层合并：更新状态触发 Compose 重组（仅展示不落盘，退出页面即失效）
                 importedErrors = entries.sortedByDescending { it.time }
-                snackbarHostState.showSnackbar("已导入 ${entries.size} 条错误记录（仅展示）")
+                snackbarHostState.showSnackbar(getString(R.string.imported_done, entries.size))
             }
         }
     }

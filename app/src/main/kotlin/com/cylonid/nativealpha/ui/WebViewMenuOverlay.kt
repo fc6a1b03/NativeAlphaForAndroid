@@ -25,8 +25,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.util.AppMaterialTheme
 
 /**
@@ -124,21 +126,21 @@ private fun WebViewMenuSheetContent(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                MenuIconButton(Icons.AutoMirrored.Filled.ArrowBack, "返回", enabled = canGoBack) { onSave(); onAction("back") }
-                MenuIconButton(Icons.AutoMirrored.Filled.ArrowForward, "前进", enabled = canGoForward) { onSave(); onAction("forward") }
-                MenuIconButton(Icons.Default.Refresh, "刷新") { onSave(); onAction("reload") }
-                MenuIconButton(Icons.Default.ContentCopy, "复制") { onSave(); onAction("copy") }
-                MenuIconButton(Icons.Default.Share, "分享") { onSave(); onAction("share") }
+                MenuIconButton(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.menu_back), enabled = canGoBack) { onSave(); onAction("back") }
+                MenuIconButton(Icons.AutoMirrored.Filled.ArrowForward, stringResource(R.string.menu_forward), enabled = canGoForward) { onSave(); onAction("forward") }
+                MenuIconButton(Icons.Default.Refresh, stringResource(R.string.menu_reload)) { onSave(); onAction("reload") }
+                MenuIconButton(Icons.Default.ContentCopy, stringResource(R.string.menu_copy)) { onSave(); onAction("copy") }
+                MenuIconButton(Icons.Default.Share, stringResource(R.string.menu_share)) { onSave(); onAction("share") }
             }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                MenuIconButton(Icons.Default.Home, "主页") { onSave(); onAction("home") }
-                MenuIconButton(Icons.Default.Settings, "设置") { onSave(); onAction("settings") }
-                MenuIconButton(Icons.Default.Keyboard, "快捷键") { onSave(); onAction("shortcuts") }
-                MenuIconButton(Icons.Default.Close, "关闭") { onSave(); onAction("close") }
+                MenuIconButton(Icons.Default.Home, stringResource(R.string.menu_home)) { onSave(); onAction("home") }
+                MenuIconButton(Icons.Default.Settings, stringResource(R.string.menu_settings)) { onSave(); onAction("settings") }
+                MenuIconButton(Icons.Default.Keyboard, stringResource(R.string.menu_shortcuts)) { onSave(); onAction("shortcuts") }
+                MenuIconButton(Icons.Default.Close, stringResource(R.string.menu_close)) { onSave(); onAction("close") }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -151,7 +153,7 @@ private fun WebViewMenuSheetContent(
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    "字体大小", style = MaterialTheme.typography.titleSmall,
+                    stringResource(R.string.menu_font_size), style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)
                 )
                 Text("${textZoom}%", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
@@ -176,7 +178,7 @@ private fun WebViewMenuSheetContent(
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    "页面缩放", style = MaterialTheme.typography.titleSmall,
+                    stringResource(R.string.menu_page_zoom), style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)
                 )
                 Text("${pageZoom}%", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)

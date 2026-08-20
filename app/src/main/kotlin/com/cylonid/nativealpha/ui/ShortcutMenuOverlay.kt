@@ -18,8 +18,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.util.AppMaterialTheme
 
@@ -93,12 +95,12 @@ private fun ShortcutMenuSheetContent(
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    "快捷键", style = MaterialTheme.typography.titleMedium,
+                    stringResource(R.string.shortcut_title), style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)
                 )
             }
             Text(
-                "发送到当前页面的组合键",
+                stringResource(R.string.shortcut_send_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -114,13 +116,13 @@ private fun ShortcutMenuSheetContent(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        "暂无快捷键",
+                        stringResource(R.string.shortcut_no_shortcuts),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "在 WebApp 设置页添加后，可在此一键发送",
+                        stringResource(R.string.shortcut_add_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -140,7 +142,7 @@ private fun ShortcutMenuSheetContent(
                                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                                 .clickable {
                                     onSendShortcut(shortcut)
-                                    android.widget.Toast.makeText(context, "已发送 $shortcut", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, context.getString(R.string.shortcut_sent, shortcut), android.widget.Toast.LENGTH_SHORT).show()
                                 }
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -180,7 +182,7 @@ private fun ShortcutMenuSheetContent(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    "组合键在 WebApp 设置页管理，只发送给页面不触发浏览器默认",
+                    stringResource(R.string.shortcut_manage_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

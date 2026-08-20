@@ -16,9 +16,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.PageErrorEntry
 import com.cylonid.nativealpha.model.PageErrorRepository
 import com.cylonid.nativealpha.model.WebApp
@@ -80,7 +82,7 @@ fun WebAppStatsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("统计 · ${webapp.displayName ?: webapp.title}") },
+                title = { Text(stringResource(R.string.stats_title, webapp.displayName ?: webapp.title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
@@ -105,21 +107,21 @@ fun WebAppStatsScreen(
         ) {
             // KPI 卡 2×2
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                KpiCard("打开次数", webapp.statLaunches.toString(), Modifier.weight(1f))
-                KpiCard("平均主体加载", formatDuration(avgLoad), Modifier.weight(1f))
+                KpiCard(stringResource(R.string.stat_launches), webapp.statLaunches.toString(), Modifier.weight(1f))
+                KpiCard(stringResource(R.string.stat_avg_load), formatDuration(avgLoad), Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                KpiCard("HTTP 缓存", formatBytes(webapp.statCacheHttpBytes), Modifier.weight(1f))
-                KpiCard("页面错误", webapp.statErrors.toString(), Modifier.weight(1f))
+                KpiCard(stringResource(R.string.stat_http_cache), formatBytes(webapp.statCacheHttpBytes), Modifier.weight(1f))
+                KpiCard(stringResource(R.string.stat_page_errors), webapp.statErrors.toString(), Modifier.weight(1f))
             }
 
             // 使用建议（数据→行动：加载慢/错误多/缓存大给出可执行建议）
-            val suggestions = buildSuggestions(webapp)
+            val suggestions = buildSuggestions(context, webapp)
             if (suggestions.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(24.dp))
                 StatsCard {
-                    Text("使用建议", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.suggestions_title), style = MaterialTheme.typography.titleSmall)
                     Spacer(modifier = Modifier.height(4.dp))
                     suggestions.forEach { tip ->
                         Row(
@@ -148,9 +150,9 @@ fun WebAppStatsScreen(
 
             // 加载耗时分布（Vico 图表，数据 <2 次显示引导）
             StatsCard {
-                Text("加载耗时分布", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.load_time_chart), style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "主体加载耗时（不含流式内容生成）",
+                    stringResource(R.string.load_time_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -159,7 +161,7 @@ fun WebAppStatsScreen(
                     LoadTimeChart(webapp)
                 } else {
                     Text(
-                        "使用 2 次后展示分布图",
+                        stringResource(R.string.load_chart_empty),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 24.dp)
@@ -167,7 +169,7 @@ fun WebAppStatsScreen(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "平均 ${formatDuration(avgLoad)} · 最快 ${formatDuration(minLoadTime(webapp))} · 最慢 ${formatDuration(webapp.statMaxLoadTime)}",
+                    stringResource(R.string.load_summary, formatDuration(avgLoad), formatDuration(minLoadTime(webapp)), formatDuration(webapp.statMaxLoadTime)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -177,10 +179,10 @@ fun WebAppStatsScreen(
 
             // 缓存详情
             StatsCard {
-                Text("缓存详情", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.cache_details), style = MaterialTheme.typography.titleSmall)
                 Spacer(modifier = Modifier.height(8.dp))
-                CacheRow("HTTP 缓存总量", formatBytes(webapp.statCacheHttpBytes))
-                CacheRow("站点存储（localStorage 等）", formatBytes(webapp.statCacheStoreBytes))
+                CacheRow(stringResource(R.string.cache_http_total), formatBytes(webapp.statCacheHttpBytes))
+                CacheRow(stringResource(R.string.cache_site_storage), formatBytes(webapp.statCacheStoreBytes))
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = { showClearCacheDialog = true },
@@ -188,22 +190,22 @@ fun WebAppStatsScreen(
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("清缓存")
+                    Text(stringResource(R.string.clear_cache))
                 }
                 // 清缓存确认对话框（状态驱动，防误触）
                 if (showClearCacheDialog) {
                     AlertDialog(
                         onDismissRequest = { showClearCacheDialog = false },
-                        title = { Text("清缓存") },
-                        text = { Text("将清除本应用的全部 WebView 缓存与站点存储，确定？") },
+                        title = { Text(stringResource(R.string.clear_cache)) },
+                        text = { Text(stringResource(R.string.clear_cache_confirm)) },
                         confirmButton = {
                             TextButton(onClick = {
                                 showClearCacheDialog = false
                                 onClearCache()
-                            }) { Text("确定") }
+                            }) { Text(stringResource(R.string.confirm)) }
                         },
                         dismissButton = {
-                            TextButton(onClick = { showClearCacheDialog = false }) { Text("取消") }
+                            TextButton(onClick = { showClearCacheDialog = false }) { Text(stringResource(R.string.cancel)) }
                         }
                     )
                 }
@@ -235,17 +237,17 @@ fun WebAppStatsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "导入 ${importedErrors.size} 条（仅展示）",
+                            stringResource(R.string.imported_count, importedErrors.size),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f)
                         )
-                        TextButton(onClick = onClearImported) { Text("清除导入") }
+                        TextButton(onClick = onClearImported) { Text(stringResource(R.string.clear_imported)) }
                     }
                 }
                 if (allErrors.isEmpty()) {
                     Text(
-                        "✅ 此站点无错误记录",
+                        stringResource(R.string.no_errors),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 16.dp)
@@ -262,10 +264,10 @@ fun WebAppStatsScreen(
 
             // 元信息 + 清空统计
             StatsCard {
-                Text("元信息", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.first_used), style = MaterialTheme.typography.titleSmall)
                 Spacer(modifier = Modifier.height(8.dp))
-                CacheRow("首次使用", if (webapp.statFirstLoadedAt > 0) DateUtils.formatTimestamp(webapp.statFirstLoadedAt) else "—")
-                CacheRow("最近使用", if (webapp.statLastUsedAt > 0) DateUtils.formatTimestamp(webapp.statLastUsedAt) else "—")
+                CacheRow(stringResource(R.string.first_used), if (webapp.statFirstLoadedAt > 0) DateUtils.formatTimestamp(webapp.statFirstLoadedAt) else "—")
+                CacheRow(stringResource(R.string.last_used), if (webapp.statLastUsedAt > 0) DateUtils.formatTimestamp(webapp.statLastUsedAt) else "—")
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = { showClearStatsDialog = true },
@@ -276,22 +278,22 @@ fun WebAppStatsScreen(
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("清空统计")
+                    Text(stringResource(R.string.clear_stats))
                 }
                 // 清空统计确认对话框（状态驱动，防误触）
                 if (showClearStatsDialog) {
                     AlertDialog(
                         onDismissRequest = { showClearStatsDialog = false },
-                        title = { Text("清空统计") },
-                        text = { Text("将重置本应用的打开次数、加载耗时与错误计数，确定？") },
+                        title = { Text(stringResource(R.string.clear_stats)) },
+                        text = { Text(stringResource(R.string.clear_stats_confirm)) },
                         confirmButton = {
                             TextButton(onClick = {
                                 showClearStatsDialog = false
                                 onClearStats()
-                            }) { Text("确定") }
+                            }) { Text(stringResource(R.string.confirm)) }
                         },
                         dismissButton = {
-                            TextButton(onClick = { showClearStatsDialog = false }) { Text("取消") }
+                            TextButton(onClick = { showClearStatsDialog = false }) { Text(stringResource(R.string.cancel)) }
                         }
                     )
                 }
@@ -448,7 +450,7 @@ private fun LoadTimeChart(webapp: WebApp) {
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    "${count}次",
+                    stringResource(R.string.load_count_times, count),
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
                     modifier = Modifier.width(40.dp)
@@ -487,18 +489,18 @@ private fun formatBytes(bytes: Long): String {
  * 生成使用建议（数据→行动）：按统计字段阈值给出可执行建议。
  * 规则：平均加载 >3s / 错误数 >10 / 缓存 >50MB 各出一条；无异常返回空列表。
  */
-private fun buildSuggestions(webapp: WebApp): List<String> {
+private fun buildSuggestions(context: android.content.Context, webapp: WebApp): List<String> {
     val tips = mutableListOf<String>()
     val avgLoad = if (webapp.statLoadTimeCount > 0)
         webapp.statLoadTimeSum / webapp.statLoadTimeCount else 0L
     if (avgLoad > SUGGEST_SLOW_LOAD_MS) {
-        tips.add("平均加载 ${formatDuration(avgLoad)} 偏慢，可在设置中尝试「桌面版请求」或检查网络")
+        tips.add(context.getString(R.string.suggestion_slow_load, formatDuration(avgLoad)))
     }
     if (webapp.statErrors > SUGGEST_ERROR_COUNT) {
-        tips.add("已有 ${webapp.statErrors} 次页面错误，建议查看下方错误日志定位问题")
+        tips.add(context.getString(R.string.suggestion_errors, webapp.statErrors))
     }
     if (webapp.statCacheHttpBytes > SUGGEST_CACHE_BYTES) {
-        tips.add("HTTP 缓存已达 ${formatBytes(webapp.statCacheHttpBytes)}，可在下方清理释放空间")
+        tips.add(context.getString(R.string.suggestion_cache, formatBytes(webapp.statCacheHttpBytes)))
     }
     return tips
 }
