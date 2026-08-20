@@ -58,9 +58,10 @@
     <string name="shortcut_exist">该组合已存在。</string>
     <string name="shortcut_max">每个应用最多 5 个快捷键。</string>
     <string name="shortcut_select_key">主键</string>
-    <string name="add_webapp">添加 Web App</string>
+    <string name="add_webapp">添加</string>
+    <string name="next">下一步</string>
     <string name="welcome_msg">欢迎！
-添加你的第一个 Web App：</string>
+添加你的第一个应用：</string>
     <string name="request_website_in_desktop_version">以桌面版请求网站</string>
     <string name="shortcut_icon">快捷方式图标</string>
     <string name="shortcut_title">快捷方式标题</string>
@@ -155,7 +156,7 @@
     <string name="overrides_global_hint">此应用使用自身设置，覆盖全局默认值。点击「同步全局设置」可恢复跟随全局。</string>
     <string name="sync_global_settings">同步全局设置</string>
     <string name="synced_global_settings">已同步全局设置</string>
-    <string name="app_subtitle">%1$d 个 PWA 应用</string>
+    <string name="app_subtitle">%1$d 个应用</string>
 
     <!-- 设置项说明（description） -->
     <string name="desc_clear_cache">离开应用时清除缓存数据，节省存储空间。</string>

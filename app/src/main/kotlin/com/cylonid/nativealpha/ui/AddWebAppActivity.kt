@@ -335,6 +335,13 @@ private fun Step1Content(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Spacer(modifier = Modifier.height(24.dp))
+        // 下一步按钮（键盘收起时可见；键盘弹出时 imePadding 推至键盘上方，双保险不迷路）
+        Button(
+            onClick = onNext,
+            enabled = urlText.isNotBlank(),
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(stringResource(R.string.next)) }
     }
 }
 
