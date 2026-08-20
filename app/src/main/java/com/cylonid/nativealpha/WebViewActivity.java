@@ -42,6 +42,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
+import android.webkit.WebStorage;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.RenderProcessGoneDetail;
@@ -569,6 +570,76 @@ public class WebViewActivity extends AppCompatActivity {
     private void saveShortcutSettings() {
         WebApp original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
         if (original == null) return;
+        DataManager.getInstance().replaceWebApp(original);
+    }
+
+    /**
+     * 统计缓存占用（异步，不阻塞主线程）：
+     * - HTTP 缓存：cacheDir 递归求和（WebView 缓存目录，含 app_webview）
+     * - 站点存储：WebStorage.getUsageForOrigin（localStorage/IndexedDB 等，回调异步补写）
+     * 调用点：页面加载完成（onPageFinished）后，WebView 缓存已就绪。
+     */
+    private void recordCacheUsage() {
+        if (wv == null) return;
+        try {
+            // HTTP 缓存：cacheDir 递归求和（IO 操作，放 StatsRecorder 线程避免主线程卡顿）
+            // 不依赖 getOrigins 回调：HTTP 缓存立即统计，站点存储回调补写（两者独立）
+            StatsRecorder.INSTANCE.record(() -> {
+                try {
+                    long httpBytes = dirSize(getCacheDir());
+                    updateStatsCache(httpBytes, -1L); // -1 表示站点存储待补
+                } catch (Exception e) {
+                    // 缓存统计失败静默（不影响主功能）
+                }
+            });
+            // 站点存储：异步查询（WebStorage 回调），回调后单独补写
+            WebStorage.getInstance().getOrigins(originsMap -> {
+                long storeBytes = 0L;
+                if (originsMap != null) {
+                    // getOrigins 回调为原始 Map：values 需强转 WebStorage.Origin
+                    for (Object o : originsMap.values()) {
+                        if (o instanceof WebStorage.Origin) {
+                            WebStorage.Origin origin = (WebStorage.Origin) o;
+                            storeBytes += origin.getQuota() > 0 ? origin.getUsage() : 0L;
+                        }
+                    }
+                }
+                final long finalStoreBytes = storeBytes;
+                StatsRecorder.INSTANCE.record(() -> {
+                    updateStatsCache(-1L, finalStoreBytes); // -1 表示 HTTP 缓存已统计
+                });
+            });
+        } catch (Exception e) {
+            // 缓存统计失败静默（不影响主功能）
+        }
+    }
+
+    /** 递归计算目录大小（字节） */
+    private long dirSize(java.io.File dir) {
+        long size = 0L;
+        try {
+            java.io.File[] files = dir.listFiles();
+            if (files != null) {
+                for (java.io.File f : files) {
+                    if (f.isDirectory()) {
+                        size += dirSize(f);
+                    } else {
+                        size += f.length();
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // 目录不可读/损坏：跳过（统计尽力而为）
+        }
+        return size;
+    }
+
+    /** 更新 WebApp 缓存统计字段（原对象，防合并副本覆盖；-1 表示该值待补/已统计，跳过） */
+    private void updateStatsCache(long httpBytes, long storeBytes) {
+        WebApp original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
+        if (original == null) return;
+        if (httpBytes >= 0) original.setStatCacheHttpBytes(httpBytes);
+        if (storeBytes >= 0) original.setStatCacheStoreBytes(storeBytes);
         DataManager.getInstance().replaceWebApp(original);
     }
 
@@ -1323,6 +1394,8 @@ public class WebViewActivity extends AppCompatActivity {
                 StatsRecorder.INSTANCE.recordPageLoaded(webappID, System.currentTimeMillis() - pageLoadStartTime);
                 pageLoadStartTime = 0;
             }
+            // 统计埋点：缓存占用（cacheDir + WebStorage，异步不阻塞）
+            recordCacheUsage();
             if(url.equals("about:blank")) {
                 String langExtension = LocaleUtils.getFileEnding();
                 wv.loadUrl("file:///android_asset/errorSite/error_" + langExtension + ".html");
