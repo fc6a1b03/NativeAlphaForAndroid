@@ -2,6 +2,8 @@ package com.cylonid.nativealpha.ui
 
 import android.app.Activity
 import android.view.ViewGroup
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -12,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -127,36 +130,37 @@ private fun ShortcutMenuSheetContent(
                     )
                 }
             } else {
-                // 已绑定列表：每条「发送」
-                shortcuts.forEach { shortcut ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Button(
-                            onClick = {
-                                onSendShortcut(shortcut)
-                                android.widget.Toast.makeText(context, "已发送 $shortcut", android.widget.Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.weight(0.4f),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("发送", style = MaterialTheme.typography.labelMedium)
-                        }
-                        Text(
-                            shortcut,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
+                // 已绑定列表：自适应 Flow 网格（每项一个卡片，自动换行填满宽度）
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    shortcuts.forEach { shortcut ->
+                        // 每个快捷键一个卡片：发送按钮 + 键名（自适应宽度）
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 12.dp)
-                        )
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .clickable {
+                                    onSendShortcut(shortcut)
+                                    android.widget.Toast.makeText(context, "已发送 $shortcut", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Send, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                shortcut,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
                 }
             }
 

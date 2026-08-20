@@ -152,7 +152,7 @@ fun WebAppSettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
         ) {
-            // 跟随全局状态提示（非全局且未覆盖时显示）
+            // 与全局设置关系提示（跟随态 / 覆盖态 分别说明）
             if (!isGlobal && !modified.isOverrideGlobalSettings) {
                 Surface(
                     modifier = Modifier
@@ -175,6 +175,33 @@ fun WebAppSettingsScreen(
                             text = stringResource(R.string.follows_global_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            } else if (!isGlobal) {
+                // 覆盖态：应用使用自身设置，提示与全局的关系
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.tertiaryContainer
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.overrides_global_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
                             modifier = Modifier.weight(1f)
                         )
                     }

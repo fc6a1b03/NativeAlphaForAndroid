@@ -2,7 +2,7 @@
     <string name="app_name" translatable="false">WebNative</string>
     <!-- Strings used for fragments for navigation -->
     <string name="global_settings">Global Settings</string>
-    <string name="these_settings_are_applied_globally_and_override_app_specific_settings">These settings are used by all Web Apps, except those which explicitly override the global settings.</string>
+    <string name="these_settings_are_applied_globally_and_override_app_specific_settings">Default settings for all Web Apps. An app inherits these when it follows global settings; once you change an app\'s own settings, that app no longer follows global until you tap "Sync with global".</string>
     <string name="use_three_finger_swipes_to_switch_between_web_apps_experimental">Use three-finger swipes ⇄ to switch between Web Apps (experimental)</string>
     <string name="select_ui_mode">Select UI mode</string>
     <string name="save">Save</string>
@@ -112,7 +112,7 @@
     <string name="ignore_ssl_errors">Ignore SSL errors</string>
     <string name="webapp_already_deleted">This Web App is no longer available. You can delete this shortcut.</string>
     <string name="override_global_settings">Override global settings</string>
-    <string name="global_web_app_settings">Global Web App Settings</string>
+    <string name="global_web_app_settings">Global Settings</string>
     <string name="general">General</string>
     <string name="backup">Backup</string>
     <string name="block_all_third_party_requests">Block third-party requests</string>
@@ -148,6 +148,7 @@
     <string name="enter_http_auth_credentials">Enter credentials for %1$s at %2$s:</string>
 
     <string name="follows_global_hint">This Web App follows the global settings. Change any option below to use app-specific settings, or tap "Sync with global".</string>
+    <string name="overrides_global_hint">This app uses its own settings, overriding the global defaults. Tap "Sync with global" to follow the global settings again.</string>
     <string name="sync_global_settings">Sync with global settings</string>
     <string name="synced_global_settings">Synced with global settings</string>
     <string name="app_subtitle">%1$d Web Apps</string>

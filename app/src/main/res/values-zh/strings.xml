@@ -2,7 +2,7 @@
     <string name="app_name" translatable="false">WebNative</string>
     <!-- Strings used for fragments for navigation -->
     <string name="global_settings">全局设置</string>
-    <string name="these_settings_are_applied_globally_and_override_app_specific_settings">这些设置应用于所有 Web App，除非某个 Web App 显式覆盖了全局设置。</string>
+    <string name="these_settings_are_applied_globally_and_override_app_specific_settings">所有 Web App 的默认设置。应用跟随全局时继承这些值；一旦修改了某个应用的自身设置，该应用不再跟随全局，直到点击「同步全局设置」。</string>
     <string name="use_three_finger_swipes_to_switch_between_web_apps_experimental">使用三指滑动在 Web App 之间切换（实验性）</string>
     <string name="select_ui_mode">选择界面模式</string>
     <string name="save">保存</string>
@@ -116,7 +116,7 @@
     <string name="ignore_ssl_errors">忽略 SSL 错误</string>
     <string name="webapp_already_deleted">此 Web App 已不存在。您可以删除此快捷方式。</string>
     <string name="override_global_settings">覆盖全局设置</string>
-    <string name="global_web_app_settings">全局 Web App 设置</string>
+    <string name="global_web_app_settings">全局设置</string>
     <string name="general">通用</string>
     <string name="backup">备份</string>
     <string name="block_all_third_party_requests">阻止第三方请求</string>
@@ -152,6 +152,7 @@
     <string name="enter_http_auth_credentials">为 %1$s 在 %2$s 输入凭据：</string>
 
     <string name="follows_global_hint">此 Web App 当前跟随全局设置。修改下方任意选项将切换为应用设置为主，或点击"同步全局设置"。</string>
+    <string name="overrides_global_hint">此应用使用自身设置，覆盖全局默认值。点击「同步全局设置」可恢复跟随全局。</string>
     <string name="sync_global_settings">同步全局设置</string>
     <string name="synced_global_settings">已同步全局设置</string>
     <string name="app_subtitle">%1$d 个 PWA 应用</string>
