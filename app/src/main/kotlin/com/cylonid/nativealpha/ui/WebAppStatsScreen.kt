@@ -55,6 +55,7 @@ fun WebAppStatsScreen(
     onExport: () -> Unit,
     onClearCache: () -> Unit,
     onClearStats: () -> Unit,
+    onClearImported: () -> Unit,
     importedErrors: List<PageErrorEntry>,
     snackbarHostState: SnackbarHostState,
 ) {
@@ -227,6 +228,21 @@ fun WebAppStatsScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
+                // 导入记录存在时提供「清除导入」（只清展示层，不落盘）
+                if (importedErrors.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "导入 ${importedErrors.size} 条（仅展示）",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = onClearImported) { Text("清除导入") }
+                    }
+                }
                 if (allErrors.isEmpty()) {
                     Text(
                         "✅ 此站点无错误记录",

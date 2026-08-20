@@ -59,11 +59,19 @@ public class App extends Application {
                     com.cylonid.nativealpha.model.AppErrorEntry entry =
                             new com.cylonid.nativealpha.model.AppErrorEntry(
                                     System.currentTimeMillis(),
-                                    com.cylonid.nativealpha.model.AppErrorEntry.LEVEL_CRASH,                                    thread != null ? thread.getName() : "",
+                                    com.cylonid.nativealpha.model.AppErrorEntry.LEVEL_CRASH,
+                                    thread != null ? thread.getName() : "",
                                     throwable != null ? String.valueOf(throwable.getMessage()) : "",
                                     stack
                             );
-                    com.cylonid.nativealpha.model.AppErrorLogRepository.INSTANCE.appendSync(App.this, entry);
+                    // 防死锁：崩溃线程若是协程 IO 线程（DataStore 底层 DefaultDispatcher），
+                    // runBlocking 会自锁（等自己释放锁）——此时跳过同步写，日志丢失可接受
+                    String threadName = thread != null ? thread.getName() : "";
+                    boolean isCoroutineIoThread = threadName.startsWith("DefaultDispatcher")
+                            || threadName.startsWith("kotlinx.coroutines");
+                    if (!isCoroutineIoThread) {
+                        com.cylonid.nativealpha.model.AppErrorLogRepository.INSTANCE.appendSync(App.this, entry);
+                    }
                 } catch (Exception ignored) {
                     // 日志写入失败不阻塞重启流程
                 }

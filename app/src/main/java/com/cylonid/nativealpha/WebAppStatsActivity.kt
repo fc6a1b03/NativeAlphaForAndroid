@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.PageErrorEntry
 import com.cylonid.nativealpha.model.PageErrorRepository
+import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.ui.WebAppStatsScreen
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.Const
@@ -31,6 +32,8 @@ class WebAppStatsActivity : AppCompatActivity() {
 
     private var webappID: Int = -1
     private val snackbarHostState = SnackbarHostState()
+    // 当前 WebApp（响应式：清缓存/清空统计后刷新重组）
+    private var webappState by mutableStateOf<WebApp?>(null)
     // 导入的错误记录（只读展示层合并，不落盘；mutableStateOf 触发 Compose 重组）
     private var importedErrors by androidx.compose.runtime.mutableStateOf<List<PageErrorEntry>>(emptyList())
 
@@ -53,10 +56,12 @@ class WebAppStatsActivity : AppCompatActivity() {
         setTheme(ThemeUtils.resolveTheme())
         super.onCreate(savedInstanceState)
         webappID = intent.getIntExtra(Const.INTENT_WEBAPPID, -1)
+        // 初始加载（后续清缓存/清空统计后更新触发重组）
+        webappState = DataManager.getInstance().getWebApp(webappID)
 
         setContent {
             AppMaterialTheme {
-                val webapp = DataManager.getInstance().getWebApp(webappID)
+                val webapp = webappState
                 if (webapp == null) {
                     finish()
                     return@AppMaterialTheme
@@ -81,6 +86,7 @@ class WebAppStatsActivity : AppCompatActivity() {
                     },
                     onClearCache = { clearCache() },
                     onClearStats = { clearStats() },
+                    onClearImported = { importedErrors = emptyList() },
                     importedErrors = importedErrors,
                     snackbarHostState = snackbarHostState
                 )
@@ -107,6 +113,8 @@ class WebAppStatsActivity : AppCompatActivity() {
                     original.statCacheHttpBytes = 0L
                     original.statCacheStoreBytes = 0L
                     DataManager.getInstance().replaceWebApp(original)
+                    // 刷新统计页数据（重组重读最新值）
+                    webappState = DataManager.getInstance().getWebApp(webappID)
                 }
                 snackbarHostState.showSnackbar("缓存已清空")
             } catch (e: Exception) {
@@ -134,6 +142,8 @@ class WebAppStatsActivity : AppCompatActivity() {
                     original.statFirstLoadedAt = 0L
                     original.statLastUsedAt = 0L
                     DataManager.getInstance().replaceWebApp(original)
+                    // 刷新统计页数据（重组重读最新值）
+                    webappState = DataManager.getInstance().getWebApp(webappID)
                 }
                 // 清空该站页面错误日志（DataStore）
                 PageErrorRepository.clearForSite(applicationContext, webappID)
