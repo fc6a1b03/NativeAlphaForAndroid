@@ -64,6 +64,18 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     var order = 0
     var alwaysUseFallbackContextMenu = false
 
+    // ===== 统计字段（按 WebApp 独立，不参与 copySettings 合并） =====
+    var statLaunches: Int = 0        // 打开次数
+    var statLoadTimeSum: Long = 0    // 主体加载耗时累计 ms
+    var statLoadTimeCount: Int = 0   // 加载次数（均值）
+    var statMaxLoadTime: Long = 0    // 最慢加载 ms
+    var statCacheHttpBytes: Long = 0 // HTTP 缓存占用（cacheDir）
+    var statCacheStoreBytes: Long = 0// 站点存储（WebStorage）
+    var statErrors: Int = 0          // 页面错误计数
+    var statLastError: String? = null// 最近页面错误描述
+    var statFirstLoadedAt: Long = 0  // 首次使用（0 = 未使用，展示时处理）
+    var statLastUsedAt: Long = 0     // 最近使用
+
     init {
         title = baseUrl.replace("http://", "").replace("https://", "").replace("www.", "")
         initDefaultSettings()

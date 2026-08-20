@@ -38,6 +38,7 @@ import android.webkit.SslErrorHandler;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -73,6 +74,7 @@ import com.cylonid.nativealpha.util.DateUtils;
 import com.cylonid.nativealpha.util.EntryPointUtils;
 import com.cylonid.nativealpha.util.LocaleUtils;
 import com.cylonid.nativealpha.util.NotificationUtils;
+import com.cylonid.nativealpha.util.StatsRecorder;
 import com.cylonid.nativealpha.util.Utility;
 import com.cylonid.nativealpha.util.WebViewLauncher;
 import com.google.android.material.color.MaterialColors;
@@ -127,6 +129,8 @@ public class WebViewActivity extends AppCompatActivity {
     private final Handler blankScreenHandler = new Handler();
     private final Runnable blankScreenCheck = this::handleBlankScreen;
     private boolean pageLoadFinished = false;
+    // 统计埋点：页面加载开始时间（onPageStarted 到 onPageFinished 计算耗时）
+    private long pageLoadStartTime = 0L;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -139,6 +143,8 @@ public class WebViewActivity extends AppCompatActivity {
             // Toast is shown in getWebApp method
             finish();
         } else {
+            // 统计埋点：记录打开次数
+            StatsRecorder.INSTANCE.recordLaunch(webappID);
             setupWebView();
         }
     }
@@ -683,6 +689,8 @@ public class WebViewActivity extends AppCompatActivity {
             wv.onPause();
             wv.pauseTimers();
         }
+        // 统计埋点：落盘兜底（内存统计写入持久化）
+        StatsRecorder.INSTANCE.flush();
         if(mPopupMenu != null) mPopupMenu.dismiss();
 
         if (webapp != null && (webapp.isClearCache() || DataManager.getInstance().getSettings().isClearCache()) && wv != null)
@@ -1157,6 +1165,11 @@ public class WebViewActivity extends AppCompatActivity {
             // 加载完成：取消白屏检测（避免误判）
             pageLoadFinished = true;
             cancelBlankScreenCheck();
+            // 统计埋点：主体加载耗时（started 到 finished）
+            if (pageLoadStartTime > 0) {
+                StatsRecorder.INSTANCE.recordPageLoaded(webappID, System.currentTimeMillis() - pageLoadStartTime);
+                pageLoadStartTime = 0;
+            }
             if(url.equals("about:blank")) {
                 String langExtension = LocaleUtils.getFileEnding();
                 wv.loadUrl("file:///android_asset/errorSite/error_" + langExtension + ".html");
@@ -1174,12 +1187,43 @@ public class WebViewActivity extends AppCompatActivity {
             lastProgress = 0;
             lastProgressTime = System.currentTimeMillis();
             scheduleBlankScreenCheck();
+            // 统计埋点：记录加载开始时间
+            pageLoadStartTime = System.currentTimeMillis();
             super.onPageStarted(view, url, favicon);
+        }
+
+        @Override
+        public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+            super.onReceivedError(view, request, error);
+            // 统计埋点：记录页面错误（仅主框架错误，子资源错误不统计防噪音）
+            if (request != null && request.isForMainFrame()) {
+                StatsRecorder.INSTANCE.recordPageError(
+                    webappID,
+                    "NETWORK",
+                    error != null ? String.valueOf(error.getErrorCode()) : "unknown",
+                    error != null && error.getDescription() != null ? error.getDescription().toString() : ""
+                );
+            }
+        }
+
+        @Override
+        public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+            super.onReceivedHttpError(view, request, errorResponse);
+            // 统计埋点：HTTP 状态码错误（主框架）
+            if (request != null && request.isForMainFrame()) {
+                StatsRecorder.INSTANCE.recordPageError(
+                    webappID,
+                    "HTTP",
+                    errorResponse != null ? String.valueOf(errorResponse.getStatusCode()) : "unknown",
+                    "HTTP error"
+                );
+            }
         }
 
         @Override
         public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
             // 渲染进程崩溃/OOM：避免整个应用崩溃，提示用户并关闭页面
+            StatsRecorder.INSTANCE.recordPageError(webappID, "RENDER", "render_gone", "Render process gone");
             runOnUiThread(() -> {
                 NotificationUtils.showInfoSnackbar(
                     WebViewActivity.this,
@@ -1217,6 +1261,9 @@ public class WebViewActivity extends AppCompatActivity {
                 handler.proceed();
                 return;
             }
+
+            // 统计埋点：SSL 错误
+            StatsRecorder.INSTANCE.recordPageError(webappID, "SSL", String.valueOf(error.getPrimaryError()), "SSL error");
 
             final AlertDialog.Builder builder = new AlertDialog.Builder(WebViewActivity.this);
 
