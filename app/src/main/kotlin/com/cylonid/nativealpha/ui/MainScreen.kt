@@ -178,7 +178,11 @@ fun MainScreen(
                 contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(webApps, key = { it.ID }) { webApp ->
+                items(
+                    webApps,
+                    key = { it.ID },
+                    contentType = { "webapp" }  // 同类型项共享组合策略，滑动不重建
+                ) { webApp ->
                     WebAppCard(
                         webApp = webApp,
                         onClick = { onOpenWebApp(webApp) },

@@ -32,7 +32,17 @@ object IconGenerator {
     )
 
     /**
-     * 生成兜底图标。
+     * 位图内存缓存（LruCache）：列表滚动/重组时复用已生成图标，避免反复创建 Bitmap。
+     * key = "siteName|domain|sizePx"，value = 生成后的 Bitmap。
+     * 容量按 4MB 估算（约 30 个 112px ARGB 位图），超限自动淘汰最久未用。
+     */
+    private val bitmapCache = object : android.util.LruCache<String, Bitmap>(4 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int =
+            value.byteCount  // 实际字节数（更精确的容量控制）
+    }
+
+    /**
+     * 生成兜底图标（带 LruCache 缓存）。
      *
      * @param siteName 站点名（取首字母显示；为空时显示 "?"）
      * @param domain   域名（用于稳定选色；为空时用默认色）
@@ -41,6 +51,17 @@ object IconGenerator {
      */
     @JvmStatic
     fun generate(siteName: String?, domain: String?, sizePx: Int, cornerRadiusPx: Int): Bitmap {
+        // 缓存 key：站点名 + 域名 + 尺寸（同站点同尺寸复用同一张）
+        val cacheKey = (siteName ?: "") + "|" + (domain ?: "") + "|" + sizePx
+        bitmapCache.get(cacheKey)?.let { return it }
+        val bitmap = createBitmap(siteName, domain, sizePx, cornerRadiusPx)
+        // 入缓存（相同 key 并发时后写覆盖，无害）
+        bitmapCache.put(cacheKey, bitmap)
+        return bitmap
+    }
+
+    /** 实际位图生成（无缓存路径） */
+    private fun createBitmap(siteName: String?, domain: String?, sizePx: Int, cornerRadiusPx: Int): Bitmap {
         val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
