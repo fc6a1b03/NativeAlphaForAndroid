@@ -78,6 +78,8 @@ fun WebAppStatsScreen(
     val allErrors = pageErrors
     // 当前查看详情的错误（点击行弹出，null=未选中）
     var selectedError by remember { mutableStateOf<PageErrorEntry?>(null) }
+    // 分组展开状态（key=错误类型，true=展开显示明细）
+    var expandedGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     Scaffold(
         topBar = {
@@ -235,9 +237,55 @@ fun WebAppStatsScreen(
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
                 } else {
-                    allErrors.forEach { entry ->
-                        ErrorRow(entry, onClick = { selectedError = entry })
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    // 按错误类型分组（长列表友好：分组折叠，不用一直下滑）
+                    val grouped = allErrors.groupBy { it.type }
+                    grouped.forEach { (type, entries) ->
+                        val expanded = type in expandedGroups
+                        // 分组标题行（点击展开/收起）
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    expandedGroups = if (expanded) expandedGroups - type
+                                    else expandedGroups + type
+                                }
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // 类型徽标
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(errorColor(type))
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                type,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                "${entries.size}条",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                if (expanded) "▾" else "▸",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        // 展开时显示明细（每条可点详情）
+                        if (expanded) {
+                            entries.forEach { entry ->
+                                ErrorRow(entry, onClick = { selectedError = entry })
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                            }
+                        }
                     }
                 }
             }
