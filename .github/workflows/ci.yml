@@ -129,26 +129,30 @@ jobs:
           FEATURES=$(git log --oneline $RANGE 2>/dev/null | grep -iE "feat|feature|新增|增加|支持|优化.*体验|重设计" | sed -E 's/^[0-9a-f]+ ([a-z]+: )?//' | head -12)
           FIXES=$(git log --oneline $RANGE 2>/dev/null | grep -iE "fix|bug|修复|崩溃|异常|遮挡|失效" | sed -E 's/^[0-9a-f]+ ([a-z]+: )?//' | head -12)
           PERFS=$(git log --oneline $RANGE 2>/dev/null | grep -iE "perf|optim|speed|fast|提速|加速|体积|内存" | sed -E 's/^[0-9a-f]+ ([a-z]+: )?//' | head -8)
-          # 生成 body
+          # 生成 body（全动态：版本号/统计/分类/提交记录，无固定文案）
+          TOTAL_COMMITS=$(git log --oneline $RANGE 2>/dev/null | wc -l | tr -d ' ')
+          TOTAL_FILES=$(git diff --stat $RANGE 2>/dev/null | tail -1 | grep -oE '[0-9]+ files? changed' | grep -oE '[0-9]+' | head -1)
+          F_COUNT=$(echo "$FEATURES" | grep -c . || true)
+          X_COUNT=$(echo "$FIXES" | grep -c . || true)
+          P_COUNT=$(echo "$PERFS" | grep -c . || true)
           {
             echo "# WebNative ${VERSION}"
             echo ""
-            echo "为 PWA 而生的轻量 Web App 套壳 —— 把任意网站变成全屏、免打扰的原生应用体验，专为高频文本流场景（AI 对话、代码生成）做了渲染优化。"
+            echo "## 📊 本版本概览"
+            echo "- 提交数：${TOTAL_COMMITS:-0}"
+            echo "- 变更文件：${TOTAL_FILES:-0}"
+            echo "- 亮点 ${F_COUNT:-0} · 修复 ${X_COUNT:-0} · 性能优化 ${P_COUNT:-0}"
             echo ""
             echo "## ✨ 本版本亮点"
-            if [ -n "$FEATURES" ]; then echo "$FEATURES" | sed 's/^/- /'; else echo "- 详见变更记录"; fi
+            if [ -n "$FEATURES" ]; then echo "$FEATURES" | grep -v '^$' | sed 's/^/- /'; else echo "- 本版本无新增功能"; fi
             echo ""
             if [ -n "$PERFS" ]; then
               echo "## ⚡ 性能优化"
-              echo "$PERFS" | sed 's/^/- /'
+              echo "$PERFS" | grep -v '^$' | sed 's/^/- /'
               echo ""
             fi
             echo "## 🐛 修复"
-            if [ -n "$FIXES" ]; then echo "$FIXES" | sed 's/^/- /'; else echo "- 详见变更记录"; fi
-            echo ""
-            echo "## 📦 安装"
-            echo "- **APK**：直接下载安装（arm64-v8a）"
-            echo "- **AAB**：Google Play / 应用市场分发用"
+            if [ -n "$FIXES" ]; then echo "$FIXES" | grep -v '^$' | sed 's/^/- /'; else echo "- 本版本无修复项"; fi
             echo ""
             echo "## 📝 变更记录"
             git log --oneline $RANGE 2>/dev/null | head -30 || echo "-"
