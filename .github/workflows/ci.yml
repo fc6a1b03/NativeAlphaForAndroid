@@ -29,6 +29,9 @@ jobs:
     steps:
       - name: "📥 Checkout"
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: "🎯 Setup Java 17"
         uses: actions/setup-java@v5
@@ -53,6 +56,9 @@ jobs:
     steps:
       - name: "📥 Checkout"
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: "🎯 Setup Java 17"
         uses: actions/setup-java@v5
