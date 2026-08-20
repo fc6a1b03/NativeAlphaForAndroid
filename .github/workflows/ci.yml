@@ -120,12 +120,41 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk artifacts/WebNative-${VERSION}.apk
           cp app/build/outputs/bundle/release/app-release.aab artifacts/WebNative-${VERSION}.aab
           ls -la artifacts/
-          # 生成 Release body（替换模板变量）
-          COMMIT_LOG=$(git log --oneline $VERSION -n 20 2>/dev/null | head -20 || echo "-")
-          export VERSION COMMIT_LOG
-          envsubst < .github/release_body.md > artifacts/release_body.md
-          echo "--- release body 前 5 行 ---"
-          head -5 artifacts/release_body.md
+          # ===== 自动生成 Release body（从 git 提交按类型分类，不再写死）=====
+          # 上个 tag（无则用全部历史）
+          PREV_TAG=$(git tag --sort=-version:refname | sed -n '2p')
+          if [ -z "$PREV_TAG" ]; then RANGE=""; else RANGE="${PREV_TAG}..${VERSION}"; fi
+          echo "--- 变更范围: ${RANGE:-全部历史} ---"
+          # 分类提取（宽松关键词匹配，兼容中文提交信息；去掉 hash 与类型前缀）
+          FEATURES=$(git log --oneline $RANGE 2>/dev/null | grep -iE "feat|feature|新增|增加|支持|优化.*体验|重设计" | sed -E 's/^[0-9a-f]+ ([a-z]+: )?//' | head -12)
+          FIXES=$(git log --oneline $RANGE 2>/dev/null | grep -iE "fix|bug|修复|崩溃|异常|遮挡|失效" | sed -E 's/^[0-9a-f]+ ([a-z]+: )?//' | head -12)
+          PERFS=$(git log --oneline $RANGE 2>/dev/null | grep -iE "perf|optim|speed|fast|提速|加速|体积|内存" | sed -E 's/^[0-9a-f]+ ([a-z]+: )?//' | head -8)
+          # 生成 body
+          {
+            echo "# WebNative ${VERSION}"
+            echo ""
+            echo "为 PWA 而生的轻量 Web App 套壳 —— 把任意网站变成全屏、免打扰的原生应用体验，专为高频文本流场景（AI 对话、代码生成）做了渲染优化。"
+            echo ""
+            echo "## ✨ 本版本亮点"
+            if [ -n "$FEATURES" ]; then echo "$FEATURES" | sed 's/^/- /'; else echo "- 详见变更记录"; fi
+            echo ""
+            if [ -n "$PERFS" ]; then
+              echo "## ⚡ 性能优化"
+              echo "$PERFS" | sed 's/^/- /'
+              echo ""
+            fi
+            echo "## 🐛 修复"
+            if [ -n "$FIXES" ]; then echo "$FIXES" | sed 's/^/- /'; else echo "- 详见变更记录"; fi
+            echo ""
+            echo "## 📦 安装"
+            echo "- **APK**：直接下载安装（arm64-v8a）"
+            echo "- **AAB**：Google Play / 应用市场分发用"
+            echo ""
+            echo "## 📝 变更记录"
+            git log --oneline $RANGE 2>/dev/null | head -30 || echo "-"
+          } > artifacts/release_body.md
+          echo "--- release body 前 15 行 ---"
+          head -15 artifacts/release_body.md
 
       - name: "🚀 Create GitHub Release"
         uses: softprops/action-gh-release@v3
