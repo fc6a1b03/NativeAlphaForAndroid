@@ -66,6 +66,7 @@ import com.cylonid.nativealpha.databinding.DialogHttpAuthBinding;
 import com.cylonid.nativealpha.helper.IconPopupMenuHelper;
 import com.cylonid.nativealpha.model.DataManager;
 import com.cylonid.nativealpha.model.WebApp;
+import com.cylonid.nativealpha.ui.WebViewMenuOverlayKt;
 import com.cylonid.nativealpha.util.Const;
 import com.cylonid.nativealpha.util.DateUtils;
 import com.cylonid.nativealpha.util.EntryPointUtils;
@@ -175,7 +176,10 @@ public class WebViewActivity extends AppCompatActivity {
             ViewCompat.setOnApplyWindowInsetsListener(root, (v, windowInsets) -> {
                 Insets bars = windowInsets.getInsets(
                         WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-                v.setPadding(0, bars.top, 0, bars.bottom);
+                // 键盘弹出时避开（防御：部分输入法/机型 adjustResize 不生效）
+                Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+                int bottom = Math.max(bars.bottom, ime.bottom);
+                v.setPadding(0, bars.top, 0, bottom);
                 return windowInsets;
             });
         }
@@ -194,8 +198,9 @@ public class WebViewActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             wv.setLayerType(View.LAYER_TYPE_NONE, null);
         }
-        // 文字 1:1 保真（防缩放模糊，流式代码块清晰）
-        wv.getSettings().setTextZoom(100);
+        // 文字缩放（用户可调：50~200%，默认 100）
+        wv.getSettings().setTextZoom(webapp.getTextZoom());
+        // 页面缩放（用户可调：50~200%，默认 100）：onPageFinished 里 zoomBy 应用
         // 预栅格化：减少滚动时白块/抖动（流式长文本滚动流畅）
         if (WebViewFeature.isFeatureSupported(WebViewFeature.OFF_SCREEN_PRERASTER)) {
             WebSettingsCompat.setOffscreenPreRaster(wv.getSettings(), true);
@@ -246,7 +251,7 @@ public class WebViewActivity extends AppCompatActivity {
                 fallbackToDefaultLongClickBehaviour = false;
                 return false;
             }
-            showWebViewPopupMenu();
+            showWebViewMenuSheet();
             return true;
         });
 
@@ -424,6 +429,89 @@ public class WebViewActivity extends AppCompatActivity {
             }
         }
 
+    }
+
+    /** 显示 Compose 底部菜单（当前页叠加，WebView 保留在后面；滑杆实时预览，关闭即保存） */
+    private void showWebViewMenuSheet() {
+        String currentUrl = wv.getUrl() != null ? wv.getUrl() : "";
+        WebViewMenuOverlayKt.showWebViewMenuOverlay(
+                this,
+                currentUrl,
+                wv.canGoBack(),
+                wv.canGoForward(),
+                webapp.getTextZoom(),
+                webapp.getPageZoom(),
+                action -> { handleMenuAction(action); return kotlin.Unit.INSTANCE; },
+                zoom -> {
+                    // 实时预览字体缩放
+                    if (wv != null) wv.getSettings().setTextZoom(zoom.intValue());
+                    return kotlin.Unit.INSTANCE;
+                },
+                zoom -> {
+                    // 实时预览页面缩放 + 记录待保存值（zoomBy 模拟捏合）
+                    mMenuPageZoom = zoom.intValue();
+                    if (wv != null) {
+                        webapp.setPageZoom(zoom.intValue());
+                        applyPageZoom();
+                    }
+                    return kotlin.Unit.INSTANCE;
+                },
+                () -> { saveZoomSettings(); return kotlin.Unit.INSTANCE; }
+        );
+    }
+
+    /** 菜单中页面缩放预览值（保存时写回 webapp） */
+    private int mMenuPageZoom = 100;
+
+    /** 保存字体/缩放设置到 WebApp 原对象（菜单关闭时触发），不污染合并对象 */
+    private void saveZoomSettings() {
+        if (wv == null || webapp == null) return;
+        WebApp original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
+        if (original == null) return;
+        original.setTextZoom(wv.getSettings().getTextZoom());
+        original.setPageZoom(mMenuPageZoom);
+        DataManager.getInstance().replaceWebApp(original);
+    }
+
+    /**
+     * 页面缩放：WebView.zoomBy（模拟捏合，对任何页面可靠）。
+     * 先复位 initialScale 再按目标比例缩放（zoomBy 是相对当前值的倍数）。
+     */
+    private void applyPageZoom() {
+        if (wv == null || webapp == null) return;
+        int zoom = webapp.getPageZoom();
+        if (zoom == 100) return;
+        float scale = zoom / 100f;
+        wv.setInitialScale(100);
+        wv.zoomBy(scale);
+    }
+
+    /** 菜单动作处理 */
+    private void handleMenuAction(String action) {        switch (action) {
+            case "back": onBackPressed(); break;
+            case "forward": if (wv != null && wv.canGoForward()) wv.goForward(); break;
+            case "reload": if (wv != null) wv.reload(); break;
+            case "copy":
+                if (wv != null && wv.getUrl() != null) {
+                    ClipboardManager clipboard = getSystemService(ClipboardManager.class);
+                    clipboard.setPrimaryClip(ClipData.newPlainText("URL", wv.getUrl()));
+                }
+                break;
+            case "share":
+                if (wv != null && wv.getUrl() != null) {
+                    new ShareCompat.IntentBuilder(WebViewActivity.this)
+                            .setType("text/plain")
+                            .setChooserTitle("Share URL")
+                            .setText(wv.getUrl())
+                            .startChooser();
+                }
+                break;
+            case "home":
+                Intent intent = new Intent(this, MainActivity.class);
+                startActivity(intent);
+                break;
+            case "close": finishAndRemoveTask(); break;
+        }
     }
 
     @SuppressLint("NonConstantResourceId")
@@ -959,6 +1047,8 @@ public class WebViewActivity extends AppCompatActivity {
                 wv.loadUrl("file:///android_asset/errorSite/error_" + langExtension + ".html");
             }
             wv.evaluateJavascript("document.addEventListener(\"visibilitychange\",function (event) {event.stopImmediatePropagation();},true);", null);
+            // 页面缩放：zoomBy 模拟捏合（对移动版自适应页面可靠）
+            applyPageZoom();
             super.onPageFinished(view, url);
         }
 
