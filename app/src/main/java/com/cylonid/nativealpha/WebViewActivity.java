@@ -282,6 +282,18 @@ public class WebViewActivity extends AppCompatActivity {
                 fallbackToDefaultLongClickBehaviour = false;
                 return false;
             }
+            // 长按动态分流（修复：文本区域长按无法选择复制）：
+            // - 输入框（EDIT_TEXT）→ 纯系统处理（光标/粘贴菜单），不弹小菜单
+            // - 普通文本/空白（UNKNOWN）→ 纯系统处理（文本选择菜单自带复制），
+            //   系统不启动选择则无事发生（不再用延迟兜底弹小菜单——会抢占文本选择）
+            // - 链接/图片等其他 → 弹小菜单（复制链接/图片等操作）
+            // 长按动态分流：View 参数强转 WebView 取 HitTestResult
+            WebView.HitTestResult hit = ((WebView) view).getHitTestResult();
+            int hitType = hit != null ? hit.getType() : WebView.HitTestResult.UNKNOWN_TYPE;
+            if (hitType == WebView.HitTestResult.EDIT_TEXT_TYPE
+                    || hitType == WebView.HitTestResult.UNKNOWN_TYPE) {
+                return false;
+            }
             showWebViewMenuSheet();
             return true;
         });
@@ -981,6 +993,8 @@ public class WebViewActivity extends AppCompatActivity {
             default: return null;
         }
     }
+
+
 
     @Override
     protected void onDestroy() {
