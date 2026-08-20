@@ -483,6 +483,8 @@ public class WebViewActivity extends AppCompatActivity {
     /** 显示 Compose 底部菜单（当前页叠加，WebView 保留在后面；滑杆实时预览，关闭即保存） */
     private void showWebViewMenuSheet() {
         String currentUrl = wv.getUrl() != null ? wv.getUrl() : "";
+        // 初始化页面缩放待保存值（防只调字体时把已保存的 pageZoom 覆盖成 100）
+        mMenuPageZoom = webapp.getPageZoom();
         WebViewMenuOverlayKt.showWebViewMenuOverlay(
                 this,
                 currentUrl,

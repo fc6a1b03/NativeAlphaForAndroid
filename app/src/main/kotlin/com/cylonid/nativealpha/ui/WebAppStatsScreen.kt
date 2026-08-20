@@ -45,7 +45,7 @@ private const val SUGGEST_CACHE_BYTES = 50L * 1024 * 1024
 /**
  * 统计页（按 WebApp 进入 · 开发者向）。
  *
- * Bento Grid 布局：KPI 卡 2×2 / 加载耗时柱状图 / 缓存详情 / 错误日志（导入导出）/ 元信息。
+ * Bento Grid 布局：KPI 卡 2×2 / 加载耗时柱状图 / 缓存详情 / 错误日志（导出）/ 元信息。
  * 全部复用 M3 组件体系（Card/Snackbar/AlertDialog），深浅色自动适配。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,12 +53,10 @@ private const val SUGGEST_CACHE_BYTES = 50L * 1024 * 1024
 fun WebAppStatsScreen(
     webapp: WebApp,
     onBack: () -> Unit,
-    onImport: () -> Unit,
     onExport: () -> Unit,
     onClearCache: () -> Unit,
     onClearStats: () -> Unit,
-    onClearImported: () -> Unit,
-    importedErrors: List<PageErrorEntry>,
+
     snackbarHostState: SnackbarHostState,
 ) {
     val scope = rememberCoroutineScope()
@@ -77,7 +75,9 @@ fun WebAppStatsScreen(
     // 计算统计指标（0 值显示「—」）
     val avgLoad = if (webapp.statLoadTimeCount > 0)
         webapp.statLoadTimeSum / webapp.statLoadTimeCount else 0L
-    val allErrors = importedErrors + pageErrors  // 导入数据仅展示层合并（不落盘）
+    val allErrors = pageErrors
+    // 当前查看详情的错误（点击行弹出，null=未选中）
+    var selectedError by remember { mutableStateOf<PageErrorEntry?>(null) }
 
     Scaffold(
         topBar = {
@@ -221,30 +221,12 @@ fun WebAppStatsScreen(
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.weight(1f)
                     )
-                    // 导入/导出按钮（对称并排，不割裂）
-                    IconButton(onClick = onImport, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Upload, contentDescription = "导入", modifier = Modifier.size(18.dp))
-                    }
+                    // 导出按钮（错误日志只导出不导入）
                     IconButton(onClick = onExport, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Default.Download, contentDescription = "导出", modifier = Modifier.size(18.dp))
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                // 导入记录存在时提供「清除导入」（只清展示层，不落盘）
-                if (importedErrors.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            stringResource(R.string.imported_count, importedErrors.size),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(onClick = onClearImported) { Text(stringResource(R.string.clear_imported)) }
-                    }
-                }
                 if (allErrors.isEmpty()) {
                     Text(
                         stringResource(R.string.no_errors),
@@ -254,10 +236,37 @@ fun WebAppStatsScreen(
                     )
                 } else {
                     allErrors.forEach { entry ->
-                        ErrorRow(entry)
+                        ErrorRow(entry, onClick = { selectedError = entry })
                         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     }
                 }
+            }
+
+            // 错误详情对话框（点击行弹出，查看全部内容）
+            selectedError?.let { err ->
+                AlertDialog(
+                    onDismissRequest = { selectedError = null },
+                    title = { Text("${err.type}(${err.code})") },
+                    text = {
+                        Column {
+                            Text(
+                                err.description.ifBlank { "—" },
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                DateUtils.formatTimestamp(err.time),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { selectedError = null }) {
+                            Text(stringResource(R.string.confirm))
+                        }
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -358,11 +367,13 @@ private fun CacheRow(label: String, value: String) {
 
 /** 错误条目行 */
 @Composable
-private fun ErrorRow(entry: PageErrorEntry) {
+private fun ErrorRow(entry: PageErrorEntry, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp),
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 类型徽标（配色按错误类型）

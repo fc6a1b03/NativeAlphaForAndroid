@@ -25,7 +25,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 统计页（按 WebApp 进入）：KPI/图表/缓存/错误日志/导入导出/清空。
+ * 统计页（按 WebApp 进入）：KPI/图表/缓存/错误日志/清空。
  * 数据源：DataManager 统计字段 + DataStore 页面错误（KEY_PAGE_ERRORS）。
  */
 class WebAppStatsActivity : AppCompatActivity() {
@@ -34,21 +34,12 @@ class WebAppStatsActivity : AppCompatActivity() {
     private val snackbarHostState = SnackbarHostState()
     // 当前 WebApp（响应式：清缓存/清空统计后刷新重组）
     private var webappState by mutableStateOf<WebApp?>(null)
-    // 导入的错误记录（只读展示层合并，不落盘；mutableStateOf 触发 Compose 重组）
-    private var importedErrors by androidx.compose.runtime.mutableStateOf<List<PageErrorEntry>>(emptyList())
 
     // 导出页面错误（SAF 新 API）
     private val exportLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
         if (uri != null) exportPageErrorsToUri(uri)
-    }
-
-    // 导入页面错误（SAF 新 API）
-    private val importLauncher = registerForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) importPageErrorsFromUri(uri)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,13 +60,6 @@ class WebAppStatsActivity : AppCompatActivity() {
                 WebAppStatsScreen(
                     webapp = webapp,
                     onBack = { finish() },
-                    onImport = {
-                        try {
-                            importLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
-                        } catch (e: Exception) {
-                            // 无文件选择器：静默
-                        }
-                    },
                     onExport = {
                         val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
                         try {
@@ -86,8 +70,6 @@ class WebAppStatsActivity : AppCompatActivity() {
                     },
                     onClearCache = { clearCache() },
                     onClearStats = { clearStats() },
-                    onClearImported = { importedErrors = emptyList() },
-                    importedErrors = importedErrors,
                     snackbarHostState = snackbarHostState
                 )
             }
@@ -175,33 +157,4 @@ class WebAppStatsActivity : AppCompatActivity() {
         }
     }
 
-    /** 导入页面错误文件（只读展示层合并，不落盘；应用错误文件仅导出不导入，识别提示） */
-    private fun importPageErrorsFromUri(uri: android.net.Uri) {
-        CoroutineScope(Dispatchers.IO).launch {
-            // 应用错误文件识别：文件名含 app_errors → 提示不导入（只导出）
-            val displayName = try {
-                contentResolver.query(
-                    uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),
-                    null, null, null
-                )?.use { c ->
-                    if (c.moveToFirst()) c.getString(0) else null
-                }
-            } catch (e: Exception) { null }
-            if (displayName?.contains("app_errors") == true) {
-                snackbarHostState.showSnackbar(getString(R.string.stats_app_errors_export_only))
-                return@launch
-            }
-            val json = try {
-                contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
-            } catch (e: Exception) { null }
-            val entries = json?.let { PageErrorEntry.fromJson(it) } ?: emptyList()
-            if (entries.isEmpty()) {
-                snackbarHostState.showSnackbar(getString(R.string.stats_import_invalid))
-            } else {
-                // 展示层合并：更新状态触发 Compose 重组（仅展示不落盘，退出页面即失效）
-                importedErrors = entries.sortedByDescending { it.time }
-                snackbarHostState.showSnackbar(getString(R.string.imported_done, entries.size))
-            }
-        }
-    }
 }

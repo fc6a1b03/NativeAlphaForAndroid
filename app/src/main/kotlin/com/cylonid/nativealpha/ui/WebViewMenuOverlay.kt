@@ -164,6 +164,7 @@ private fun WebViewMenuSheetContent(
                     textZoom = it.toInt().coerceIn(50, 200)
                     onApplyTextZoom(textZoom)
                 },
+                onValueChangeFinished = { onSave() },  // 调整结束立即保存（防直接退应用丢失）
                 valueRange = 50f..200f,
                 steps = 14
             )
@@ -189,6 +190,7 @@ private fun WebViewMenuSheetContent(
                     pageZoom = it.toInt().coerceIn(50, 200)
                     onApplyPageZoom(pageZoom)
                 },
+                onValueChangeFinished = { onSave() },  // 调整结束立即保存（防直接退应用丢失）
                 valueRange = 50f..200f,
                 steps = 14
             )

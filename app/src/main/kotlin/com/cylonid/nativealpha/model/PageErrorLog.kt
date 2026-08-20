@@ -46,15 +46,26 @@ object PageErrorRepository {
         try {
             val current = AppStorage.readString(context, AppStorage.KEY_PAGE_ERRORS)
             val list = PageErrorEntry.fromJson(current).toMutableList()
-            list.add(
-                PageErrorEntry(
-                    time = System.currentTimeMillis(),
-                    site = webappId.toString(),
-                    type = type,
-                    code = code,
-                    description = description
+            // 去重：同 type+code+description 的重复错误保留最新（更新 time，不新增）
+            // 唯一哈希 = type|code|description
+            val hash = "$type|$code|$description"
+            val existing = list.indexOfFirst {
+                "${it.type}|${it.code}|${it.description}" == hash
+            }
+            if (existing >= 0) {
+                // 重复：更新时间（保留最新位置）
+                list[existing] = list[existing].copy(time = System.currentTimeMillis())
+            } else {
+                list.add(
+                    PageErrorEntry(
+                        time = System.currentTimeMillis(),
+                        site = webappId.toString(),
+                        type = type,
+                        code = code,
+                        description = description
+                    )
                 )
-            )
+            }
             // 超上限丢最旧
             if (list.size > MAX_ENTRIES) {
                 Collections.sort(list) { a, b -> a.time.compareTo(b.time) }
