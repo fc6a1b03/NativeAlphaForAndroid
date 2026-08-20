@@ -19,8 +19,12 @@
 * **全屏沉浸**：edge-to-edge，状态栏/导航栏与页面融合
 * **每站独立设置**：JavaScript、Cookies、桌面 UA、深色模式、自动刷新等按 Web App 单独配置
 * **多手势导航**：双指前进/后退、双指下滑刷新、三指切换
+* **安全加固**：文件/内容访问、混合内容、JS 弹窗、Safe Browsing 五重防护（全局+每站两级，默认全开）
+* **按站统计**：打开次数、加载耗时分布、缓存占用、错误日志——独立统计页（KPI 卡 + 图表），支持导入/导出
+* **组合快捷键**：手机点选录入（Ctrl/Shift/Alt + 主键），小菜单一键发送到页面，不触发浏览器默认
+* **应用错误日志**：崩溃兜底记录 + 导出近 3 天日志（全局设置备份区）
 * **数据备份**：版本化 JSON 导出/导入（含校验和验证）
-* **极低损耗**：R8 全量压缩，release APK 约 21MB（arm64-only）；无 GMS 依赖，无隐私侵入权限
+* **极低损耗**：R8 全量压缩，release APK 约 22MB（arm64-only）；无 GMS 依赖，无隐私侵入权限
 
 ## Tech Stack
 
@@ -31,7 +35,7 @@
 | AGP | 9.3.1 |
 | Gradle | 9.7.0 |
 | minSdk / targetSdk | 31 / 37 |
-| 持久化 | Gson + SharedPreferences |
+| 持久化 | DataStore（错误日志/统计）+ Gson + SharedPreferences（WebApp 列表/设置） |
 
 ## Build
 
@@ -50,8 +54,8 @@
 打 tag 自动触发 GitHub Actions 发版（签名 APK + AAB → GitHub Release）：
 
 ```bash
-git tag -a v2.0.0 -m "v2.0.0"
-git push origin v2.0.0
+git tag -a v2.1.0 -m "v2.1.0"
+git push origin v2.1.0
 ```
 
 首次需在仓库 Settings → Secrets 配置：`KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`。
