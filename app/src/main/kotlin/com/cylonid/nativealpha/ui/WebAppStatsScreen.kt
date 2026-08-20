@@ -315,21 +315,31 @@ private fun LoadTimeChart(webapp: WebApp) {
     // 简化：显示统计摘要（真实 Vico 图表在图表库接入后替换）
     Column {
         entries.forEachIndexed { index, ms ->
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     if (index == 0) "平均" else "最慢",
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.width(40.dp)
                 )
+                // 比例条：weight(1f) 占剩余宽度，不挤压右侧文本
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .weight(1f)
                         .height(12.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(MaterialTheme.colorScheme.primaryContainer)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(formatDuration(ms), style = MaterialTheme.typography.labelSmall)
+                // 文本固定最小宽度，防止竖排
+                Text(
+                    formatDuration(ms),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    modifier = Modifier.width(52.dp)
+                )
             }
         }
     }

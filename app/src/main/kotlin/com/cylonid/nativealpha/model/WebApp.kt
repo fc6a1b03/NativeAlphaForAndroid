@@ -64,6 +64,10 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     var order = 0
     var alwaysUseFallbackContextMenu = false
 
+    // ===== 组合快捷键（页面独有快捷键发送，每站独立，不参与 copySettings 合并） =====
+    // 格式："Ctrl+S" / "Shift+S" / "Ctrl+Shift+S"（Ctrl/Shift/Alt + 字母/数字/功能键）
+    var keyShortcuts: MutableList<String> = mutableListOf()
+
     // ===== 统计字段（按 WebApp 独立，不参与 copySettings 合并） =====
     var statLaunches: Int = 0        // 打开次数
     var statLoadTimeSum: Long = 0    // 主体加载耗时累计 ms

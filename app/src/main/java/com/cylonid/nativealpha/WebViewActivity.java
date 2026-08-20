@@ -23,6 +23,7 @@ import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.MotionEvent;
@@ -68,6 +69,7 @@ import com.cylonid.nativealpha.databinding.DialogHttpAuthBinding;
 import com.cylonid.nativealpha.helper.IconPopupMenuHelper;
 import com.cylonid.nativealpha.model.DataManager;
 import com.cylonid.nativealpha.model.WebApp;
+import com.cylonid.nativealpha.ui.ShortcutMenuOverlayKt;
 import com.cylonid.nativealpha.ui.WebViewMenuOverlayKt;
 import com.cylonid.nativealpha.util.Const;
 import com.cylonid.nativealpha.util.DateUtils;
@@ -538,6 +540,65 @@ public class WebViewActivity extends AppCompatActivity {
                 startActivity(intent);
                 break;
             case "close": finishAndRemoveTask(); break;
+            case "shortcuts":
+                // 组合快捷键面板（录制/发送，页面独有快捷键）
+                showShortcutMenuSheet();
+                break;
+        }
+    }
+
+    /** 显示组合快捷键面板（ModalBottomSheet） */
+    private void showShortcutMenuSheet() {
+        ShortcutMenuOverlayKt.showShortcutMenuOverlay(
+                this,
+                webappID,
+                shortcut -> {
+                    // 发送组合键到当前页面（JS 合成 KeyboardEvent）
+                    sendShortcutToPage(shortcut);
+                    return kotlin.Unit.INSTANCE;
+                },
+                () -> { saveShortcutSettings(); return kotlin.Unit.INSTANCE; }
+        );
+    }
+
+    /** 保存快捷键到 WebApp 原对象 */
+    private void saveShortcutSettings() {
+        WebApp original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
+        if (original == null) return;
+        DataManager.getInstance().replaceWebApp(original);
+    }
+
+    /**
+     * 发送组合键到当前页面：JS 合成 KeyboardEvent（keydown + keyup）。
+     * 合成事件天然不触发浏览器默认行为，只被页面监听器收到（页面独有快捷键）。
+     */
+    private void sendShortcutToPage(String shortcut) {
+        if (wv == null || shortcut == null || shortcut.isEmpty()) return;
+        String[] parts = shortcut.split("\\+");
+        boolean ctrl = false, shift = false, alt = false;
+        String key = "";
+        for (String part : parts) {
+            String p = part.trim();
+            switch (p) {
+                case "Ctrl": ctrl = true; break;
+                case "Shift": shift = true; break;
+                case "Alt": alt = true; break;
+                default: key = p; break;
+            }
+        }
+        if (key.isEmpty()) return;
+        // Shift+S → key 大写；否则小写（浏览器 keydown 语义）
+        String jsKey = shift ? key.toUpperCase() : key.toLowerCase();
+        // 注意：key 值规范化为单字符（Ctrl+S → "s"；F5 → "F5"）
+        String js = "var t=document.activeElement||document.body;"
+                + "t.dispatchEvent(new KeyboardEvent('keydown',{key:'" + jsKey + "',ctrlKey:" + ctrl
+                + ",shiftKey:" + shift + ",altKey:" + alt + ",bubbles:true}));"
+                + "t.dispatchEvent(new KeyboardEvent('keyup',{key:'" + jsKey + "',ctrlKey:" + ctrl
+                + ",shiftKey:" + shift + ",altKey:" + alt + ",bubbles:true}));";
+        try {
+            wv.evaluateJavascript(js, null);
+        } catch (Exception ignored) {
+            // JS 注入失败静默
         }
     }
 
@@ -718,6 +779,103 @@ public class WebViewActivity extends AppCompatActivity {
         if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
             // 页面不可见：仅暂停计时器（轻量、线程安全）
             wv.pauseTimers();
+        }
+    }
+
+    /** 快捷键录制中标记（面板打开且用户点「添加」后置 true，由 dispatchKeyEvent 捕获） */
+    private boolean shortcutRecording = false;
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        // 组合快捷键：录制模式捕获组合键；已绑定组合键拦截发送（不触发浏览器默认）
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            boolean ctrl = event.isCtrlPressed();
+            boolean shift = event.isShiftPressed();
+            boolean alt = event.isAltPressed();
+            int keyCode = event.getKeyCode();
+            // 仅捕获组合键（Ctrl/Shift/Alt 单独按下不处理）
+            if (ctrl || shift || alt) {
+                String key = keyCodeToChar(keyCode, shift);
+                if (key != null) {
+                    String shortcut = buildShortcutString(ctrl, shift, alt, key);
+                    if (shortcutRecording) {
+                        // 录制：捕获组合键 → 保存到 WebApp（由面板状态管理）
+                        shortcutRecording = false;
+                        onShortcutRecorded(shortcut);
+                        return true;
+                    }
+                    // 已绑定快捷键：拦截发送（不触发浏览器默认）
+                    if (isBoundShortcut(shortcut)) {
+                        sendShortcutToPage(shortcut);
+                        return true;
+                    }
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    /** 录制回调：保存组合键到 WebApp */
+    private void onShortcutRecorded(String shortcut) {
+        WebApp original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
+        if (original == null) return;
+        if (original.getKeyShortcuts() == null) original.setKeyShortcuts(new java.util.ArrayList<>());
+        if (original.getKeyShortcuts().size() >= 5) {
+            runOnUiThread(() -> NotificationUtils.showInfoSnackbar(this, "最多 5 个组合键", Snackbar.LENGTH_SHORT));
+            return;
+        }
+        if (original.getKeyShortcuts().contains(shortcut)) {
+            runOnUiThread(() -> NotificationUtils.showInfoSnackbar(this, "已存在该组合键", Snackbar.LENGTH_SHORT));
+            return;
+        }
+        original.getKeyShortcuts().add(shortcut);
+        DataManager.getInstance().replaceWebApp(original);
+        runOnUiThread(() -> NotificationUtils.showInfoSnackbar(this, "已绑定 " + shortcut, Snackbar.LENGTH_SHORT));
+    }
+
+    /** 是否已绑定的组合键 */
+    private boolean isBoundShortcut(String shortcut) {
+        WebApp w = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
+        return w != null && w.getKeyShortcuts() != null && w.getKeyShortcuts().contains(shortcut);
+    }
+
+    /** 构建组合键字符串（Ctrl+S / Ctrl+Shift+S） */
+    private String buildShortcutString(boolean ctrl, boolean shift, boolean alt, String key) {
+        StringBuilder sb = new StringBuilder();
+        if (ctrl) sb.append("Ctrl+");
+        if (shift) sb.append("Shift+");
+        if (alt) sb.append("Alt+");
+        sb.append(key);
+        return sb.toString();
+    }
+
+    /** keyCode → 字符（字母/数字/功能键） */
+    private String keyCodeToChar(int keyCode, boolean shift) {
+        if (keyCode >= KeyEvent.KEYCODE_A && keyCode <= KeyEvent.KEYCODE_Z) {
+            char c = (char) ('a' + (keyCode - KeyEvent.KEYCODE_A));
+            return shift ? String.valueOf(Character.toUpperCase(c)) : String.valueOf(c);
+        }
+        if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
+            return String.valueOf((char) ('0' + (keyCode - KeyEvent.KEYCODE_0)));
+        }
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_F1: return "F1";
+            case KeyEvent.KEYCODE_F2: return "F2";
+            case KeyEvent.KEYCODE_F3: return "F3";
+            case KeyEvent.KEYCODE_F4: return "F4";
+            case KeyEvent.KEYCODE_F5: return "F5";
+            case KeyEvent.KEYCODE_F6: return "F6";
+            case KeyEvent.KEYCODE_F7: return "F7";
+            case KeyEvent.KEYCODE_F8: return "F8";
+            case KeyEvent.KEYCODE_F9: return "F9";
+            case KeyEvent.KEYCODE_F10: return "F10";
+            case KeyEvent.KEYCODE_F11: return "F11";
+            case KeyEvent.KEYCODE_F12: return "F12";
+            case KeyEvent.KEYCODE_ENTER: return "Enter";
+            case KeyEvent.KEYCODE_SPACE: return " ";
+            case KeyEvent.KEYCODE_TAB: return "Tab";
+            case KeyEvent.KEYCODE_DEL: return "Backspace";
+            default: return null;
         }
     }
 
