@@ -42,6 +42,14 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     var isIgnoreSslErrors = false
     var isShowExpertSettings = false
     var isSafeBrowsing = false
+    /** 安全加固：禁用文件访问（true=setAllowFileAccess(false)，默认防护开） */
+    var isFileAccessDisabled = true
+    /** 安全加固：禁用内容提供器访问（true=setAllowContentAccess(false)，默认防护开） */
+    var isContentAccessDisabled = true
+    /** 安全加固：拦截混合内容（true=MIXED_CONTENT_NEVER_ALLOW，默认防护开） */
+    var isMixedContentBlocked = true
+    /** 安全加固：限制 JS 自动弹窗（true=setJavaScriptCanOpenWindowsAutomatically(false)，默认防护开） */
+    var isJsPopupsRestricted = true
     var isBlockThirdPartyRequests = false
     var containerId: Int = Const.NO_CONTAINER
     var isUseContainer = false
@@ -103,6 +111,10 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         isIgnoreSslErrors = other.isIgnoreSslErrors
         isShowExpertSettings = other.isShowExpertSettings
         isSafeBrowsing = other.isSafeBrowsing
+        isFileAccessDisabled = other.isFileAccessDisabled
+        isContentAccessDisabled = other.isContentAccessDisabled
+        isMixedContentBlocked = other.isMixedContentBlocked
+        isJsPopupsRestricted = other.isJsPopupsRestricted
         isBlockThirdPartyRequests = other.isBlockThirdPartyRequests
         isDrmAllowed = other.isDrmAllowed
         isShowFullscreen = other.isShowFullscreen

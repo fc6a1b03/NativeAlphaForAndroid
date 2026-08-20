@@ -179,4 +179,15 @@
     <string name="desc_custom_ua">Send a custom user agent string to the website.</string>
     <string name="desc_ignore_ssl">Skip SSL certificate verification for this site.</string>
     <string name="warning_ignore_ssl">Security risk: your connection to this site will not be verified.</string>
+    <string name="security_section">Security</string>
+    <string name="disable_file_access">Block file access</string>
+    <string name="desc_disable_file_access">Prevent websites from reading local files.</string>
+    <string name="disable_content_access">Block content access</string>
+    <string name="desc_disable_content_access">Prevent websites from accessing system content providers.</string>
+    <string name="block_mixed_content">Block mixed content</string>
+    <string name="desc_block_mixed_content">Block insecure HTTP resources on HTTPS pages.</string>
+    <string name="restrict_js_popups">Restrict automatic pop-ups</string>
+    <string name="desc_restrict_js_popups">Prevent pages from opening windows automatically.</string>
+    <string name="enable_safe_browsing">Safe Browsing</string>
+    <string name="desc_enable_safe_browsing">Show warnings for known dangerous websites.</string>
 </resources>

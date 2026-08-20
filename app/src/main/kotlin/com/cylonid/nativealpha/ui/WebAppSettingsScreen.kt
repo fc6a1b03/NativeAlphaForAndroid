@@ -280,6 +280,38 @@ fun WebAppSettingsScreen(
                     onCheckedChange = { updateSettings { isMicrophonePermission = it } },
                     description = stringResource(R.string.desc_allow_microphone)
                 )
+                // 安全加固（默认全开：禁用文件/内容访问、拦截混合内容、限制 JS 弹窗、Safe Browsing 默认关）
+                HorizontalDivider()
+                SettingsSwitchRow(
+                    title = stringResource(R.string.disable_file_access),
+                    checked = modified.isFileAccessDisabled,
+                    onCheckedChange = { updateSettings { isFileAccessDisabled = it } },
+                    description = stringResource(R.string.desc_disable_file_access)
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.disable_content_access),
+                    checked = modified.isContentAccessDisabled,
+                    onCheckedChange = { updateSettings { isContentAccessDisabled = it } },
+                    description = stringResource(R.string.desc_disable_content_access)
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.block_mixed_content),
+                    checked = modified.isMixedContentBlocked,
+                    onCheckedChange = { updateSettings { isMixedContentBlocked = it } },
+                    description = stringResource(R.string.desc_block_mixed_content)
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.restrict_js_popups),
+                    checked = modified.isJsPopupsRestricted,
+                    onCheckedChange = { updateSettings { isJsPopupsRestricted = it } },
+                    description = stringResource(R.string.desc_restrict_js_popups)
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.enable_safe_browsing),
+                    checked = modified.isSafeBrowsing,
+                    onCheckedChange = { updateSettings { isSafeBrowsing = it } },
+                    description = stringResource(R.string.desc_enable_safe_browsing)
+                )
             }
 
             // Cookies

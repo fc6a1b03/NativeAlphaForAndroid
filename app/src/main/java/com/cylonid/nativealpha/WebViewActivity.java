@@ -184,12 +184,22 @@ public class WebViewActivity extends AppCompatActivity {
             });
         }
         wv.setWebViewClient(new CustomBrowser());
-        wv.getSettings().setSafeBrowsingEnabled(false);
+        // ===== 安全加固（WebApp 设置项，默认全开） =====
+        // 恶意网站防护：默认关（AGENTS.md 既有设计：用户可添加非 HTTPS 站点，按需开启）
+        wv.getSettings().setSafeBrowsingEnabled(webapp.isSafeBrowsing());
+        // 禁用文件访问：防止恶意站点读取本地文件
+        wv.getSettings().setAllowFileAccess(!webapp.isFileAccessDisabled());
+        // 禁用内容提供器访问：防止站点访问系统 content:// 资源
+        wv.getSettings().setAllowContentAccess(!webapp.isContentAccessDisabled());
+        // 混合内容拦截：HTTPS 页面禁止加载 HTTP 子资源
+        wv.getSettings().setMixedContentMode(webapp.isMixedContentBlocked()
+                ? WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                : WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+        // JS 弹窗限制：禁止页面自动 window.open（用户手势触发的弹窗仍可用）
+        wv.getSettings().setJavaScriptCanOpenWindowsAutomatically(!webapp.isJsPopupsRestricted());
         wv.getSettings().setDomStorageEnabled(true);
         wv.getSettings().setDatabaseEnabled(true);
-        wv.getSettings().setAllowFileAccess(true);
         wv.getSettings().setBlockNetworkLoads(false);
-//        wv.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
 
         // ===== PWA 高频文本流渲染优化（流式输出/长文档滚动场景） =====
         // 渲染优先级拉满（文本流/长文档滚动核心）

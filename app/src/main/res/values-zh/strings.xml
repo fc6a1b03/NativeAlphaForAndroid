@@ -183,4 +183,15 @@
     <string name="desc_custom_ua">向网站发送自定义 User Agent 字符串。</string>
     <string name="desc_ignore_ssl">跳过此站点的 SSL 证书验证。</string>
     <string name="warning_ignore_ssl">安全风险：到此站点的连接将不再验证。</string>
+    <string name="security_section">安全</string>
+    <string name="disable_file_access">禁用文件访问</string>
+    <string name="desc_disable_file_access">防止恶意站点读取本地文件。</string>
+    <string name="disable_content_access">禁用内容访问</string>
+    <string name="desc_disable_content_access">防止站点访问系统内容提供器。</string>
+    <string name="block_mixed_content">拦截混合内容</string>
+    <string name="desc_block_mixed_content">拦截 HTTPS 页面中的 HTTP 不安全资源。</string>
+    <string name="restrict_js_popups">限制 JS 自动弹窗</string>
+    <string name="desc_restrict_js_popups">防止页面自动弹出窗口。</string>
+    <string name="enable_safe_browsing">恶意网站防护</string>
+    <string name="desc_enable_safe_browsing">对已知危险网站显示警告。</string>
 </resources>

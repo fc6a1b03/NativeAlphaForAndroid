@@ -26,6 +26,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.appcompat.app.AppCompatDelegate
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.model.WebApp
 
 /**
  * 全局设置页 Compose 组件：
@@ -217,6 +218,43 @@ fun GlobalSettingsScreen(
                     checked = modified.alwaysShowSoftwareButtons,
                     onCheckedChange = { modified = modified.copy(alwaysShowSoftwareButtons = it) },
                     description = stringResource(R.string.desc_always_show_buttons)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 安全区块（作用于全局 WebApp 模板，新 WebApp 默认继承）
+            SettingsSectionTitle(stringResource(R.string.security_section))
+            SettingsCard {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.disable_file_access),
+                    checked = modified.globalWebApp.isFileAccessDisabled,
+                    onCheckedChange = { modified = modified.copy(globalWebApp = modified.globalWebApp.apply { isFileAccessDisabled = it }) },
+                    description = stringResource(R.string.desc_disable_file_access)
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.disable_content_access),
+                    checked = modified.globalWebApp.isContentAccessDisabled,
+                    onCheckedChange = { modified = modified.copy(globalWebApp = modified.globalWebApp.apply { isContentAccessDisabled = it }) },
+                    description = stringResource(R.string.desc_disable_content_access)
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.block_mixed_content),
+                    checked = modified.globalWebApp.isMixedContentBlocked,
+                    onCheckedChange = { modified = modified.copy(globalWebApp = modified.globalWebApp.apply { isMixedContentBlocked = it }) },
+                    description = stringResource(R.string.desc_block_mixed_content)
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.restrict_js_popups),
+                    checked = modified.globalWebApp.isJsPopupsRestricted,
+                    onCheckedChange = { modified = modified.copy(globalWebApp = modified.globalWebApp.apply { isJsPopupsRestricted = it }) },
+                    description = stringResource(R.string.desc_restrict_js_popups)
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.enable_safe_browsing),
+                    checked = modified.globalWebApp.isSafeBrowsing,
+                    onCheckedChange = { modified = modified.copy(globalWebApp = modified.globalWebApp.apply { isSafeBrowsing = it }) },
+                    description = stringResource(R.string.desc_enable_safe_browsing)
                 )
             }
 
