@@ -293,6 +293,11 @@ public class WebViewActivity extends AppCompatActivity {
             view.postDelayed(() -> {
                 // 系统未启动文本/链接选择（空白处）→ 弹小菜单兜底（返回/刷新/快捷键等）
                 if (!actionModeActive && !isFinishing()) {
+                    // 清除系统"伪选中"视觉残留（空白处长按系统会短暂选中附近文本，
+                    // 未进入 ActionMode 时选区残留看着不舒服——先清除再弹菜单）
+                    if (wv != null) {
+                        wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
+                    }
                     showWebViewMenuSheet();
                 }
             }, 300L);
