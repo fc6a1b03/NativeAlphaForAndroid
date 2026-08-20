@@ -168,8 +168,11 @@ public class WebViewActivity extends AppCompatActivity {
         // 异形屏自适应（targetSdk 35+ 强制 edge-to-edge，setDecorFitsSystemWindows 已失效）：
         // 非全屏模式 WebView 内容避开系统栏（顶部状态栏/挖孔、底部导航栏/手势条），
         // 全屏沉浸模式保持铺满（用户显式选择）。
+        // insets 挂根布局而非 WebView：WebView 的 insets 分发可能被父容器消费，
+        // 且三键导航/手势条切换时根布局 insets 更可靠。
         if (!webapp.isShowFullscreen()) {
-            ViewCompat.setOnApplyWindowInsetsListener(wv, (v, windowInsets) -> {
+            View root = findViewById(R.id.webviewActivity);
+            ViewCompat.setOnApplyWindowInsetsListener(root, (v, windowInsets) -> {
                 Insets bars = windowInsets.getInsets(
                         WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
                 v.setPadding(0, bars.top, 0, bars.bottom);
