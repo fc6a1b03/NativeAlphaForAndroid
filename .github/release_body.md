@@ -1,4 +1,4 @@
-# WebNative ${{ github.ref_name }}
+# WebNative ${VERSION}
 
 为 PWA 而生的轻量 Web App 套壳 —— 把任意网站变成全屏、免打扰的原生应用体验，专为高频文本流场景（AI 对话、代码生成）做了渲染优化。
 
@@ -25,4 +25,4 @@
 
 ## 📝 变更记录
 
-${{ github.event.head_commit.message }}
+${COMMIT_LOG}

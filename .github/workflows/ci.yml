@@ -120,11 +120,17 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk artifacts/WebNative-${VERSION}.apk
           cp app/build/outputs/bundle/release/app-release.aab artifacts/WebNative-${VERSION}.aab
           ls -la artifacts/
+          # 生成 Release body（替换模板变量）
+          COMMIT_LOG=$(git log --oneline $VERSION -n 20 2>/dev/null | head -20 || echo "-")
+          export VERSION COMMIT_LOG
+          envsubst < .github/release_body.md > artifacts/release_body.md
+          echo "--- release body 前 5 行 ---"
+          head -5 artifacts/release_body.md
 
       - name: "🚀 Create GitHub Release"
         uses: softprops/action-gh-release@v3
         with:
           files: artifacts/*
-          body_path: .github/release_body.md
+          body_path: artifacts/release_body.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
