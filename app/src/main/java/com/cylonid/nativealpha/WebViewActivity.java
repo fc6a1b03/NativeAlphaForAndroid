@@ -54,6 +54,9 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.ShareCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
 
@@ -160,6 +163,18 @@ public class WebViewActivity extends AppCompatActivity {
             this.hideSystemBars();
         } else if(DataManager.getInstance().getSettings().getAlwaysShowSoftwareButtons()) {
             this.showSystemBars();
+        }
+
+        // 异形屏自适应（targetSdk 35+ 强制 edge-to-edge，setDecorFitsSystemWindows 已失效）：
+        // 非全屏模式 WebView 内容避开系统栏（顶部状态栏/挖孔、底部导航栏/手势条），
+        // 全屏沉浸模式保持铺满（用户显式选择）。
+        if (!webapp.isShowFullscreen()) {
+            ViewCompat.setOnApplyWindowInsetsListener(wv, (v, windowInsets) -> {
+                Insets bars = windowInsets.getInsets(
+                        WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                v.setPadding(0, bars.top, 0, bars.bottom);
+                return windowInsets;
+            });
         }
         wv.setWebViewClient(new CustomBrowser());
         wv.getSettings().setSafeBrowsingEnabled(false);
