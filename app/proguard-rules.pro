@@ -15,6 +15,11 @@
 # Compose 运行时依赖注解保留
 -keep class androidx.compose.** { *; }
 
+# === Baseline Profile ===
+# profileinstaller 需要保留 profile 相关类（R8 否则裁剪导致 profile 失效）
+-keep class androidx.profileinstaller.** { *; }
+-dontwarn androidx.profileinstaller.**
+
 # === WebView JS 接口（如后续添加） ===
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
 #   public *;

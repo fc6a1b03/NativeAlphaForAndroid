@@ -1,0 +1,61 @@
+# WebNative Baseline Profile —— 覆盖启动热路径（MainActivity + Compose 渲染 + 核心数据）
+# 规则语法：HSPL 格式（https://developer.android.com/topic/performance/baselineprofiles）
+
+# 应用入口与主界面
+com.cylonid.nativealpha.MainActivity
+com.cylonid.nativealpha.util.App
+com.cylonid.nativealpha.ui.MainScreen
+com.cylonid.nativealpha.model.DataManager
+com.cylonid.nativealpha.model.WebApp
+com.cylonid.nativealpha.model.GlobalSettings
+
+# Compose 渲染核心（Material3/基础组件）
+androidx.compose.ui.platform.AndroidComposeView
+androidx.compose.ui.platform.ComposeView
+androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat
+androidx.compose.runtime.ComposerImpl
+androidx.compose.runtime.ComposerKt
+androidx.compose.runtime.MovableContent
+androidx.compose.runtime.Recomposer
+androidx.compose.runtime.snapshots.SnapshotStateList
+androidx.compose.material3.Scaffold
+androidx.compose.material3.TopAppBar
+androidx.compose.material3.Card
+androidx.compose.material3.Text
+androidx.compose.material3.Button
+androidx.compose.material3.FloatingActionButton
+androidx.compose.material3.Switch
+androidx.compose.material3.Slider
+androidx.compose.material3.ModalBottomSheet
+androidx.compose.material3.DropdownMenu
+androidx.compose.material3.OutlinedTextField
+androidx.compose.foundation.text.TextFieldDelegate
+androidx.compose.foundation.text.TextFieldKeyInput
+androidx.compose.foundation.lazy.LazyColumn
+androidx.compose.foundation.lazy.LazyListKt
+
+# 主题与工具
+com.cylonid.nativealpha.util.AppThemeKt
+com.cylonid.nativealpha.util.ThemeUtils
+com.cylonid.nativealpha.util.UrlUtils
+com.cylonid.nativealpha.util.IconGenerator
+com.cylonid.nativealpha.util.ShortcutIconUtils
+
+# 网络与数据（添加向导/图标抓取）
+com.cylonid.nativealpha.util.WebAppDataFetcher
+com.cylonid.nativealpha.util.WebViewLauncher
+org.jsoup.Jsoup
+org.jsoup.parser.Parser
+org.jsoup.nodes.Document
+
+# Gson 序列化
+com.google.gson.Gson
+com.google.gson.internal.bind.ReflectiveTypeAdapterFactory
+com.google.gson.internal.bind.TypeAdapters
+
+# 系统 WebView 启动
+android.webkit.WebView
+android.webkit.WebSettings
+android.webkit.WebViewClient
+android.webkit.WebChromeClient
+android.webkit.WebViewFactory
