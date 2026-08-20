@@ -195,4 +195,6 @@
     <string name="enable_safe_browsing">恶意网站防护</string>
     <string name="desc_enable_safe_browsing">对已知危险网站显示警告。</string>
     <string name="blank_screen_detected">页面加载似乎卡住，已显示错误页，点击重试可重新加载。</string>
+    <string name="permission_permanently_denied_msg">你已永久拒绝%1$s，请在系统设置中手动开启后才能使用该功能。</string>
+    <string name="permission_go_to_settings">前往设置</string>
 </resources>

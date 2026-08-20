@@ -191,4 +191,6 @@
     <string name="enable_safe_browsing">Safe Browsing</string>
     <string name="desc_enable_safe_browsing">Show warnings for known dangerous websites.</string>
     <string name="blank_screen_detected">Page loading seems stuck. Showing error page, tap retry to reload.</string>
+    <string name="permission_permanently_denied_msg">You permanently denied %1$s. Enable it in system settings to use this feature.</string>
+    <string name="permission_go_to_settings">Open settings</string>
 </resources>

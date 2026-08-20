@@ -18,6 +18,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.provider.Settings;
 import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
@@ -84,9 +85,11 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.lang.reflect.Field;
 import java.util.stream.Stream;
 
@@ -116,6 +119,8 @@ public class WebViewActivity extends AppCompatActivity {
     private String urlOnFirstPageload = "";
     private boolean fallbackToDefaultLongClickBehaviour = false;
     private PopupMenu mPopupMenu = null;
+    // 权限审计：记录已发起过系统请求的权限（区分「首次请求」vs「永久拒绝」）
+    private final Set<String> requestedPermissions = new HashSet<>();
     // 白屏检测：当前加载最后进度 + 进度推进时间戳（无推进超时判定白屏）
     private int lastProgress = 0;
     private long lastProgressTime = 0L;
@@ -903,6 +908,34 @@ public class WebViewActivity extends AppCompatActivity {
                                              PermissionGrantedCallback successCallback) {
             boolean androidPermissionsMissing = areAndroidPermissionsMissing(androidPermissions);
             if (currentState && androidPermissionsMissing) {
+                // 权限审计：区分「首次请求」vs「永久拒绝」（勾选"不再询问"）
+                // 全部权限都已请求过 + shouldShowRequestPermissionRationale=false → 永久拒绝，
+                // 不再重复弹系统框，引导用户去系统设置手动开启
+                boolean allRequested = true;
+                for (String perm : androidPermissions) {
+                    if (!requestedPermissions.contains(perm)) {
+                        allRequested = false;
+                        break;
+                    }
+                }
+                if (allRequested) {
+                    boolean permanentlyDenied = false;
+                    for (String perm : androidPermissions) {
+                        if (ContextCompat.checkSelfPermission(WebViewActivity.this, perm) != PackageManager.PERMISSION_GRANTED
+                                && !ActivityCompat.shouldShowRequestPermissionRationale(WebViewActivity.this, perm)) {
+                            permanentlyDenied = true;
+                            break;
+                        }
+                    }
+                    if (permanentlyDenied) {
+                        handleGeoPermissionCallback(false);
+                        showPermissionPermanentlyDeniedDialog(resId);
+                        return;
+                    }
+                }
+                for (String perm : androidPermissions) {
+                    requestedPermissions.add(perm);
+                }
                 ActivityCompat.requestPermissions(WebViewActivity.this, androidPermissions, requestCode);
                 return;
             }
@@ -935,6 +968,27 @@ public class WebViewActivity extends AppCompatActivity {
                 }
             }
             return false;
+        }
+
+        /**
+         * 权限被永久拒绝：不再重复弹系统框，提示用户去系统设置手动开启。
+         */
+        private void showPermissionPermanentlyDeniedDialog(String resId) {
+            String title = getPermissionRequestStringResource("dialog_permission_", resId, "_title");
+            new AlertDialog.Builder(WebViewActivity.this)
+                    .setTitle(title)
+                    .setMessage(getString(R.string.permission_permanently_denied_msg, title))
+                    .setPositiveButton(getString(R.string.permission_go_to_settings), (dialog, id) -> {
+                        try {
+                            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.parse("package:" + getPackageName()));
+                            startActivity(intent);
+                        } catch (Exception ignored) {
+                            // 无设置页可跳时静默（不影响主功能）
+                        }
+                    })
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .create().show();
         }
 
         @Override
