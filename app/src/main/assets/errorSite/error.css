@@ -1,21 +1,188 @@
-.logo {
-  filter: grayscale(1) brightness(2);
+/* WebNative 错误页 — M3 靛蓝统一风格（明暗自适应） */
+:root {
+  --primary: #4F46E5;
+  --primary-dark: #C1BFFF;
+  --bg-light: #F7F7FB;
+  --bg-dark: #141218;
+  --text-light: #1C1B1F;
+  --text-dark: #E6E0E9;
+  --muted-light: #6B7280;
+  --muted-dark: #9A93A5;
+  --grad-start: #4F46E5;
+  --grad-end: #7C3AED;
 }
 
-body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #ccc;
-}
-
-main {
-  width: 250px;
-  text-align: center;
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: var(--bg-light);
+    --text: var(--text-light);
+    --muted: var(--muted-light);
+    --error-bg: rgba(79, 70, 229, 0.06);
+    --error-border: rgba(79, 70, 229, 0.15);
+  }
 }
 
 @media (prefers-color-scheme: dark) {
-  body {
-    background: black;
+  :root {
+    --bg: var(--bg-dark);
+    --text: var(--text-dark);
+    --muted: var(--muted-dark);
+    --error-bg: rgba(193, 191, 255, 0.06);
+    --error-border: rgba(193, 191, 255, 0.15);
   }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 48px 24px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.scene {
+  width: 100%;
+  max-width: 440px;
+  text-align: center;
+  animation: fade-up 0.5s ease-out;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 插画：渐变圆底 + 迷路小火箭 */
+.illustration {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 40px;
+  border-radius: 36px;
+  background: linear-gradient(135deg, var(--grad-start), var(--grad-end));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 32px rgba(79, 70, 229, 0.25);
+}
+
+.illustration svg {
+  width: 108px;
+  height: 108px;
+}
+
+/* 星星点缀（火箭旁的小星星，飘动感） */
+.star {
+  animation: twinkle 2.4s ease-in-out infinite;
+}
+
+.star-2 {
+  animation-delay: 0.8s;
+}
+
+.star-3 {
+  animation-delay: 1.6s;
+}
+
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+h1 {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  margin-bottom: 14px;
+}
+
+.sub {
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-bottom: 24px;
+  text-wrap: balance;
+}
+
+/* 错误码（开发者向，mono 小字） */
+.detail {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  color: var(--muted);
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  border-radius: 10px;
+  padding: 8px 16px;
+  margin-bottom: 28px;
+  word-break: break-all;
+  max-width: 100%;
+}
+
+/* 重试按钮：M3 胶囊 */
+button {
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  border: none;
+  border-radius: 30px;
+  padding: 17px 56px;
+  min-height: 52px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.3);
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+}
+
+button:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+
+@media (prefers-color-scheme: dark) {
+  button {
+    background: var(--primary-dark);
+    color: #1A1B80;
+  }
+}
+
+/* 趣味提示（随机出现） */
+.tip {
+  margin-top: 28px;
+  font-size: 15px;
+  font-style: italic;
+  color: var(--muted);
+  opacity: 0.85;
 }

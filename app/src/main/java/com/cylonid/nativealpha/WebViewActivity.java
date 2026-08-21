@@ -124,8 +124,6 @@ public class WebViewActivity extends AppCompatActivity {
     private String urlOnFirstPageload = "";
     // 错误页重试目标（onReceivedError 主框架失败时记录，webnative://retry 用它重新加载）
     private String retryUrl = "";
-    // 恢复页面：本次是否复用了池中 WebView 实例（true 时不重新加载）
-    private boolean isRestoredWebView = false;
     private boolean fallbackToDefaultLongClickBehaviour = false;
     private PopupMenu mPopupMenu = null;
     // 长按动态分流：系统是否已启动文本/链接选择 ActionMode（区分「有内容」vs「空白处」）
@@ -197,43 +195,7 @@ public class WebViewActivity extends AppCompatActivity {
 
         progressBar = findViewById(R.id.progressBar);
 
-        // 恢复页面：isRestorePage 开启且池中有该 webapp 实例 → 复用（页面/滚动/输入完整保留）
-        if (webapp.isRestorePage()) {
-            android.webkit.WebView pooled = com.cylonid.nativealpha.util.WebViewPool.INSTANCE.get(webappID);
-            if (pooled != null) {
-                wv = pooled;
-                // 复用实例重新挂载：找到布局中占位 WebView 的父容器，替换为池实例
-                android.view.View placeholder = findViewById(R.id.webview);
-                android.view.ViewParent parent = placeholder != null ? placeholder.getParent() : null;
-                if (parent instanceof android.view.ViewGroup) {
-                    android.view.ViewGroup group = (android.view.ViewGroup) parent;
-                    int index = group.indexOfChild(placeholder);
-                    group.removeView(placeholder);
-                    group.addView(pooled, index,
-                            new android.view.ViewGroup.LayoutParams(
-                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT));
-                } else {
-                    // 无占位容器（异常分支）：直接挂到根容器
-                    android.view.ViewGroup root = findViewById(R.id.webviewActivity);
-                    if (root != null && pooled.getParent() == null) {
-                        root.addView(pooled,
-                                new android.view.ViewGroup.LayoutParams(
-                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT));
-                    }
-                }
-                // 复用实例直接显示（不重新 loadURL——页面状态保留）
-                wv.setVisibility(android.view.View.VISIBLE);
-                isRestoredWebView = true;
-            } else {
-                wv = findViewById(R.id.webview);
-                isRestoredWebView = false;
-            }
-        } else {
-            wv = findViewById(R.id.webview);
-            isRestoredWebView = false;
-        }
+        wv = findViewById(R.id.webview);
 
         // 移除 WebView 字段名注入的 UA 尾巴（找不到字段时静默跳过，避免 NPE）
         String fieldName = Stream.of(WebViewActivity.class.getDeclaredFields())
@@ -344,12 +306,7 @@ public class WebViewActivity extends AppCompatActivity {
         }
 
         CUSTOM_HEADERS = initCustomHeaders(webapp.isSendSavedataRequest());
-        // 复用池实例（恢复页面）→ 不重新加载；否则全新加载
-        if (!isRestoredWebView) {
-            loadURL(wv, url);
-        } else {
-            // 复用实例：跳过 loadURL（页面状态保留）
-        }
+        loadURL(wv, url);
         wv.setWebChromeClient(new CustomWebChromeClient());
         wv.setOnLongClickListener(view -> {
             if(webapp.getAlwaysUseFallbackContextMenu()) return false;
@@ -564,17 +521,6 @@ public class WebViewActivity extends AppCompatActivity {
                 wv.canGoForward(),
                 webapp.getTextZoom(),
                 webapp.getPageZoom(),
-                webapp.isRestorePage(),
-                restore -> {
-                    // 恢复页面开关：写回 WebApp 原对象（不覆盖统计）
-                    WebApp original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
-                    if (original != null) {
-                        original.setRestorePage(restore);
-                        DataManager.getInstance().replaceWebApp(original);
-                        webapp.setRestorePage(restore);
-                    }
-                    return kotlin.Unit.INSTANCE;
-                },
                 action -> { handleMenuAction(action); return kotlin.Unit.INSTANCE; },
                 zoom -> {
                     // 实时预览字体缩放
@@ -1157,32 +1103,6 @@ public class WebViewActivity extends AppCompatActivity {
     protected void onDestroy() {
         // 登录态隔离：开启隔离的 WebApp 保存 Cookie 快照（异步）
         com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.saveSnapshot(this, webappID);
-        // 恢复页面（isRestorePage）：WebView 剥离入池（页面/滚动/输入完整保留），不销毁
-        // 否则：saveState 存导航历史 + 正常销毁
-        if (webapp != null && webapp.isRestorePage() && wv != null) {
-            try {
-                // 从父容器剥离（池中复用需无父容器）
-                if (wv.getParent() != null) {
-                    ((android.view.ViewGroup) wv.getParent()).removeView(wv);
-                }
-                wv.stopLoading();
-                com.cylonid.nativealpha.util.WebViewPool.INSTANCE.put(webappID, wv);
-                wv = null;
-            } catch (Exception ignored) {
-                // 入池失败：走正常销毁
-            }
-        }
-        // 保存页面状态到缓存（导航历史，作为非恢复场景的轻量兜底）
-        if (wv != null) {
-            try {
-                Bundle state = new Bundle();
-                if (wv.saveState(state) != null) {
-                    com.cylonid.nativealpha.util.PageStateCache.INSTANCE.put(webappID, state);
-                }
-            } catch (Exception ignored) {
-                // 状态保存失败静默（不影响销毁流程）
-            }
-        }
         // 显式销毁 WebView，释放渲染进程与内存（低损耗目标）
         cancelBlankScreenCheck();
         if (wv != null) {

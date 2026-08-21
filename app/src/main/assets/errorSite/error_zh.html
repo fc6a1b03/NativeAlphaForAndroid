@@ -1,42 +1,48 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
   <meta charset="utf-8">
   <meta name="color-scheme" content="light dark">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="error.css">
-  <title>Page Lost</title>
+  <title>页面走丢了</title>
 </head>
 <body>
   <div class="scene">
     <div class="illustration">
       <svg viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- Lost little rocket -->
+        <!-- 迷路小火箭 -->
         <g>
+          <!-- 星星点缀 -->
           <circle class="star" cx="12" cy="14" r="2.5" fill="#FFFFFF" opacity="0.9"/>
           <circle class="star star-2" cx="60" cy="10" r="1.8" fill="#FFFFFF" opacity="0.8"/>
           <circle class="star star-3" cx="58" cy="30" r="1.5" fill="#FFFFFF" opacity="0.7"/>
+          <!-- 火箭主体 -->
           <path d="M36 6 C36 6 24 20 24 34 C24 42 28 48 36 50 C44 48 48 42 48 34 C48 20 36 6 36 6Z" fill="#FFFFFF"/>
+          <!-- 舷窗 -->
           <circle cx="36" cy="32" r="6" fill="#4F46E5"/>
           <circle cx="36" cy="32" r="3" fill="#C1BFFF"/>
+          <!-- 尾焰 -->
           <path d="M30 52 C32 58 34 62 36 66 C38 62 40 58 42 52 C40 56 38 58 36 58 C34 58 32 56 30 52Z" fill="#FFD166" opacity="0.9"/>
+          <!-- 侧翼 -->
           <path d="M24 30 L14 44 L24 42Z" fill="#FFFFFF" opacity="0.85"/>
           <path d="M48 30 L58 44 L48 42Z" fill="#FFFFFF" opacity="0.85"/>
         </g>
       </svg>
     </div>
 
-    <h1 id="title">Oops, this page got lost</h1>
-    <p class="sub" id="sub">Maybe the address is wrong, or the network is having a tantrum.</p>
+    <h1 id="title">哎呀，页面走丢了</h1>
+    <p class="sub" id="sub">可能是网址输错了，也可能网络正在闹脾气。</p>
 
-    <div class="detail" id="detail">Looking for clues…</div>
+    <div class="detail" id="detail">正在寻找线索…</div>
 
-    <button onclick="retry()" id="retryBtn">Try again</button>
+    <button onclick="retry()" id="retryBtn">再试一次</button>
 
     <p class="tip" id="tip"></p>
   </div>
 
   <script>
+    // 读取错误参数（code/desc 由 Android 通过 query 传入）
     (function () {
       var params = new URLSearchParams(location.search);
       var code = params.get('code');
@@ -48,18 +54,20 @@
         detail.style.display = 'none';
       }
 
+      // 随机趣味提示
       var tips = [
-        'Double-check the address?',
-        'A quick refresh might help',
-        'The network might be napping — try again later',
-        'This page may have moved',
-        "Don't worry, it's not you... probably",
-        'Maybe it lives on another planet — try a different URL?'
+        '试试检查一下网址？',
+        '刷新一下说不定就好了',
+        '网络可能打了个盹，稍后再试',
+        '这个页面可能搬家了',
+        '别担心，不是你的问题……也可能是',
+        '也许它在别的星球，换个地址找找？'
       ];
       document.getElementById('tip').textContent =
         tips[Math.floor(Math.random() * tips.length)];
     })();
 
+    // 重试：通知 Android 重新加载原地址
     function retry() {
       location.href = 'webnative://retry';
     }
