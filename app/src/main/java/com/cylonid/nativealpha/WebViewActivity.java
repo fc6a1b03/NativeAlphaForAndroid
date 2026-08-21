@@ -132,6 +132,12 @@ public class WebViewActivity extends AppCompatActivity {
             + "if(!e)return 'blank';"
             + "var tag=e.tagName?e.tagName.toLowerCase():'';"
             + "if(tag==='html'||tag==='body')return 'blank';"
+            + "var te=e;"
+            + "while(te&&te!==document.body){"
+            + "var tt=te.tagName?te.tagName.toLowerCase():'';"
+            + "if(tt==='img'||tt==='canvas'||tt==='svg'||tt==='video'||tt==='iframe')return 'media';"
+            + "te=te.parentElement;"
+            + "}"
             + "var range=null;"
             + "if(document.caretRangeFromPoint){range=document.caretRangeFromPoint(x,y);}"
             + "if(range&&range.startContainer){"
@@ -341,6 +347,13 @@ public class WebViewActivity extends AppCompatActivity {
         wv.getSettings().setDatabaseEnabled(true);
         wv.getSettings().setBlockNetworkLoads(false);
 
+        // ===== 禁用浏览器自带滚动条（网页内容本身的自定义滚动条不受影响） =====
+        wv.setVerticalScrollBarEnabled(false);
+        wv.setHorizontalScrollBarEnabled(false);
+        wv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        // 隐藏滚动条占位（WebView 默认 overlay 模式，但仍显式关闭占位）
+        wv.setScrollBarStyle(View.SCROLLBARS_OUTSIDE_OVERLAY);
+
         // ===== PWA 高频文本流渲染优化（流式输出/长文档滚动场景） =====
         // 渲染优先级拉满（文本流/长文档滚动核心）
         wv.getSettings().setRenderPriority(WebSettings.RenderPriority.HIGH);
@@ -481,6 +494,11 @@ public class WebViewActivity extends AppCompatActivity {
             private boolean swallowDown = false;
             // 输入框区域缓存（WebView 局部物理坐标，DOWN 同步判断用）
             private final java.util.List<float[]> editableRects = new java.util.ArrayList<>();
+            // 输入框拦截标志：仅拦截一次（恢复后清除）。
+            // 此前反复循环的根因：点击输入框 → ALWAYS_HIDDEN+blur → 300ms 恢复
+            // focus → 用户再点击 → 又 ALWAYS_HIDDEN+blur → 恢复…… 输入法
+            // 出来又收起反复抖动（用户实机反馈）
+            private boolean inputIntercepting = false;
             // 输入框首次点击拦截：临时设置窗口 SOFT_INPUT_STATE_ALWAYS_HIDDEN
             // （输入框聚焦也不弹键盘，同步可靠），300ms 无双击则恢复并 JS 聚焦
             private final Runnable restoreFocusRunnable = () -> {
@@ -492,6 +510,8 @@ public class WebViewActivity extends AppCompatActivity {
                 wv.evaluateJavascript(
                         "if(window.__savedFocus){window.__savedFocus.focus();window.__savedFocus=null;}",
                         null);
+                // 拦截已完成使命：清除标志，后续点击走正常路径（不再拦截）
+                inputIntercepting = false;
             };
 
             /** 输入框区域缓存（onPageFinished 调用，经类级方法） */
@@ -515,6 +535,11 @@ public class WebViewActivity extends AppCompatActivity {
                     if ("blank".equals(type) && !isFinishing() && wv != null) {
                         runOnUiThread(() -> {
                             if (wv != null) {
+                                // 双击：恢复窗口模式（第一次点击设了 ALWAYS_HIDDEN，
+                                // 双击分支取消恢复任务会残留——必须恢复，否则
+                                // 之后单击输入框键盘弹不出来）
+                                getWindow().setSoftInputMode(
+                                        android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED);
                                 wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
                                 // 根治输入法：强制输入框失焦（blur）。
                                 // 仅 hideSoftInput 不够——焦点还在输入框上，小菜单关闭后
@@ -556,34 +581,40 @@ public class WebViewActivity extends AppCompatActivity {
 
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
                     case MotionEvent.ACTION_DOWN:
-                        // 双击检测：300ms 内同点（±50px）再次按下 → 双击 → 弹小菜单
-                        // （长按已完全交还系统，不再干预文字选中）
+                        // 双击检测：250ms 内同点（±40px）再次按下 → 双击 → 弹小菜单。
+                        // 250ms/40px 是快速双击窗口：慢速点击/滚动不会误判
+                        // （300ms/50px 偏宽松，滚动+连点曾误触——实测收紧）
                         final long now = System.currentTimeMillis();
                         final float x = event.getX(0);
                         final float y = event.getY(0);
-                        if (now - lastDownTime < 300
-                                && Math.abs(x - lastDownX) < 50
-                                && Math.abs(y - lastDownY) < 50) {
+                        if (now - lastDownTime < 250
+                                && Math.abs(x - lastDownX) < 40
+                                && Math.abs(y - lastDownY) < 40) {
                             lastDownTime = 0; // 重置防三连击
-                            // 双击：取消恢复焦点（保持 blur，输入法不弹），弹小菜单
+                            // 双击：取消恢复焦点（保持 blur，输入法不弹），弹小菜单；
+                            // 清除拦截标志（用户意图是弹菜单，后续点击正常）
                             v.removeCallbacks(restoreFocusRunnable);
+                            inputIntercepting = false;
                             checkBlankAndShowMenu(x, y);
                         } else {
                             lastDownTime = now;
                             lastDownX = x;
                             lastDownY = y;
-                            // 首次点击命中输入框：吞掉事件（WebView 收不到 DOWN，
-                            // 不会聚焦弹键盘——解决输入法闪烁的唯一可靠办法），
-                            // 保存焦点元素，300ms 无双击则 JS 恢复焦点正常输入
-                            if (hitEditable(x, y)) {
+                            // 首次点击命中输入框：拦截一次（防输入法先弹出闪烁），
+                            // 300ms 无双击恢复焦点后 inputIntercepting=false，
+                            // 后续点击不再拦截（消除恢复/收起循环抖动）
+                            if (hitEditable(x, y) && !inputIntercepting) {
                                 // 临时拦截输入法：窗口模式 ALWAYS_HIDDEN（同步生效，
                                 // 输入框聚焦也不弹键盘）+ JS blur 兜底。
                                 // 不吞事件（吞 DOWN 会破坏后续手势触摸分发——实测）。
+                                inputIntercepting = true;
                                 getWindow().setSoftInputMode(
                                         android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
                                 wv.evaluateJavascript(
                                         "if(document.activeElement){window.__savedFocus=document.activeElement;document.activeElement.blur();}",
                                         null);
+                                // 双击窗口 250ms < 恢复窗口 300ms：双击（250ms 内二次点击）
+                                // 先取消恢复并触发菜单；无双击才恢复焦点弹键盘
                                 v.removeCallbacks(restoreFocusRunnable);
                                 v.postDelayed(restoreFocusRunnable, 300L);
                             }
@@ -1804,6 +1835,22 @@ public class WebViewActivity extends AppCompatActivity {
                 loadCustomErrorPage("blank", "");
             }
             wv.evaluateJavascript("document.addEventListener(\"visibilitychange\",function (event) {event.stopImmediatePropagation();},true);", null);
+            // 移除图片 title/alt 属性（防止 WebView 查看图片时显示图片名浮层遮挡）。
+            // MutationObserver 持续清除（SPA 动态图片）；busy 标志防递归
+            // （clean 修改属性会再触发 observer）
+            wv.evaluateJavascript(
+                    "(function(){"
+                    + "var busy=false;"
+                    + "var clean=function(){"
+                    + "if(busy)return;busy=true;"
+                    + "document.querySelectorAll('img').forEach(function(i){i.removeAttribute('title');i.removeAttribute('alt');});"
+                    + "busy=false;"
+                    + "};"
+                    + "clean();"
+                    + "var mo=new MutationObserver(function(){clean();});"
+                    + "mo.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['title','alt']});"
+                    + "})()",
+                    null);
             // 页面缩放：zoomBy 模拟捏合（对移动版自适应页面可靠）
             applyPageZoom();
             // 缓存输入框位置（双击拦截输入法用）

@@ -31,6 +31,8 @@ class MainActivity : AppCompatActivity() {
         ThemeUtils.applyUiMode()
         setTheme(ThemeUtils.resolveTheme())
         super.onCreate(savedInstanceState)
+        // 状态栏/虚拟键跟随主题（切换主题后刷新颜色）
+        ThemeUtils.applySystemBarColors(this)
 
         entryPointReached(this)
 

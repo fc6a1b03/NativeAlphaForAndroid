@@ -26,6 +26,8 @@ class WebAppSettingsActivity : AppCompatActivity() {
         ThemeUtils.applyUiMode()
         setTheme(ThemeUtils.resolveTheme())
         super.onCreate(savedInstanceState)
+        // 状态栏/虚拟键跟随主题（切换主题后刷新颜色）
+        ThemeUtils.applySystemBarColors(this)
 
         webappID = intent.getIntExtra(Const.INTENT_WEBAPPID, -1)
         if (webappID == -1) {
