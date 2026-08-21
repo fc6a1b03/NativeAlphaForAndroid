@@ -49,6 +49,9 @@
     <string name="stats">Statistics</string>
     <string name="remove_shortcuts">Remove shortcuts</string>
     <string name="add_shortcuts">Add shortcuts</string>
+    <string name="remove_shortcuts_confirm_title">Remove shortcuts</string>
+    <string name="remove_shortcuts_confirm_msg">Remove all shortcuts for this app?</string>
+    <string name="shortcuts_removed">Shortcuts removed</string>
     <string name="shortcuts_section">Shortcuts</string>
     <string name="shortcut_send_to_page">Send key combinations to this page (page-only, no browser defaults).</string>
     <string name="shortcut_add">Add shortcut</string>
