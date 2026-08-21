@@ -67,6 +67,10 @@ private fun ShortcutMenuSheetContent(
 ) {
     val context = LocalContext.current
     val webapp = DataManager.getInstance().getWebApp(webappID)
+    // 预取 Toast 模板（回调内不能查资源——Lint LocalContextGetResourceValueCall），
+    // 无参取模板（Android 无参 getString 不替换占位符，原样返回 "Sent %1$s"），
+    // 实际发送时用 String.format 注入快捷键名
+    val msgShortcutSentTemplate = stringResource(R.string.shortcut_sent)
     // 已绑定快捷键（Gson 旧数据可能 null → 安全兜底）
     val shortcuts = remember(webappID) {
         (webapp?.keyShortcuts ?: mutableListOf()).toList()
@@ -142,7 +146,7 @@ private fun ShortcutMenuSheetContent(
                                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                                 .clickable {
                                     onSendShortcut(shortcut)
-                                    android.widget.Toast.makeText(context, context.getString(R.string.shortcut_sent, shortcut), android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(context, String.format(msgShortcutSentTemplate, shortcut), android.widget.Toast.LENGTH_SHORT).show()
                                 }
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
