@@ -342,6 +342,13 @@ public class ShortcutDialogFragment extends DialogFragment  {
             final_title = "Unknown";
         }
 
+        // 名称回填：弹窗输入的名称写回 WebApp（title + displayName），保存后 UI 刷新
+        if (!final_title.equals(webapp.getTitle())) {
+            webapp.setTitle(final_title);
+        }
+        webapp.setDisplayName(final_title);
+        DataManager.getInstance().saveWebAppData();
+
         if (ShortcutManagerCompat.isRequestPinShortcutSupported(requireActivity())) {
 
             ShortcutInfoCompat pinShortcutInfo = new ShortcutInfoCompat.Builder(requireActivity(), final_title)
@@ -394,6 +401,12 @@ public class ShortcutDialogFragment extends DialogFragment  {
     private void applyNewBaseUrl(String url) {
         if (url != null) {
             webapp.setBaseUrl(url);
+            // 表单关系回填：URL 变更 → 若用户未自定义名称（displayName 为 null），
+            // title 从新 URL 提取，保证列表/快捷方式名称显示一致
+            if (webapp.getDisplayName() == null) {
+                String derived = url.replace("http://", "").replace("https://", "").replace("www.", "");
+                webapp.setTitle(derived);
+            }
             DataManager.getInstance().saveWebAppData();
         }
 

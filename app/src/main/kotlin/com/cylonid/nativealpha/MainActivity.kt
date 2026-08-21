@@ -76,28 +76,6 @@ class MainActivity : AppCompatActivity() {
                         cm.setPrimaryClip(ClipData.newPlainText("URL", webApp.baseUrl))
                         Toast.makeText(this, getString(R.string.copy_url_done), Toast.LENGTH_SHORT).show()
                     },
-                    onToggleShortcut = { webApp ->
-                        // 快捷键切换（按钮式）：有 → 直接移除；无 → 跳设置页添加。
-                        // 不加确认弹窗（交互简洁）。
-                        if (webApp.keyShortcuts?.isNotEmpty() == true) {
-                            val original = DataManager.getInstance()
-                                .getWebAppIgnoringGlobalOverride(webApp.ID, true)
-                            if (original != null) {
-                                original.keyShortcuts = mutableListOf()
-                                DataManager.getInstance().replaceWebApp(original)
-                                refreshTrigger++
-                                Toast.makeText(
-                                    this,
-                                    getString(R.string.shortcuts_removed),
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        } else {
-                            val intent = Intent(this, WebAppSettingsActivity::class.java)
-                            intent.putExtra(Const.INTENT_WEBAPPID, webApp.ID)
-                            startActivity(intent)
-                        }
-                    },
                     onGlobalSettingsClick = {
                         startActivity(Intent(this, SettingsActivity::class.java))
                     }

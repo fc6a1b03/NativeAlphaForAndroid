@@ -68,8 +68,9 @@ fun WebAppStatsScreen(
     var showClearCacheDialog by remember { mutableStateOf(false) }
     var showClearStatsDialog by remember { mutableStateOf(false) }
 
-    // 加载该站错误日志
-    LaunchedEffect(webapp.ID) {
+    // 加载该站错误日志（reloadKey 变化时重载——清理后触发刷新）
+    var reloadKey by remember { mutableStateOf(0) }
+    LaunchedEffect(webapp.ID, reloadKey) {
         pageErrors = PageErrorRepository.getForSite(context, webapp.ID)
     }
 
@@ -348,6 +349,8 @@ fun WebAppStatsScreen(
                         TextButton(onClick = {
                             showClearErrorsDialog = false
                             onClearErrors()
+                            // 清理后重新加载错误日志（防列表不刷新）
+                            reloadKey++
                         }) {
                             Text(stringResource(R.string.confirm))
                         }
