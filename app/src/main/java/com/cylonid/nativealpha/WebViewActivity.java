@@ -447,10 +447,27 @@ public class WebViewActivity extends AppCompatActivity {
                             if (wv != null) {
                                 wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
                             }
+                            // 收起输入法：双击空白（含输入框区域）优先弹小菜单，
+                            // 不让输入法同时弹出（输入法和小菜单会互相打架）
+                            hideSoftKeyboard();
                             showWebViewMenuSheet();
                         });
                     }
                 });
+            }
+
+            /** 收起软键盘（双击空白弹小菜单时调用，避免输入法和小菜单打架） */
+            private void hideSoftKeyboard() {
+                try {
+                    android.view.inputmethod.InputMethodManager imm =
+                            (android.view.inputmethod.InputMethodManager)
+                                    getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                    if (imm != null) {
+                        imm.hideSoftInputFromWindow(wv.getWindowToken(), 0);
+                    }
+                } catch (Exception ignored) {
+                    // 收起失败不影响小菜单弹出
+                }
             }
 
             @Override
