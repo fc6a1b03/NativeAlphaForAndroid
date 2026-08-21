@@ -111,9 +111,13 @@ public class WebViewActivity extends AppCompatActivity {
     private static final int TRESHOLD = 100;
 
     /**
-     * 长按元素判定 JS 模板（预编译常量，避免每次长按拼接大字符串）。
-     * 参数 %1$f=物理X %2$f=物理Y；内部动态换算渲染缩放（scale），
-     * 返回 'blank'/'text'/'media'/'action'/'input'。
+     * 长按判定 JS：检测长按点是否真正落在可见文本字符上。
+     * caretRangeFromPoint（浏览器内部命中）+ 文本节点矩形命中验证——
+     * 空白处 caretRangeFromPoint 会返回"最近插入位置"，必须加矩形命中
+     * 才能区分「点在字符上」vs「点在空白但邻近文本」。
+     * 兼容 Taro/WebComponents：自定义组件文字系统可选中，但标准 DOM 探测
+     * 命中不到——此时按 text 处理（依赖系统 ActionMode 兜底）。
+     * 返回 'text' 或 'blank'。
      */
     private static final String LONGPRESS_JS =
             "(function(){"
@@ -128,12 +132,22 @@ public class WebViewActivity extends AppCompatActivity {
             + "if(!e)return 'blank';"
             + "var tag=e.tagName?e.tagName.toLowerCase():'';"
             + "if(tag==='html'||tag==='body')return 'blank';"
-            + "var r=e.getBoundingClientRect();"
-            + "if(x<r.left||x>r.right||y<r.top||y>r.bottom)return 'blank';"
-            + "if(e.querySelector('img,canvas,svg,video,iframe'))return 'media';"
-            + "if(tag==='a'||tag==='button')return 'action';"
-            + "if(tag==='input'||tag==='textarea'||e.isContentEditable)return 'input';"
-            + "if(e.textContent&&e.textContent.trim().length>0)return 'text';"
+            + "var range=null;"
+            + "if(document.caretRangeFromPoint){range=document.caretRangeFromPoint(x,y);}"
+            + "if(range&&range.startContainer){"
+            + "var n=range.startContainer;"
+            + "if(n.nodeType===3){"
+            + "var len=n.length||0;"
+            + "if(range.startOffset>0&&range.startOffset<len){"
+            + "var full=document.createRange();"
+            + "full.selectNodeContents(n);"
+            + "var rect=full.getBoundingClientRect();"
+            + "if(x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom){"
+            + "return 'text';"
+            + "}"
+            + "}"
+            + "}"
+            + "}"
             + "return 'blank';})()";
     int webappID = -1;
     private WebView wv;
@@ -415,26 +429,24 @@ public class WebViewActivity extends AppCompatActivity {
             private float stopY;
             // 自定义长按检测（空白长按系统不触发 ActionMode，需自己检测）
             private final Runnable longPressRunnable = () -> {
-                // 长按触发：直接 JS 查询长按点元素类型（不依赖 ACTION_DOWN 预判，
-                // 此时页面稳定可靠）。空白 → 弹小菜单；文本/链接 → 系统 ActionMode 处理
+                // 混合判定：JS 精确判「长按点是否在文本字符上」+ 系统 ActionMode 兜底。
+                // - JS 判 text：长按点在文本上 → 保持系统选中（复制菜单）
+                // - JS 判 blank：空白 → finish 系统误选（空白长按系统可能选中邻近词）
+                //   + 弹小菜单
+                // 不用「元素有 textContent」判定（真实站点空白常误判为文字）；
+                // Taro 等自定义组件 JS 命中不到文字 → 按 text 依赖系统选中兜底。
                 if (isFinishing() || wv == null) return;
                 final float px = lastLongPressX;
                 final float py = lastLongPressY;
                 if (px < 0 || py < 0) return;
-                // event.getX()/getY() 是 WebView 局部坐标（物理像素），与页面视口 CSS
-                // 坐标仅在缩放=100% 时一致。页面缩放(setInitialScale)非 100% 时，
-                // 物理像素 = CSS 像素 × scale，必须在 JS 内用当前渲染比例换算，
-                // 否则长按坐标偏移导致文字区域误判为空白（历史 bug）。
                 final String js = String.format(Locale.US, LONGPRESS_JS, px, py);
                 wv.evaluateJavascript(js, value -> {
-                    String type = value != null ? value.replace("\"", "") : "text";
-                    if ("null".equals(type) || type.isEmpty()) type = "text";
+                    String type = value != null ? value.replace("\"", "") : "blank";
+                    if ("null".equals(type) || type.isEmpty()) type = "blank";
                     android.util.Log.d("LongPress", "jsType=" + type);
                     if ("blank".equals(type) && !isFinishing() && wv != null) {
                         runOnUiThread(() -> {
-                            // 空白长按：若系统选中了附近文本（ActionMode 已启动），
-                            // 先 finish 取消（避免复制菜单残留），再弹小菜单。
-                            // 文字长按判 text 不执行此分支，系统选中保留。
+                            // 空白：取消系统误选（空白长按系统可能选中邻近词），再弹小菜单
                             if (currentActionMode != null) {
                                 try {
                                     currentActionMode.finish();
