@@ -804,6 +804,11 @@ private fun ShortcutAddRow(
     // 主键下拉（字母/数字/功能键）
     var key by remember { mutableStateOf("S") }
     var keyExpanded by remember { mutableStateOf(false) }
+    // 预取 Toast 文案（回调内不能查资源——Lint LocalContextGetResourceValueCall）
+    val msgNeedModifier = stringResource(R.string.shortcut_need_modifier)
+    val msgExist = stringResource(R.string.shortcut_exist)
+    val msgMaxReached = stringResource(R.string.shortcut_max_reached, MAX_KEY_SHORTCUTS)
+    val msgBoundTemplate = stringResource(R.string.shortcut_bound)
 
     fun buildCombo(): String? {
         val parts = buildList {
@@ -853,17 +858,17 @@ private fun ShortcutAddRow(
             Button(
                 onClick = {
                     val combo = buildCombo() ?: run {
-                        android.widget.Toast.makeText(context, context.getString(R.string.shortcut_need_modifier), android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, msgNeedModifier, android.widget.Toast.LENGTH_SHORT).show()
                         return@Button
                     }
                     if (existing.contains(combo)) {
-                        android.widget.Toast.makeText(context, context.getString(R.string.shortcut_exist), android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, msgExist, android.widget.Toast.LENGTH_SHORT).show()
                     } else if (existing.size >= MAX_KEY_SHORTCUTS) {
-                        android.widget.Toast.makeText(context, context.getString(R.string.shortcut_max_reached, MAX_KEY_SHORTCUTS), android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, msgMaxReached, android.widget.Toast.LENGTH_SHORT).show()
                     } else {
                         onAdd(combo)
                         ctrl = false; shift = false; alt = false
-                        android.widget.Toast.makeText(context, context.getString(R.string.shortcut_bound, combo), android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, String.format(msgBoundTemplate, combo), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 },
                 enabled = ctrl || shift || alt
