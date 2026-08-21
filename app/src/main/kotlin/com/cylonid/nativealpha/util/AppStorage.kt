@@ -33,6 +33,7 @@ object AppStorage {
     val KEY_PAGE_ERRORS = stringPreferencesKey("page_errors")   // 页面运行/网络错误历史 JSON（按站，统计页用）
     val KEY_APP_ERRORS = stringPreferencesKey("app_errors")     // 应用自身运行错误日志 JSON（全局，兜底写入）
     val KEY_STATS = stringPreferencesKey("stats")               // 统计明细 JSON（WebApp 统计字段快照）
+    val KEY_COOKIE_SNAPSHOTS = stringPreferencesKey("cookie_snapshots")  // 登录态隔离：各 WebApp Cookie 快照
 
     /**
      * 异步读取 String 值（Flow，损坏自动恢复为空串）。

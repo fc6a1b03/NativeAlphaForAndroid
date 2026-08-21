@@ -308,6 +308,12 @@ fun WebAppSettingsScreen(
                     onCheckedChange = { updateSettings { isAllowThirdPartyCookies = it } },
                     description = stringResource(R.string.desc_accept_third_party_cookies)
                 )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.isolated_session),
+                    checked = modified.isIsolatedSession,
+                    onCheckedChange = { updateSettings { isIsolatedSession = it } },
+                    description = stringResource(R.string.isolated_session_hint)
+                )
             }
 
             // 深色模式
@@ -445,6 +451,12 @@ fun WebAppSettingsScreen(
                     checked = modified.isAllowMediaPlaybackInBackground,
                     onCheckedChange = { updateSettings { isAllowMediaPlaybackInBackground = it } },
                     description = stringResource(R.string.desc_media_background)
+                )
+                SettingsSwitchRow(
+                    title = stringResource(R.string.restore_page),
+                    checked = modified.isRestorePage,
+                    onCheckedChange = { updateSettings { isRestorePage = it } },
+                    description = stringResource(R.string.restore_page_hint)
                 )
             }
 

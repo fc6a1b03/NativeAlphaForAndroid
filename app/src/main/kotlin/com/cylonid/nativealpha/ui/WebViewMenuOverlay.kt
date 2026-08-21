@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TextFields
@@ -46,6 +47,8 @@ fun Activity.showWebViewMenuOverlay(
     canGoForward: Boolean,
     initialTextZoom: Int,
     initialPageZoom: Int,
+    restorePage: Boolean,
+    onRestorePageChange: (Boolean) -> Unit,
     onAction: (String) -> Unit,
     onApplyTextZoom: (Int) -> Unit,
     onApplyPageZoom: (Int) -> Unit,
@@ -62,6 +65,8 @@ fun Activity.showWebViewMenuOverlay(
                 canGoForward = canGoForward,
                 initialTextZoom = initialTextZoom,
                 initialPageZoom = initialPageZoom,
+                restorePage = restorePage,
+                onRestorePageChange = onRestorePageChange,
                 onAction = onAction,
                 onApplyTextZoom = onApplyTextZoom,
                 onApplyPageZoom = onApplyPageZoom,
@@ -85,6 +90,8 @@ private fun WebViewMenuSheetContent(
     canGoForward: Boolean,
     initialTextZoom: Int,
     initialPageZoom: Int,
+    restorePage: Boolean,
+    onRestorePageChange: (Boolean) -> Unit,
     onAction: (String) -> Unit,
     onApplyTextZoom: (Int) -> Unit,
     onApplyPageZoom: (Int) -> Unit,
@@ -195,6 +202,35 @@ private fun WebViewMenuSheetContent(
                 steps = 14
             )
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 恢复页面开关（重新打开不刷新，保留滚动/输入）
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Restore, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.restore_page),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        stringResource(R.string.restore_page_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = restorePage,
+                    onCheckedChange = { onRestorePageChange(it) }
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
         }
     }
