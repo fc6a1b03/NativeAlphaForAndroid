@@ -111,12 +111,12 @@ public class WebViewActivity extends AppCompatActivity {
     private static final int TRESHOLD = 100;
 
     /**
-     * 长按判定 JS：检测长按点是否真正落在可见文本字符上。
+     * 双击空白判定 JS：检测双击点是否真正落在可见文本字符上。
      * caretRangeFromPoint（浏览器内部命中）+ 文本节点矩形命中验证——
      * 空白处 caretRangeFromPoint 会返回"最近插入位置"，必须加矩形命中
      * 才能区分「点在字符上」vs「点在空白但邻近文本」。
      * 兼容 Taro/WebComponents：自定义组件文字系统可选中，但标准 DOM 探测
-     * 命中不到——此时按 text 处理（依赖系统 ActionMode 兜底）。
+     * 命中不到——此时按 text 处理（双击文字不弹菜单，交还系统选中单词）。
      * 返回 'text' 或 'blank'。
      */
     private static final String LONGPRESS_JS =
@@ -165,9 +165,6 @@ public class WebViewActivity extends AppCompatActivity {
     private String urlOnFirstPageload = "";
     // 错误页重试目标（onReceivedError 主框架失败时记录，webnative://retry 用它重新加载）
     private String retryUrl = "";
-    // 长按坐标（OnTouchListener ACTION_DOWN 记录，长按回调用 JS 检测元素类型）
-    private float lastLongPressX = -1f;
-    private float lastLongPressY = -1f;
     private boolean fallbackToDefaultLongClickBehaviour = false;
     private PopupMenu mPopupMenu = null;
     // 长按动态分流：系统是否已启动文本/链接选择 ActionMode（区分「有内容」vs「空白处」）
@@ -427,33 +424,26 @@ public class WebViewActivity extends AppCompatActivity {
             private float stopX;
             private float startY;
             private float stopY;
-            // 自定义长按检测（空白长按系统不触发 ActionMode，需自己检测）
-            private final Runnable longPressRunnable = () -> {
-                // 混合判定：JS 精确判「长按点是否在文本字符上」+ 系统 ActionMode 兜底。
-                // - JS 判 text：长按点在文本上 → 保持系统选中（复制菜单）
-                // - JS 判 blank：空白 → finish 系统误选（空白长按系统可能选中邻近词）
-                //   + 弹小菜单
-                // 不用「元素有 textContent」判定（真实站点空白常误判为文字）；
-                // Taro 等自定义组件 JS 命中不到文字 → 按 text 依赖系统选中兜底。
+            // 双击检测：双击空白 → 弹小菜单。
+            // 设计：长按完全交还系统（文字选中 100% 正常，不再与系统 ActionMode
+            // 竞争——此前空白长按判定在真实站点频繁误判，是历史 bug 根因）。
+            // 双击是纯手势识别（300ms 内同点二次按下），系统在空白处无默认行为。
+            // 自实现不用 GestureDetector：其内部状态机对注入事件/快速连点
+            // 识别不稳定，自实现时间戳+坐标判定简单可靠。
+            private long lastDownTime = 0;
+            private float lastDownX = -1f;
+            private float lastDownY = -1f;
+
+            /** 双击空白判定：JS 检测双击点是否落在文本字符上，空白则弹小菜单 */
+            private void checkBlankAndShowMenu(float px, float py) {
                 if (isFinishing() || wv == null) return;
-                final float px = lastLongPressX;
-                final float py = lastLongPressY;
-                if (px < 0 || py < 0) return;
                 final String js = String.format(Locale.US, LONGPRESS_JS, px, py);
                 wv.evaluateJavascript(js, value -> {
                     String type = value != null ? value.replace("\"", "") : "blank";
                     if ("null".equals(type) || type.isEmpty()) type = "blank";
-                    android.util.Log.d("LongPress", "jsType=" + type);
+                    android.util.Log.d("LongPress", "doubleTap jsType=" + type);
                     if ("blank".equals(type) && !isFinishing() && wv != null) {
                         runOnUiThread(() -> {
-                            // 空白：取消系统误选（空白长按系统可能选中邻近词），再弹小菜单
-                            if (currentActionMode != null) {
-                                try {
-                                    currentActionMode.finish();
-                                } catch (Exception ignored) {
-                                }
-                                currentActionMode = null;
-                            }
                             if (wv != null) {
                                 wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
                             }
@@ -461,7 +451,7 @@ public class WebViewActivity extends AppCompatActivity {
                         });
                     }
                 });
-            };
+            }
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -471,21 +461,29 @@ public class WebViewActivity extends AppCompatActivity {
 
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
                     case MotionEvent.ACTION_DOWN:
-                        // 单指按下：记录坐标 + JS 预判元素 + 启动自定义长按检测（500ms）
-                        startX = event.getX(0);
-                        startY = event.getY(0);
-                        lastLongPressX = event.getX(0);
-                        lastLongPressY = event.getY(0);
-                        v.removeCallbacks(longPressRunnable);
-                        v.postDelayed(longPressRunnable, 500L);
+                        // 双击检测：300ms 内同点（±50px）再次按下 → 双击空白 → 弹小菜单
+                        // （长按已完全交还系统，不再干预文字选中）
+                        final long now = System.currentTimeMillis();
+                        final float x = event.getX(0);
+                        final float y = event.getY(0);
+                        if (now - lastDownTime < 300
+                                && Math.abs(x - lastDownX) < 50
+                                && Math.abs(y - lastDownY) < 50) {
+                            lastDownTime = 0; // 重置防三连击
+                            checkBlankAndShowMenu(x, y);
+                        } else {
+                            lastDownTime = now;
+                            lastDownX = x;
+                            lastDownY = y;
+                        }
+                        // 单指按下：记录起始坐标（供滑动阈值判断）
+                        startX = x;
+                        startY = y;
                         return false;
 
                     case MotionEvent.ACTION_POINTER_DOWN:
                         // This happens when you touch the screen with two fingers
                         mode = SWIPE;
-                        // 第二指按下视为多指手势（捏合/滑动），取消单指长按检测，
-                        // 避免双指缩放/滑动时误触发长按（误弹小菜单/干扰选中）
-                        v.removeCallbacks(longPressRunnable);
                         // You can also use event.getY(1) or the average of the two
                         startX = event.getX(0);
                         startY = event.getY(0);
@@ -521,8 +519,7 @@ public class WebViewActivity extends AppCompatActivity {
                             return true;
                         }
                     case MotionEvent.ACTION_UP:
-                        // 抬起：取消自定义长按检测（未触发则不作处理）
-                        v.removeCallbacks(longPressRunnable);
+                        // 抬起：重置滑动状态
                         mode = NONE;
                         return false;
 
@@ -531,11 +528,7 @@ public class WebViewActivity extends AppCompatActivity {
                             stopX = event.getX(0);
                             stopY = event.getY(0);
                         }
-                        // 移动超阈值（滑动/滚动）：取消长按检测
-                        if (Math.abs(event.getX(0) - startX) > TRESHOLD
-                                || Math.abs(event.getY(0) - startY) > TRESHOLD) {
-                            v.removeCallbacks(longPressRunnable);
-                        }
+                        // 移动超阈值（滑动/滚动）：无额外处理（双击检测器内部自行判定）
                         return false;
                 }
                 return false;
