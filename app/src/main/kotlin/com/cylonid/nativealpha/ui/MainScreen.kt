@@ -21,8 +21,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -34,6 +36,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -70,8 +74,20 @@ fun MainScreen(
     onOpenSettings: (WebApp) -> Unit,
     onOpenStats: (WebApp) -> Unit,
     onDeleteWebApp: (WebApp) -> Unit,
+    onCopyUrl: (WebApp) -> Unit,
+    onToggleShortcut: (WebApp) -> Unit,
     onGlobalSettingsClick: () -> Unit,
 ) {
+    // 搜索过滤：名称/URL 模糊匹配
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredApps = remember(webApps, searchQuery) {
+        if (searchQuery.isBlank()) webApps
+        else webApps.filter { app ->
+            val name = (app.displayName ?: app.title ?: "").lowercase()
+            val url = (app.baseUrl ?: "").lowercase()
+            name.contains(searchQuery.lowercase()) || url.contains(searchQuery.lowercase())
+        }
+    }
     // 背景装饰：顶部柔和品牌光晕（低透明度，不干扰内容，缓解纯白空旷感）
     Box(modifier = Modifier.fillMaxSize()) {
         // 顶部靛蓝光晕
@@ -164,37 +180,85 @@ fun MainScreen(
             }
         }
     ) { innerPadding ->
-        if (webApps.isEmpty()) {
-            EmptyState(
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            // 搜索框（名称/URL 模糊查找；Material 3 统一填充样式）
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = {
+                    Text(stringResource(R.string.search_webapps))
+                },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = null)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = stringResource(R.string.clear_search)
+                            )
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             )
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(
-                    webApps,
-                    key = { it.ID },
-                    contentType = { "webapp" }  // 同类型项共享组合策略，滑动不重建
-                ) { webApp ->
-                    WebAppCard(
-                        webApp = webApp,
-                        onClick = { onOpenWebApp(webApp) },
-                        onSettings = { onOpenSettings(webApp) },
-                        onStats = { onOpenStats(webApp) },
-                        onDelete = { onDeleteWebApp(webApp) }
+            if (webApps.isEmpty()) {
+                EmptyState(
+                    modifier = Modifier
+                        .fillMaxSize()
+                )
+            } else if (filteredApps.isEmpty()) {
+                // 搜索无结果提示
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.no_search_result),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(
+                        filteredApps,
+                        key = { it.ID },
+                        contentType = { "webapp" }  // 同类型项共享组合策略，滑动不重建
+                    ) { webApp ->
+                        WebAppCard(
+                            webApp = webApp,
+                            onClick = { onOpenWebApp(webApp) },
+                            onSettings = { onOpenSettings(webApp) },
+                            onStats = { onOpenStats(webApp) },
+                            onDelete = { onDeleteWebApp(webApp) },
+                            onCopyUrl = { onCopyUrl(webApp) },
+                            onToggleShortcut = { onToggleShortcut(webApp) }
+                        )
+                    }
                 }
             }
         }
     }
-    }
+}
 }
 
 @Composable
@@ -204,6 +268,8 @@ private fun WebAppCard(
     onSettings: () -> Unit,
     onStats: () -> Unit,
     onDelete: () -> Unit,
+    onCopyUrl: () -> Unit,
+    onToggleShortcut: () -> Unit,
 ) {
     Card(
         modifier = Modifier
@@ -280,6 +346,26 @@ private fun WebAppCard(
                         onClick = {
                             menuExpanded = false
                             onStats()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.copy_url)) },
+                        onClick = {
+                            menuExpanded = false
+                            onCopyUrl()
+                        }
+                    )
+                    // 快捷键入口：有快捷键显示"移除快捷键"，否则"添加快捷键"（进设置页管理）
+                    DropdownMenuItem(
+                        text = { Text(
+                            if (webApp.keyShortcuts?.isNotEmpty() == true)
+                                stringResource(R.string.remove_shortcuts)
+                            else
+                                stringResource(R.string.add_shortcuts)
+                        ) },
+                        onClick = {
+                            menuExpanded = false
+                            onToggleShortcut()
                         }
                     )
                     DropdownMenuItem(

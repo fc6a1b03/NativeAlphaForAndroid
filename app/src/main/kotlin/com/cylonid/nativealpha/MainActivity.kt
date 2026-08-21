@@ -1,7 +1,10 @@
 package com.cylonid.nativealpha
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -66,6 +69,18 @@ class MainActivity : AppCompatActivity() {
                     },
                     onDeleteWebApp = { webApp ->
                         deleteWebApp(webApp)
+                    },
+                    onCopyUrl = { webApp ->
+                        // 复制 Web App URL 到剪贴板
+                        val cm = getSystemService(ClipboardManager::class.java)
+                        cm.setPrimaryClip(ClipData.newPlainText("URL", webApp.baseUrl))
+                        Toast.makeText(this, getString(R.string.copy_url_done), Toast.LENGTH_SHORT).show()
+                    },
+                    onToggleShortcut = { webApp ->
+                        // 快捷键管理：进 WebApp 设置页（添加快捷键/移除都在那里）
+                        val intent = Intent(this, WebAppSettingsActivity::class.java)
+                        intent.putExtra(Const.INTENT_WEBAPPID, webApp.ID)
+                        startActivity(intent)
                     },
                     onGlobalSettingsClick = {
                         startActivity(Intent(this, SettingsActivity::class.java))
