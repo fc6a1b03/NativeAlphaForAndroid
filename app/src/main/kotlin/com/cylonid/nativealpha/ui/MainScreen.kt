@@ -355,14 +355,10 @@ private fun WebAppCard(
                             onCopyUrl()
                         }
                     )
-                    // 快捷键入口：有快捷键显示"移除快捷键"，否则"添加快捷键"（进设置页管理）
+                    // 快捷键切换（按钮式）：点击即切换——有则移除/无则跳设置页添加，
+                    // 菜单文字统一"快捷键"（简洁不割裂）
                     DropdownMenuItem(
-                        text = { Text(
-                            if (webApp.keyShortcuts?.isNotEmpty() == true)
-                                stringResource(R.string.remove_shortcuts)
-                            else
-                                stringResource(R.string.add_shortcuts)
-                        ) },
+                        text = { Text(stringResource(R.string.shortcuts_section)) },
                         onClick = {
                             menuExpanded = false
                             onToggleShortcut()
