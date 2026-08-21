@@ -2,9 +2,9 @@ package com.cylonid.nativealpha.ui
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Bundle
-import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -142,7 +142,8 @@ private fun AddWebAppScreen(
             val uri = result.data?.data
             val bmp = uri?.let {
                 runCatching {
-                    MediaStore.Images.Media.getBitmap(context.contentResolver, it)
+                    // ImageDecoder 替代已废弃的 MediaStore.Images.Media.getBitmap
+                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, it))
                 }.getOrNull()
             }
             if (bmp != null) {
