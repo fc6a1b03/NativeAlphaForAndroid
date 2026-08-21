@@ -19,8 +19,10 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     var isAllowThirdPartyCookies = false
     /** 登录态隔离：true 时该 WebApp 独立 Cookie 会话（切换时保存/恢复，不与其他站共享） */
     var isIsolatedSession = false
-    /** 多标签会话数（隔离模式下：同一 WebApp 多个独立会话，各自 Cookie 独立） */
+    /** 多标签会话数（隔离模式下：同一 WebApp 多个独立会话，各自 Cookie 独立）。
+     *  Gson 旧数据可能为 0，getter 归一化到最少 1（getSessionTabCount/set 配套） */
     var sessionTabCount: Int = 1
+        get() = if (field < 1) 1 else field
     var isAllowJs = true
     var isRequestDesktop = false
     var isClearCache = false

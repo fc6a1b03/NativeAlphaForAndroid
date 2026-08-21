@@ -756,10 +756,9 @@ public class WebViewActivity extends AppCompatActivity {
             DataManager.getInstance().replaceWebApp(original);
         }
         int newTab = original.getSessionTabCount() - 1;
-        // 保存当前快照（异步），销毁当前，重建新标签
+        // 保存当前快照（异步）→ CLEAR_TOP 复用实例重载到新标签（不销毁，单实例）
         com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.saveSnapshot(this, webappID, webappTabIndex);
         WebViewLauncher.startWebViewById(webappID, newTab, this);
-        finish();
     }
 
     /** 切换会话：弹对话框列出所有会话标签，选一个销毁重建 */
@@ -776,7 +775,6 @@ public class WebViewActivity extends AppCompatActivity {
                     if (which != webappTabIndex) {
                         com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.saveSnapshot(this, webappID, webappTabIndex);
                         WebViewLauncher.startWebViewById(webappID, which, this);
-                        finish();
                     }
                 })
                 .setNegativeButton(android.R.string.cancel, null)
@@ -795,10 +793,9 @@ public class WebViewActivity extends AppCompatActivity {
             return;        }
         original.setSessionTabCount(count - 1);
         DataManager.getInstance().replaceWebApp(original);
-        // 销毁重建到第一个会话
+        // 保存快照 → CLEAR_TOP 复用重载到第一个会话（不销毁）
         com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.saveSnapshot(this, webappID, webappTabIndex);
         WebViewLauncher.startWebViewById(webappID, 0, this);
-        finish();
     }
 
     /** 显示组合快捷键面板（ModalBottomSheet，纯发送；管理在设置页） */

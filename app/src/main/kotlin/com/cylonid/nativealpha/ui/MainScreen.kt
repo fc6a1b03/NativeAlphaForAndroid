@@ -180,82 +180,85 @@ fun MainScreen(
             }
         }
     ) { innerPadding ->
-        // 搜索框（名称/URL 模糊查找；Material 3 统一填充样式）
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = {
-                Text(stringResource(R.string.search_webapps))
-            },
-            leadingIcon = {
-                Icon(Icons.Default.Search, contentDescription = null)
-            },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = stringResource(R.string.clear_search)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            // 搜索框（名称/URL 模糊查找；Material 3 统一填充样式）
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = {
+                    Text(stringResource(R.string.search_webapps))
+                },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = null)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = stringResource(R.string.clear_search)
+                            )
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            if (webApps.isEmpty()) {
+                EmptyState(
+                    modifier = Modifier
+                        .fillMaxSize()
+                )
+            } else if (filteredApps.isEmpty()) {
+                // 搜索无结果提示
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.no_search_result),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(
+                        filteredApps,
+                        key = { it.ID },
+                        contentType = { "webapp" }  // 同类型项共享组合策略，滑动不重建
+                    ) { webApp ->
+                        WebAppCard(
+                            webApp = webApp,
+                            onClick = { onOpenWebApp(webApp) },
+                            onSettings = { onOpenSettings(webApp) },
+                            onStats = { onOpenStats(webApp) },
+                            onDelete = { onDeleteWebApp(webApp) },
+                            onCopyUrl = { onCopyUrl(webApp) },
+                            onToggleShortcut = { onToggleShortcut(webApp) }
                         )
                     }
-                }
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        if (webApps.isEmpty()) {
-            EmptyState(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            )
-        } else if (filteredApps.isEmpty()) {
-            // 搜索无结果提示
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = stringResource(R.string.no_search_result),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 96.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(
-                    filteredApps,
-                    key = { it.ID },
-                    contentType = { "webapp" }  // 同类型项共享组合策略，滑动不重建
-                ) { webApp ->
-                    WebAppCard(
-                        webApp = webApp,
-                        onClick = { onOpenWebApp(webApp) },
-                        onSettings = { onOpenSettings(webApp) },
-                        onStats = { onOpenStats(webApp) },
-                        onDelete = { onDeleteWebApp(webApp) },
-                        onCopyUrl = { onCopyUrl(webApp) },
-                        onToggleShortcut = { onToggleShortcut(webApp) }
-                    )
                 }
             }
         }
     }
-    }
+}
 }
 
 @Composable
