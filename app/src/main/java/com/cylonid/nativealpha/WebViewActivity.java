@@ -1128,6 +1128,40 @@ public class WebViewActivity extends AppCompatActivity {
     public void onActionModeStarted(android.view.ActionMode mode) {
         actionModeActive = true;
         super.onActionModeStarted(mode);
+        // 空白长按检测：系统对空白长按也会启动选中（误选最近文本）——
+        // 用长按坐标 JS 判定：空白 → 取消系统选中（不显示复制菜单），由自定义长按弹小菜单
+        if (wv != null && lastLongPressX >= 0 && lastLongPressY >= 0) {
+            final float px = lastLongPressX;
+            final float py = lastLongPressY;
+            final int[] loc = new int[2];
+            wv.getLocationOnScreen(loc);
+            final float pageX = px - loc[0];
+            final float pageY = py - loc[1];
+            final String js = "(function(){"
+                    + "var x=" + pageX + ",y=" + pageY + ";"
+                    + "var e=document.elementFromPoint(x,y);"
+                    + "if(!e)return 'blank';"
+                    + "var r=e.getBoundingClientRect();"
+                    + "if(x<r.left||x>r.right||y<r.top||y>r.bottom)return 'blank';"
+                    + "var tag=e.tagName?e.tagName.toLowerCase():'';"
+                    + "if(e.querySelector('img,canvas,svg,video,iframe'))return 'media';"
+                    + "if(tag==='a'||tag==='button')return 'action';"
+                    + "if(tag==='input'||tag==='textarea'||e.isContentEditable)return 'input';"
+                    + "if(e.textContent&&e.textContent.trim().length>0)return 'text';"
+                    + "return 'blank';})()";
+            wv.evaluateJavascript(js, value -> {
+                String type = value != null ? value.replace("\"", "") : "text";
+                if ("null".equals(type) || type.isEmpty()) type = "text";
+                android.util.Log.d("LongPress", "actionMode jsType=" + type);
+                if ("blank".equals(type)) {
+                    // 空白：取消系统选中（finish），避免复制菜单残留
+                    try {
+                        mode.finish();
+                    } catch (Exception ignored) {
+                    }
+                }
+            });
+        }
         // 在系统文本选择菜单注入「更多」项（点击弹小菜单）——
         // 文本长按/空白长按（系统选中最近文本）都能通过它进小菜单
         try {
