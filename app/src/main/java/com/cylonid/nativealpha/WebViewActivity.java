@@ -394,11 +394,12 @@ public class WebViewActivity extends AppCompatActivity {
                 final float px = lastLongPressX;
                 final float py = lastLongPressY;
                 if (px < 0 || py < 0) return;
-                // 屏幕坐标 → 页面坐标（WebView 顶部有状态栏/标题偏移，JS 需要页面坐标）
-                final int[] loc = new int[2];
-                wv.getLocationOnScreen(loc);
-                final float pageX = px - loc[0];
-                final float pageY = py - loc[1];
+                // event.getX()/getY() 是 WebView 局部坐标，与页面视口 CSS 坐标
+                // 一致（WebView 内部已处理缩放/偏移），可直接用于 elementFromPoint。
+                // 注意：不能再减 getLocationOnScreen() —— 那是 View 相对屏幕的位置，
+                // 双重换算会把坐标偏移到错误位置（历史 bug：文字区域被判为空白）。
+                final float pageX = px;
+                final float pageY = py;
                 final String js = "(function(){"
                         + "var x=" + pageX + ",y=" + pageY + ";"
                         + "var e=document.elementFromPoint(x,y);"
