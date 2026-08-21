@@ -394,14 +394,21 @@ public class WebViewActivity extends AppCompatActivity {
                 final float px = lastLongPressX;
                 final float py = lastLongPressY;
                 if (px < 0 || py < 0) return;
-                // event.getX()/getY() 是 WebView 局部坐标，与页面视口 CSS 坐标
-                // 一致（WebView 内部已处理缩放/偏移），可直接用于 elementFromPoint。
-                // 注意：不能再减 getLocationOnScreen() —— 那是 View 相对屏幕的位置，
-                // 双重换算会把坐标偏移到错误位置（历史 bug：文字区域被判为空白）。
-                final float pageX = px;
-                final float pageY = py;
+                // event.getX()/getY() 是 WebView 局部坐标（物理像素），与页面视口 CSS
+                // 坐标仅在缩放=100% 时一致。页面缩放(setInitialScale)非 100% 时，
+                // 物理像素 = CSS 像素 × scale，必须在 JS 内用当前渲染比例换算，
+                // 否则长按坐标偏移导致文字区域误判为空白（历史 bug）。
+                // scale = 物理px/CSSpx = devicePixelRatio × outerWidth/innerWidth
+                // （innerWidth 为缩放后的布局视口 CSS 宽，outerWidth 为外层视口宽，
+                //   两者比值即渲染缩放；再乘 dpr 得物理像素比例）
                 final String js = "(function(){"
-                        + "var x=" + pageX + ",y=" + pageY + ";"
+                        + "var px=" + px + ",py=" + py + ";"
+                        + "var dpr=window.devicePixelRatio||1;"
+                        + "var innerW=window.innerWidth||document.documentElement.clientWidth;"
+                        + "var outerW=window.outerWidth||innerW;"
+                        + "var scale=dpr*outerW/innerW;"
+                        + "if(!(scale>0)||scale===1){scale=1;}"
+                        + "var x=px/scale,y=py/scale;"
                         + "var e=document.elementFromPoint(x,y);"
                         + "if(!e)return 'blank';"
                         + "var tag=e.tagName?e.tagName.toLowerCase():'';"
