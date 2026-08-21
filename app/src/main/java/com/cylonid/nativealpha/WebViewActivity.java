@@ -124,6 +124,9 @@ public class WebViewActivity extends AppCompatActivity {
     private String urlOnFirstPageload = "";
     // 错误页重试目标（onReceivedError 主框架失败时记录，webnative://retry 用它重新加载）
     private String retryUrl = "";
+    // 长按坐标（OnTouchListener ACTION_DOWN 记录，长按回调用 JS 检测元素类型）
+    private float lastLongPressX = -1f;
+    private float lastLongPressY = -1f;
     private boolean fallbackToDefaultLongClickBehaviour = false;
     private PopupMenu mPopupMenu = null;
     // 长按动态分流：系统是否已启动文本/链接选择 ActionMode（区分「有内容」vs「空白处」）
@@ -308,32 +311,6 @@ public class WebViewActivity extends AppCompatActivity {
         CUSTOM_HEADERS = initCustomHeaders(webapp.isSendSavedataRequest());
         loadURL(wv, url);
         wv.setWebChromeClient(new CustomWebChromeClient());
-        wv.setOnLongClickListener(view -> {
-            if(webapp.getAlwaysUseFallbackContextMenu()) return false;
-            if(fallbackToDefaultLongClickBehaviour) {
-                fallbackToDefaultLongClickBehaviour = false;
-                return false;
-            }
-            // 长按动态分流（修复：文本可复制 + 空白处保留小菜单）：
-            // 一律 return false 让系统先处理（文本→选择复制、输入框→光标/粘贴、
-            // 链接→系统链接菜单），系统不启动 ActionMode（空白处）则延迟补弹小菜单。
-            // 不用 HitTestResult 判断（长按时实测恒为 UNKNOWN，不可靠）。
-            actionModeActive = false;
-            view.postDelayed(() -> {
-                // 系统未启动文本/链接选择（空白处）→ 弹小菜单兜底（返回/刷新/快捷键等）
-                if (!actionModeActive && !isFinishing()) {
-                    // 清除系统"伪选中"视觉残留（空白处长按系统会短暂选中附近文本，
-                    // 未进入 ActionMode 时选区残留看着不舒服——先清除再弹菜单）
-                    if (wv != null) {
-                        wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
-                    }
-                    showWebViewMenuSheet();
-                }
-            }, 300L);
-            return false;
-        });
-
-
         wv.setDownloadListener((dl_url, userAgent, contentDisposition, mimeType, contentLength) -> {
 
             if (mimeType.equals("application/pdf")) {
@@ -407,6 +384,45 @@ public class WebViewActivity extends AppCompatActivity {
             private float stopX;
             private float startY;
             private float stopY;
+            // 自定义长按检测（空白长按系统不触发 ActionMode，需自己检测）
+            private final Runnable longPressRunnable = () -> {
+                // 长按触发：直接 JS 查询长按点元素类型（不依赖 ACTION_DOWN 预判，
+                // 此时页面稳定可靠）。空白 → 弹小菜单；文本/链接 → 系统 ActionMode 处理
+                if (isFinishing() || wv == null) return;
+                final float px = lastLongPressX;
+                final float py = lastLongPressY;
+                if (px < 0 || py < 0) return;
+                // 屏幕坐标 → 页面坐标（WebView 顶部有状态栏/标题偏移，JS 需要页面坐标）
+                final int[] loc = new int[2];
+                wv.getLocationOnScreen(loc);
+                final float pageX = px - loc[0];
+                final float pageY = py - loc[1];
+                final String js = "(function(){"
+                        + "var x=" + pageX + ",y=" + pageY + ";"
+                        + "var e=document.elementFromPoint(x,y);"
+                        + "if(!e)return 'blank';"
+                        + "var r=e.getBoundingClientRect();"
+                        + "if(x<r.left||x>r.right||y<r.top||y>r.bottom)return 'blank';"
+                        + "var tag=e.tagName?e.tagName.toLowerCase():'';"
+                        + "if(e.querySelector('img,canvas,svg,video,iframe'))return 'media';"
+                        + "if(tag==='a'||tag==='button')return 'action';"
+                        + "if(tag==='input'||tag==='textarea'||e.isContentEditable)return 'input';"
+                        + "if(e.textContent&&e.textContent.trim().length>0)return 'text';"
+                        + "return 'blank';})()";
+                wv.evaluateJavascript(js, value -> {
+                    String type = value != null ? value.replace("\"", "") : "text";
+                    if ("null".equals(type) || type.isEmpty()) type = "text";
+                    android.util.Log.d("LongPress", "jsType=" + type);
+                    if ("blank".equals(type) && !isFinishing() && wv != null) {
+                        runOnUiThread(() -> {
+                            if (wv != null) {
+                                wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
+                            }
+                            showWebViewMenuSheet();
+                        });
+                    }
+                });
+            };
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -415,6 +431,16 @@ public class WebViewActivity extends AppCompatActivity {
                     return false;
 
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
+                    case MotionEvent.ACTION_DOWN:
+                        // 单指按下：记录坐标 + JS 预判元素 + 启动自定义长按检测（500ms）
+                        startX = event.getX(0);
+                        startY = event.getY(0);
+                        lastLongPressX = event.getX(0);
+                        lastLongPressY = event.getY(0);
+                        v.removeCallbacks(longPressRunnable);
+                        v.postDelayed(longPressRunnable, 500L);
+                        return false;
+
                     case MotionEvent.ACTION_POINTER_DOWN:
                         // This happens when you touch the screen with two fingers
                         mode = SWIPE;
@@ -452,10 +478,21 @@ public class WebViewActivity extends AppCompatActivity {
                             }
                             return true;
                         }
+                    case MotionEvent.ACTION_UP:
+                        // 抬起：取消自定义长按检测（未触发则不作处理）
+                        v.removeCallbacks(longPressRunnable);
+                        mode = NONE;
+                        return false;
+
                     case MotionEvent.ACTION_MOVE:
                         if (mode == SWIPE) {
                             stopX = event.getX(0);
                             stopY = event.getY(0);
+                        }
+                        // 移动超阈值（滑动/滚动）：取消长按检测
+                        if (Math.abs(event.getX(0) - startX) > TRESHOLD
+                                || Math.abs(event.getY(0) - startY) > TRESHOLD) {
+                            v.removeCallbacks(longPressRunnable);
                         }
                         return false;
                 }
@@ -1091,6 +1128,30 @@ public class WebViewActivity extends AppCompatActivity {
     public void onActionModeStarted(android.view.ActionMode mode) {
         actionModeActive = true;
         super.onActionModeStarted(mode);
+        // 在系统文本选择菜单注入「更多」项（点击弹小菜单）——
+        // 文本长按/空白长按（系统选中最近文本）都能通过它进小菜单
+        try {
+            android.view.Menu menu = mode.getMenu();
+            if (menu != null) {
+                android.view.MenuItem item = menu.add(0, R.id.cmMainMenu, 0, getString(R.string.shortcut_menu_more));
+                item.setOnMenuItemClickListener(menuItem -> {
+                    // 「更多」→ 关闭系统选择 + 弹小菜单
+                    try {
+                        mode.finish();
+                    } catch (Exception ignored) {
+                    }
+                    runOnUiThread(() -> {
+                        if (wv != null) {
+                            wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
+                        }
+                        showWebViewMenuSheet();
+                    });
+                    return true;
+                });
+            }
+        } catch (Exception ignored) {
+            // 注入失败不影响文本选择
+        }
     }
 
     @Override
