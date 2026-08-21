@@ -171,6 +171,50 @@ public class WebViewActivity extends AppCompatActivity {
     private boolean actionModeActive = false;
     // 当前系统文本选择 ActionMode（空白长按时 finish 取消）
     private android.view.ActionMode currentActionMode = null;
+    // 输入框区域缓存（WebView 局部物理坐标，双击拦截输入法用）
+    private final java.util.List<float[]> editableRects = new java.util.ArrayList<>();
+
+    /** 重新缓存输入框位置（onPageFinished 调用，局部物理坐标） */
+    private void cacheEditableRects() {
+        if (isFinishing() || wv == null) return;
+        wv.evaluateJavascript(
+                "(function(){"
+                + "var dpr=window.devicePixelRatio||1;"
+                + "var innerW=window.innerWidth||document.documentElement.clientWidth;"
+                + "var outerW=window.outerWidth||innerW;"
+                + "var scale=dpr*outerW/innerW;"
+                + "if(!(scale>0)){scale=1;}"
+                + "var out=[];"
+                + "document.querySelectorAll('textarea,input,[contenteditable=\"true\"]').forEach(function(e){"
+                + "var r=e.getBoundingClientRect();"
+                + "out.push([r.left*scale,r.top*scale,r.right*scale,r.bottom*scale]);"
+                + "});"
+                + "return JSON.stringify(out);})()",
+                value -> {
+                    if (value == null) return;
+                    editableRects.clear();
+                    try {
+                        String json = value.trim();
+                        if (json.startsWith("\"")) json = json.substring(1, json.length() - 1);
+                        org.json.JSONArray arr = new org.json.JSONArray(json);
+                        for (int i = 0; i < arr.length(); i++) {
+                            org.json.JSONArray r = arr.getJSONArray(i);
+                            editableRects.add(new float[]{
+                                    (float) r.getDouble(0), (float) r.getDouble(1),
+                                    (float) r.getDouble(2), (float) r.getDouble(3)});
+                        }
+                    } catch (Exception ignored) {
+                    }
+                });
+    }
+
+    /** DOWN 判断坐标是否命中输入框（缓存） */
+    private boolean hitEditableRect(float x, float y) {
+        for (float[] r : editableRects) {
+            if (x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3]) return true;
+        }
+        return false;
+    }
     // 权限审计：记录已发起过系统请求的权限（区分「首次请求」vs「永久拒绝」）
     private final Set<String> requestedPermissions = new HashSet<>();
     // 白屏检测：当前加载最后进度 + 进度推进时间戳（无推进超时判定白屏）
@@ -433,6 +477,32 @@ public class WebViewActivity extends AppCompatActivity {
             private long lastDownTime = 0;
             private float lastDownX = -1f;
             private float lastDownY = -1f;
+            // 本次手势 DOWN 是否被吞（输入框首次点击拦截输入法）
+            private boolean swallowDown = false;
+            // 输入框区域缓存（WebView 局部物理坐标，DOWN 同步判断用）
+            private final java.util.List<float[]> editableRects = new java.util.ArrayList<>();
+            // 输入框首次点击拦截：临时设置窗口 SOFT_INPUT_STATE_ALWAYS_HIDDEN
+            // （输入框聚焦也不弹键盘，同步可靠），300ms 无双击则恢复并 JS 聚焦
+            private final Runnable restoreFocusRunnable = () -> {
+                if (isFinishing() || wv == null) return;
+                // 恢复窗口模式（允许输入法弹出）
+                getWindow().setSoftInputMode(
+                        android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED);
+                // JS 恢复输入框焦点（触发输入法弹出）
+                wv.evaluateJavascript(
+                        "if(window.__savedFocus){window.__savedFocus.focus();window.__savedFocus=null;}",
+                        null);
+            };
+
+            /** 输入框区域缓存（onPageFinished 调用，经类级方法） */
+            private void cacheEditableRects() {
+                WebViewActivity.this.cacheEditableRects();
+            }
+
+            /** DOWN 判断坐标是否命中输入框（缓存） */
+            private boolean hitEditable(float x, float y) {
+                return WebViewActivity.this.hitEditableRect(x, y);
+            }
 
             /** 双击空白判定：JS 检测双击点是否落在文本字符上，空白则弹小菜单 */
             private void checkBlankAndShowMenu(float px, float py) {
@@ -446,9 +516,16 @@ public class WebViewActivity extends AppCompatActivity {
                         runOnUiThread(() -> {
                             if (wv != null) {
                                 wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
+                                // 根治输入法：强制输入框失焦（blur）。
+                                // 仅 hideSoftInput 不够——焦点还在输入框上，小菜单关闭后
+                                // 输入法会重新弹出（用户实测：小菜单关闭后键盘飞出来）。
+                                // blur 后输入框失焦，键盘必然收起且不再弹。
+                                wv.evaluateJavascript(
+                                        "var el=document.activeElement;"
+                                        + "if(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.isContentEditable)){el.blur();}",
+                                        null);
                             }
-                            // 收起输入法：双击空白（含输入框区域）优先弹小菜单，
-                            // 不让输入法同时弹出（输入法和小菜单会互相打架）
+                            // 收起输入法（兜底，blur 已处理主要路径）
                             hideSoftKeyboard();
                             showWebViewMenuSheet();
                         });
@@ -475,10 +552,11 @@ public class WebViewActivity extends AppCompatActivity {
                 WebApp webapp = DataManager.getInstance().getWebApp(webappID);
                 if (webapp == null || webapp.isRequestDesktop())
                     return false;
+                android.util.Log.d("LongPress", "touch ev=" + event.getAction() + " x=" + (int) event.getX() + " y=" + (int) event.getY());
 
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
                     case MotionEvent.ACTION_DOWN:
-                        // 双击检测：300ms 内同点（±50px）再次按下 → 双击空白 → 弹小菜单
+                        // 双击检测：300ms 内同点（±50px）再次按下 → 双击 → 弹小菜单
                         // （长按已完全交还系统，不再干预文字选中）
                         final long now = System.currentTimeMillis();
                         final float x = event.getX(0);
@@ -487,11 +565,29 @@ public class WebViewActivity extends AppCompatActivity {
                                 && Math.abs(x - lastDownX) < 50
                                 && Math.abs(y - lastDownY) < 50) {
                             lastDownTime = 0; // 重置防三连击
+                            // 双击：取消恢复焦点（保持 blur，输入法不弹），弹小菜单
+                            v.removeCallbacks(restoreFocusRunnable);
                             checkBlankAndShowMenu(x, y);
                         } else {
                             lastDownTime = now;
                             lastDownX = x;
                             lastDownY = y;
+                            // 首次点击命中输入框：吞掉事件（WebView 收不到 DOWN，
+                            // 不会聚焦弹键盘——解决输入法闪烁的唯一可靠办法），
+                            // 保存焦点元素，300ms 无双击则 JS 恢复焦点正常输入
+                            if (hitEditable(x, y)) {
+                                // 临时拦截输入法：窗口模式 ALWAYS_HIDDEN（同步生效，
+                                // 输入框聚焦也不弹键盘）+ JS blur 兜底。
+                                // 不吞事件（吞 DOWN 会破坏后续手势触摸分发——实测）。
+                                getWindow().setSoftInputMode(
+                                        android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+                                wv.evaluateJavascript(
+                                        "if(document.activeElement){window.__savedFocus=document.activeElement;document.activeElement.blur();}",
+                                        null);
+                                v.removeCallbacks(restoreFocusRunnable);
+                                v.postDelayed(restoreFocusRunnable, 300L);
+                            }
+                            swallowDown = false;
                         }
                         // 单指按下：记录起始坐标（供滑动阈值判断）
                         startX = x;
@@ -501,6 +597,8 @@ public class WebViewActivity extends AppCompatActivity {
                     case MotionEvent.ACTION_POINTER_DOWN:
                         // This happens when you touch the screen with two fingers
                         mode = SWIPE;
+                        // 多指手势（捏合/双指滚动）：不是双击，清除双击检测状态
+                        lastDownTime = 0;
                         // You can also use event.getY(1) or the average of the two
                         startX = event.getX(0);
                         startY = event.getY(0);
@@ -536,6 +634,17 @@ public class WebViewActivity extends AppCompatActivity {
                             return true;
                         }
                     case MotionEvent.ACTION_UP:
+                        // 抬起：若本次 DOWN 被吞（输入框拦截），UP 也吞（WebView 无 DOWN）
+                        if (swallowDown) {
+                            swallowDown = false;
+                            return true;
+                        }
+                        // 滚动/拖动结束：刷新输入框位置缓存（滚动后位置变化，
+                        // 否则双击拦截失效——双击命中不到输入框）
+                        if (Math.abs(event.getY(0) - startY) > TRESHOLD
+                                || Math.abs(event.getX(0) - startX) > TRESHOLD) {
+                            cacheEditableRects();
+                        }
                         // 抬起：重置滑动状态
                         mode = NONE;
                         return false;
@@ -545,7 +654,16 @@ public class WebViewActivity extends AppCompatActivity {
                             stopX = event.getX(0);
                             stopY = event.getY(0);
                         }
-                        // 移动超阈值（滑动/滚动）：无额外处理（双击检测器内部自行判定）
+                        // 移动超阈值（滑动/拖动滚动）：不是双击，清除双击检测状态
+                        if (Math.abs(event.getX(0) - startX) > TRESHOLD
+                                || Math.abs(event.getY(0) - startY) > TRESHOLD) {
+                            lastDownTime = 0;
+                        }
+                        return false;
+
+                    case MotionEvent.ACTION_SCROLL:
+                        // 滚轮滚动：不是双击，清除双击检测状态（防止误判弹菜单）
+                        lastDownTime = 0;
                         return false;
                 }
                 return false;
@@ -1688,6 +1806,8 @@ public class WebViewActivity extends AppCompatActivity {
             wv.evaluateJavascript("document.addEventListener(\"visibilitychange\",function (event) {event.stopImmediatePropagation();},true);", null);
             // 页面缩放：zoomBy 模拟捏合（对移动版自适应页面可靠）
             applyPageZoom();
+            // 缓存输入框位置（双击拦截输入法用）
+            cacheEditableRects();
             super.onPageFinished(view, url);
         }
 
