@@ -66,7 +66,14 @@ fun Activity.showWebViewMenuOverlay(
                 onApplyTextZoom = onApplyTextZoom,
                 onApplyPageZoom = onApplyPageZoom,
                 onSave = onSave,
-                onDismiss = { root.removeView(composeView) }
+                onDismiss = {
+                    root.removeView(composeView)
+                    // 关闭小菜单后收键盘：窗口焦点回到 WebView 时输入框可能恢复焦点
+                    // 重新弹出输入法（用户实测：小菜单关闭后键盘飞出来）
+                    val imm = this.getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                            as? android.view.inputmethod.InputMethodManager
+                    imm?.hideSoftInputFromWindow(root.windowToken, 0)
+                }
             )
         }
     }
@@ -94,18 +101,21 @@ private fun WebViewMenuSheetContent(
     var textZoom by remember { mutableIntStateOf(initialTextZoom) }
     var pageZoom by remember { mutableIntStateOf(initialPageZoom) }
     var saving by remember { mutableStateOf(false) }
+    // 菜单显隐控制：「关闭」按钮收起菜单（不销毁 Activity，留在页面）
+    var showSheet by remember { mutableStateOf(true) }
 
-    ModalBottomSheet(
-        onDismissRequest = {
-            if (!saving) {
-                saving = true
-                onSave()   // 关闭即保存
-                onDismiss()
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-    ) {
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                if (!saving) {
+                    saving = true
+                    onSave()   // 关闭即保存
+                    onDismiss()
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -140,7 +150,7 @@ private fun WebViewMenuSheetContent(
                 MenuIconButton(Icons.Default.Home, stringResource(R.string.menu_home)) { onSave(); onAction("home") }
                 MenuIconButton(Icons.Default.Settings, stringResource(R.string.menu_settings)) { onSave(); onAction("settings") }
                 MenuIconButton(Icons.Default.Keyboard, stringResource(R.string.menu_shortcuts)) { onSave(); onAction("shortcuts") }
-                MenuIconButton(Icons.Default.Close, stringResource(R.string.menu_close)) { onSave(); onAction("close") }
+                MenuIconButton(Icons.Default.Close, stringResource(R.string.menu_close)) { onSave(); showSheet = false }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -198,6 +208,7 @@ private fun WebViewMenuSheetContent(
             Spacer(modifier = Modifier.height(12.dp))
 
             Spacer(modifier = Modifier.height(12.dp))
+        }
         }
     }
 }
