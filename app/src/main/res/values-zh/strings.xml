@@ -140,7 +140,12 @@
     <string name="shortcut_already_exists">快捷方式已存在。</string>
     <string name="back">后退</string>
     <string name="forward">前进</string>
-    <string name="copy_url">复制 URL</string>
+        <string name="app_icon">应用图标</string>
+    <string name="app_icon_hint">选择图片或回填网站图标</string>
+    <string name="app_icon_dialog_hint">选择相册图片或使用字母图标</string>
+    <string name="app_icon_pick">选择图片</string>
+    <string name="app_icon_reset">重置</string>
+<string name="copy_url">复制 URL</string>
     <string name="copy_url_done">链接已复制</string>
     <string name="search_webapps">搜索应用</string>
     <string name="clear_search">清空搜索</string>

@@ -1,5 +1,7 @@
 package com.cylonid.nativealpha.ui
 
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -175,6 +177,12 @@ fun WebAppSettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    // 应用头像（统一源 iconPath）：预览 + 点击选择/回填/重置
+                    HorizontalDivider()
+                    IconSettingsRow(
+                        webApp = modified,
+                        onIconSaved = { savedPath -> update { this.iconPath = savedPath } }
                     )
                     // 快捷方式重建
                     HorizontalDivider()
@@ -888,3 +896,121 @@ private val ShortcutKeys = listOf(
     "Enter", "Space", "Tab", "Backspace",
     "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12"
 )
+
+/**
+ * 应用头像行（统一源 iconPath）：预览当前头像；点击弹对话框——选择相册图片 /
+ * 回填网站图标（favicon）/ 重置为字母渐变图标（iconPath=null）。
+ * 保存图标走 WebAppIconManager（唯一写入点）。
+ */
+@Composable
+private fun IconSettingsRow(
+    webApp: WebApp,
+    onIconSaved: (String?) -> Unit,
+) {
+    val context = LocalContext.current
+    var showDialog by remember { mutableStateOf(false) }
+    // 当前头像（iconPath 有值显示，无值显示字母图标预览）
+    val currentIcon = remember(webApp.iconPath) {
+        com.cylonid.nativealpha.util.WebAppIconManager.loadIcon(context, webApp)
+    }
+
+    // 相册选图：ImageDecoder 解码 → WebAppIconManager 保存 → 回调 iconPath
+    val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val bmp = android.graphics.ImageDecoder.decodeBitmap(
+                    android.graphics.ImageDecoder.createSource(context.contentResolver, uri)
+                )
+                val ok = com.cylonid.nativealpha.util.WebAppIconManager.saveIcon(context, webApp, bmp)
+                if (ok) onIconSaved(webApp.iconPath)
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "选择图片失败", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { showDialog = true }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 头像预览 40dp
+        if (currentIcon != null) {
+            Image(
+                bitmap = currentIcon.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+            )
+        } else {
+            val preview = remember(webApp.title, webApp.baseUrl) {
+                runCatching {
+                    val d = java.net.URI(webApp.baseUrl).host
+                    com.cylonid.nativealpha.util.IconGenerator.generate(webApp.title, d, 80, 20)
+                }.getOrNull()
+            }
+            preview?.let {
+                Image(
+                    bitmap = it.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(
+                stringResource(R.string.app_icon),
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                stringResource(R.string.app_icon_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(stringResource(R.string.app_icon)) },
+            text = {
+                Text(stringResource(R.string.app_icon_dialog_hint))
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDialog = false
+                    pickImage.launch("image/*")
+                }) {
+                    Text(stringResource(R.string.app_icon_pick))
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        showDialog = false
+                        // 重置为字母图标：删除文件 + iconPath=null
+                        com.cylonid.nativealpha.util.WebAppIconManager.deleteIcon(context, webApp)
+                        onIconSaved(null)
+                    }) {
+                        Text(stringResource(R.string.app_icon_reset))
+                    }
+                    TextButton(onClick = {
+                        showDialog = false
+                        onIconSaved(null)
+                    }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                }
+            }
+        )
+    }
+}

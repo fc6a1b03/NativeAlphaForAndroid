@@ -224,6 +224,10 @@ private fun AddWebAppScreen(
         val displayName = nameText.trim()
         if (displayName.isNotEmpty()) webapp.displayName = displayName
         webapp.applySettingsForNewWebApp()
+        // 头像统一源：选中/回填图标持久化到 iconPath（列表/快捷方式统一取用）
+        (customIcon ?: fetchedFavicon)?.let { icon ->
+            com.cylonid.nativealpha.util.WebAppIconManager.saveIcon(context, webapp, icon)
+        }
         DataManager.getInstance().addWebsite(webapp)
         // 自动创建桌面快捷方式
         requestPinShortcut(webapp, customIcon ?: fetchedFavicon)
