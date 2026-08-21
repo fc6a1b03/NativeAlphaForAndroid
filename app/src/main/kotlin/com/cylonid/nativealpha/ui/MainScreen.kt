@@ -51,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -213,7 +214,8 @@ fun MainScreen(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .height(48.dp)
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
             )
             if (webApps.isEmpty()) {
                 EmptyState(
@@ -271,6 +273,7 @@ private fun WebAppCard(
     onCopyUrl: () -> Unit,
     onToggleShortcut: () -> Unit,
 ) {
+    val context = LocalContext.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -285,11 +288,14 @@ private fun WebAppCard(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 动态图标（56dp 大图标 + 渐变背景）
+            // 头像图标：WebApp.iconPath 有值用自定义头像（统一源），无则字母渐变图标
             val domain = remember(webApp.baseUrl) {
                 runCatching { java.net.URI(webApp.baseUrl).host }.getOrNull()
             }
-            val iconBitmap = remember(webApp.title, webApp.baseUrl) {
+            val customIcon = remember(webApp.iconPath) {
+                com.cylonid.nativealpha.util.WebAppIconManager.loadIcon(context, webApp)
+            }
+            val iconBitmap = customIcon ?: remember(webApp.title, webApp.baseUrl) {
                 IconGenerator.generate(webApp.title, domain, 112, 28)
             }
             Image(

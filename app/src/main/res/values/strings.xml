@@ -136,7 +136,12 @@
     <string name="shortcut_already_exists">A shortcut with this name already exists. Please choose another name or delete the existing shortcut.</string>
     <string name="back">Back</string>
     <string name="forward">Forward</string>
-    <string name="copy_url">Copy URL</string>
+        <string name="app_icon">App icon</string>
+    <string name="app_icon_hint">Pick or restore website icon</string>
+    <string name="app_icon_dialog_hint">Choose a photo or use the letter icon</string>
+    <string name="app_icon_pick">Pick image</string>
+    <string name="app_icon_reset">Reset</string>
+<string name="copy_url">Copy URL</string>
     <string name="copy_url_done">URL copied</string>
     <string name="search_webapps">Search apps</string>
     <string name="clear_search">Clear search</string>

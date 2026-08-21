@@ -23,6 +23,8 @@ data class WebApp(var baseUrl: String, val ID: Int) {
      *  Gson 旧数据可能为 0，getter 归一化到最少 1（getSessionTabCount/set 配套） */
     var sessionTabCount: Int = 1
         get() = if (field < 1) 1 else field
+    /** 自定义头像文件路径（设置页选择/回填网站图标；null=用字母渐变图标） */
+    var iconPath: String? = null
     var isAllowJs = true
     var isRequestDesktop = false
     var isClearCache = false
@@ -115,6 +117,7 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         isAllowThirdPartyCookies = other.isAllowThirdPartyCookies
         isIsolatedSession = other.isIsolatedSession
         sessionTabCount = other.sessionTabCount
+        iconPath = other.iconPath
         isAllowJs = other.isAllowJs
         isActiveEntry = other.isActiveEntry
         isRequestDesktop = other.isRequestDesktop
