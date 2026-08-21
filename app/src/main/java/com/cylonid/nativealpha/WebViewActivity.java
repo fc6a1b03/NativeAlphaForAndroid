@@ -465,6 +465,9 @@ public class WebViewActivity extends AppCompatActivity {
                     case MotionEvent.ACTION_POINTER_DOWN:
                         // This happens when you touch the screen with two fingers
                         mode = SWIPE;
+                        // 第二指按下视为多指手势（捏合/滑动），取消单指长按检测，
+                        // 避免双指缩放/滑动时误触发长按（误弹小菜单/干扰选中）
+                        v.removeCallbacks(longPressRunnable);
                         // You can also use event.getY(1) or the average of the two
                         startX = event.getX(0);
                         startY = event.getY(0);
