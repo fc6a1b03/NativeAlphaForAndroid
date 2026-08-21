@@ -279,8 +279,6 @@
 <string name="load_count_times">%1$d次</string>
     <string name="shortcut_focus_hint">与电脑浏览器一致：先点击页面输入框聚焦，再发送快捷键</string>
 
-<string name="restore_page">恢复页面</string>
-    <string name="restore_page_hint">重新打开不刷新（保留滚动位置与输入）</string>
     <string name="isolated_session">登录态隔离</string>
     <string name="isolated_session_hint">独立登录会话——该应用的 Cookie 与其他应用隔离（类似浏览器多页签）。</string>
 </resources>

@@ -275,8 +275,6 @@
 <string name="load_count_times">%1$d×</string>
     <string name="shortcut_focus_hint">Like a desktop browser: tap the page input field first, then send the shortcut</string>
 
-<string name="restore_page">Restore page</string>
-    <string name="restore_page_hint">Reopen without refreshing (keeps scroll &amp; input)</string>
     <string name="isolated_session">Isolated session</string>
     <string name="isolated_session_hint">Isolated login session — keeps this app cookies separate from others (like browser tabs).</string>
 </resources>

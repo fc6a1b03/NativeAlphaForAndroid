@@ -452,12 +452,6 @@ fun WebAppSettingsScreen(
                     onCheckedChange = { updateSettings { isAllowMediaPlaybackInBackground = it } },
                     description = stringResource(R.string.desc_media_background)
                 )
-                SettingsSwitchRow(
-                    title = stringResource(R.string.restore_page),
-                    checked = modified.isRestorePage,
-                    onCheckedChange = { updateSettings { isRestorePage = it } },
-                    description = stringResource(R.string.restore_page_hint)
-                )
             }
 
             // 快捷键（手机点选录入，管理入口）

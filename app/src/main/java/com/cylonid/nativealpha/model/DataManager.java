@@ -30,8 +30,6 @@ import static android.content.Context.MODE_PRIVATE;
 public class DataManager {
 
     // Corresponds to app release version
-    private static final int LEGACY_DATA_FORMAT = 1000;
-
     private static final String SHARED_PREF_KEY = "WEBSITEDATA";
     private static final String GENERAL_INFO = "com.cylonid.nativealpha.GENERAL_INFO";
     public static final String EULA_ACCEPTED = "eulaAccepted";
@@ -39,25 +37,21 @@ public class DataManager {
     public static final String LAST_SHOWN_UPDATE = "lastShownUpdate";
     public static final String DATA_FORMAT = "dataFormat";
 
-    private static final String SHARED_PREF_LEGACY_KEY = "GLOBALSETTINGS";
-    private static final String shared_pref_max_id  = "MAX_ID";
-    private static final String shared_pref_next_container = "NEXT_CONTAINER";
+    private static final String SHARED_PREF_MAX_ID = "MAX_ID";
 
-    private static final String shared_pref_webappdata = "WEBSITEDATA";
-    private static final String shared_pref_globalsettings = "GLOBALSETTINGS";
+    private static final String SHARED_PREF_WEBAPP_DATA = "WEBSITEDATA";
+    private static final String SHARED_PREF_GLOBAL_SETTINGS = "GLOBALSETTINGS";
 
-    // TODO: Major cleanup...
-    // Convert to Kotlin, streamline interface, save separated by uuid
-    //<Legacy strings to be deleted in future>
-    private static final String shared_pref_glob_cache = "Cache";
-    private static final String shared_pref_glob_cookie = "Cookies";
-    private static final String shared_pref_glob_2fmultitouch = "TwoFingerMultiTouch";
-    private static final String shared_pref_glob_multitouch_reload = "ReloadMultiTouch";
-    private static final String shared_pref_glob_3fmultitouch = "ThreeFingerMultiTouch";
-    private static final String shared_pref_glob_progressbar = "LoadProgressBarAlwaysShown";
-    private static final String shared_pref_glob_ui_theme = "UITheme";
-    private static final String shared_pref_global_settings_json = "globalSettingsStoredAsJson";
-    //</>
+    // 迁移兼容：旧版本把全局设置散列存放在 Cache/Cookies/... 键下，
+    // 新版本统一存 JSON（GLOBALSETTINGS）。仅在检测到 legacy 键时触发迁移。
+    private static final String SHARED_PREF_GLOB_CACHE = "Cache";
+    private static final String SHARED_PREF_GLOB_COOKIE = "Cookies";
+    private static final String SHARED_PREF_GLOB_2F_MULTITOUCH = "TwoFingerMultiTouch";
+    private static final String SHARED_PREF_GLOB_MULTITOUCH_RELOAD = "ReloadMultiTouch";
+    private static final String SHARED_PREF_GLOB_3F_MULTITOUCH = "ThreeFingerMultiTouch";
+    private static final String SHARED_PREF_GLOB_PROGRESSBAR = "LoadProgressBarAlwaysShown";
+    private static final String SHARED_PREF_GLOB_UI_THEME = "UITheme";
+    private static final String SHARED_PREF_GLOBAL_SETTINGS_JSON = "globalSettingsStoredAsJson";
 
     private static final DataManager instance = new DataManager();
     private ArrayList<WebApp> websites;
@@ -93,8 +87,8 @@ public class DataManager {
         SharedPreferences.Editor editor = appdata.edit();
         Gson gson = new Gson();
         String json = gson.toJson(websites);
-        editor.putString(shared_pref_webappdata, json);
-        editor.putInt(shared_pref_max_id, max_assigned_ID);
+        editor.putString(SHARED_PREF_WEBAPP_DATA, json);
+        editor.putInt(SHARED_PREF_MAX_ID, max_assigned_ID);
         editor.apply();
     }
 
@@ -158,9 +152,9 @@ public class DataManager {
 
         appdata = App.getAppContext().getSharedPreferences(SHARED_PREF_KEY, MODE_PRIVATE);
         //Webapp data（D14：不做旧版兼容，直接默认 Gson 反序列化）
-        if (appdata.contains(shared_pref_webappdata)) {
+        if (appdata.contains(SHARED_PREF_WEBAPP_DATA)) {
             Gson gson = new Gson();
-            String json = appdata.getString(shared_pref_webappdata, "");
+            String json = appdata.getString(SHARED_PREF_WEBAPP_DATA, "");
             ArrayList<WebApp> new_websites = gson.fromJson(json, new TypeToken<ArrayList<WebApp>>() {}.getType());
             if (new_websites != null) {
                 checkIfWebAppIdsCollide(websites, new_websites);
@@ -168,15 +162,15 @@ public class DataManager {
             }
         }
 
-        max_assigned_ID = appdata.getInt(shared_pref_max_id, max_assigned_ID);
+        max_assigned_ID = appdata.getInt(SHARED_PREF_MAX_ID, max_assigned_ID);
 
-        if (appdata.getBoolean(shared_pref_global_settings_json, false)) {
+        if (appdata.getBoolean(SHARED_PREF_GLOBAL_SETTINGS_JSON, false)) {
             loadGlobalSettingsLegacy();
         }
         //Global settings（D14：不做旧版兼容，直接默认 Gson 反序列化）
-        if (appdata.contains(shared_pref_globalsettings)) {
+        if (appdata.contains(SHARED_PREF_GLOBAL_SETTINGS)) {
             Gson gson = new Gson();
-            String json = appdata.getString(shared_pref_globalsettings, "");
+            String json = appdata.getString(SHARED_PREF_GLOBAL_SETTINGS, "");
             GlobalSettings loaded = gson.fromJson(json, GlobalSettings.class);
             if (loaded != null) {
                 // 空值防护：JSON 缺失 globalWebApp 字段时 Gson 返回 null，补默认值防 NPE
@@ -191,14 +185,15 @@ public class DataManager {
         dataLoaded = true;
     }
 
+    /** 迁移旧版散列全局设置（仅在检测到 globalSettingsStoredAsJson 键时触发） */
     public void loadGlobalSettingsLegacy() {
-        settings.setClearCache(appdata.getBoolean(shared_pref_glob_cache, false));
-        settings.setClearCookies(appdata.getBoolean(shared_pref_glob_cookie, false));
-        settings.setTwoFingerMultitouch(appdata.getBoolean(shared_pref_glob_2fmultitouch, true));
-        settings.setMultitouchReload(appdata.getBoolean(shared_pref_glob_multitouch_reload, true));
-        settings.setThreeFingerMultitouch(appdata.getBoolean(shared_pref_glob_3fmultitouch, false));
-        settings.setShowProgressbar(appdata.getBoolean(shared_pref_glob_progressbar, false));
-        settings.setThemeId(appdata.getInt(shared_pref_glob_ui_theme, 0));
+        settings.setClearCache(appdata.getBoolean(SHARED_PREF_GLOB_CACHE, false));
+        settings.setClearCookies(appdata.getBoolean(SHARED_PREF_GLOB_COOKIE, false));
+        settings.setTwoFingerMultitouch(appdata.getBoolean(SHARED_PREF_GLOB_2F_MULTITOUCH, true));
+        settings.setMultitouchReload(appdata.getBoolean(SHARED_PREF_GLOB_MULTITOUCH_RELOAD, true));
+        settings.setThreeFingerMultitouch(appdata.getBoolean(SHARED_PREF_GLOB_3F_MULTITOUCH, false));
+        settings.setShowProgressbar(appdata.getBoolean(SHARED_PREF_GLOB_PROGRESSBAR, false));
+        settings.setThemeId(appdata.getInt(SHARED_PREF_GLOB_UI_THEME, 0));
     }
 
     public void saveGlobalSettings() {
@@ -209,8 +204,8 @@ public class DataManager {
 
         Gson gson = new Gson();
         String json = gson.toJson(settings);
-        editor.putString(shared_pref_globalsettings, json);
-        editor.putBoolean(shared_pref_global_settings_json, true);
+        editor.putString(SHARED_PREF_GLOBAL_SETTINGS, json);
+        editor.putBoolean(SHARED_PREF_GLOBAL_SETTINGS_JSON, true);
         editor.apply();
     }
 

@@ -8,6 +8,7 @@ object LocaleUtils {
     val fileEnding: String
         get() = when (Locale.getDefault().language) {
             "de" -> "de"
+            "zh" -> "zh"
             else -> "en"
         }
 }

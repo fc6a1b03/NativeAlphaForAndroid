@@ -19,7 +19,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     var isAllowThirdPartyCookies = false
     /** 登录态隔离：true 时该 WebApp 独立 Cookie 会话（切换时保存/恢复，不与其他站共享） */
     var isIsolatedSession = false
-    var isRestorePage = false
     var isAllowJs = true
     var isRequestDesktop = false
     var isClearCache = false
@@ -111,7 +110,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         isAllowCookies = other.isAllowCookies
         isAllowThirdPartyCookies = other.isAllowThirdPartyCookies
         isIsolatedSession = other.isIsolatedSession
-        isRestorePage = other.isRestorePage
         isAllowJs = other.isAllowJs
         isActiveEntry = other.isActiveEntry
         isRequestDesktop = other.isRequestDesktop

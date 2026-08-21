@@ -94,6 +94,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -108,6 +109,32 @@ public class WebViewActivity extends AppCompatActivity {
     private static final int NONE = 0;
     private static final int SWIPE = 1;
     private static final int TRESHOLD = 100;
+
+    /**
+     * 长按元素判定 JS 模板（预编译常量，避免每次长按拼接大字符串）。
+     * 参数 %1$f=物理X %2$f=物理Y；内部动态换算渲染缩放（scale），
+     * 返回 'blank'/'text'/'media'/'action'/'input'。
+     */
+    private static final String LONGPRESS_JS =
+            "(function(){"
+            + "var px=%1$f,py=%2$f;"
+            + "var dpr=window.devicePixelRatio||1;"
+            + "var innerW=window.innerWidth||document.documentElement.clientWidth;"
+            + "var outerW=window.outerWidth||innerW;"
+            + "var scale=dpr*outerW/innerW;"
+            + "if(!(scale>0)||scale===1){scale=1;}"
+            + "var x=px/scale,y=py/scale;"
+            + "var e=document.elementFromPoint(x,y);"
+            + "if(!e)return 'blank';"
+            + "var tag=e.tagName?e.tagName.toLowerCase():'';"
+            + "if(tag==='html'||tag==='body')return 'blank';"
+            + "var r=e.getBoundingClientRect();"
+            + "if(x<r.left||x>r.right||y<r.top||y>r.bottom)return 'blank';"
+            + "if(e.querySelector('img,canvas,svg,video,iframe'))return 'media';"
+            + "if(tag==='a'||tag==='button')return 'action';"
+            + "if(tag==='input'||tag==='textarea'||e.isContentEditable)return 'input';"
+            + "if(e.textContent&&e.textContent.trim().length>0)return 'text';"
+            + "return 'blank';})()";
     int webappID = -1;
     private WebView wv;
     private ProgressBar progressBar;
@@ -124,12 +151,15 @@ public class WebViewActivity extends AppCompatActivity {
     private String urlOnFirstPageload = "";
     // 错误页重试目标（onReceivedError 主框架失败时记录，webnative://retry 用它重新加载）
     private String retryUrl = "";
-    // 恢复页面：本次是否复用了池中 WebView 实例（true 时不重新加载）
-    private boolean isRestoredWebView = false;
+    // 长按坐标（OnTouchListener ACTION_DOWN 记录，长按回调用 JS 检测元素类型）
+    private float lastLongPressX = -1f;
+    private float lastLongPressY = -1f;
     private boolean fallbackToDefaultLongClickBehaviour = false;
     private PopupMenu mPopupMenu = null;
     // 长按动态分流：系统是否已启动文本/链接选择 ActionMode（区分「有内容」vs「空白处」）
     private boolean actionModeActive = false;
+    // 当前系统文本选择 ActionMode（空白长按时 finish 取消）
+    private android.view.ActionMode currentActionMode = null;
     // 权限审计：记录已发起过系统请求的权限（区分「首次请求」vs「永久拒绝」）
     private final Set<String> requestedPermissions = new HashSet<>();
     // 白屏检测：当前加载最后进度 + 进度推进时间戳（无推进超时判定白屏）
@@ -197,43 +227,7 @@ public class WebViewActivity extends AppCompatActivity {
 
         progressBar = findViewById(R.id.progressBar);
 
-        // 恢复页面：isRestorePage 开启且池中有该 webapp 实例 → 复用（页面/滚动/输入完整保留）
-        if (webapp.isRestorePage()) {
-            android.webkit.WebView pooled = com.cylonid.nativealpha.util.WebViewPool.INSTANCE.get(webappID);
-            if (pooled != null) {
-                wv = pooled;
-                // 复用实例重新挂载：找到布局中占位 WebView 的父容器，替换为池实例
-                android.view.View placeholder = findViewById(R.id.webview);
-                android.view.ViewParent parent = placeholder != null ? placeholder.getParent() : null;
-                if (parent instanceof android.view.ViewGroup) {
-                    android.view.ViewGroup group = (android.view.ViewGroup) parent;
-                    int index = group.indexOfChild(placeholder);
-                    group.removeView(placeholder);
-                    group.addView(pooled, index,
-                            new android.view.ViewGroup.LayoutParams(
-                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT));
-                } else {
-                    // 无占位容器（异常分支）：直接挂到根容器
-                    android.view.ViewGroup root = findViewById(R.id.webviewActivity);
-                    if (root != null && pooled.getParent() == null) {
-                        root.addView(pooled,
-                                new android.view.ViewGroup.LayoutParams(
-                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT));
-                    }
-                }
-                // 复用实例直接显示（不重新 loadURL——页面状态保留）
-                wv.setVisibility(android.view.View.VISIBLE);
-                isRestoredWebView = true;
-            } else {
-                wv = findViewById(R.id.webview);
-                isRestoredWebView = false;
-            }
-        } else {
-            wv = findViewById(R.id.webview);
-            isRestoredWebView = false;
-        }
+        wv = findViewById(R.id.webview);
 
         // 移除 WebView 字段名注入的 UA 尾巴（找不到字段时静默跳过，避免 NPE）
         String fieldName = Stream.of(WebViewActivity.class.getDeclaredFields())
@@ -344,39 +338,8 @@ public class WebViewActivity extends AppCompatActivity {
         }
 
         CUSTOM_HEADERS = initCustomHeaders(webapp.isSendSavedataRequest());
-        // 复用池实例（恢复页面）→ 不重新加载；否则全新加载
-        if (!isRestoredWebView) {
-            loadURL(wv, url);
-        } else {
-            // 复用实例：跳过 loadURL（页面状态保留）
-        }
+        loadURL(wv, url);
         wv.setWebChromeClient(new CustomWebChromeClient());
-        wv.setOnLongClickListener(view -> {
-            if(webapp.getAlwaysUseFallbackContextMenu()) return false;
-            if(fallbackToDefaultLongClickBehaviour) {
-                fallbackToDefaultLongClickBehaviour = false;
-                return false;
-            }
-            // 长按动态分流（修复：文本可复制 + 空白处保留小菜单）：
-            // 一律 return false 让系统先处理（文本→选择复制、输入框→光标/粘贴、
-            // 链接→系统链接菜单），系统不启动 ActionMode（空白处）则延迟补弹小菜单。
-            // 不用 HitTestResult 判断（长按时实测恒为 UNKNOWN，不可靠）。
-            actionModeActive = false;
-            view.postDelayed(() -> {
-                // 系统未启动文本/链接选择（空白处）→ 弹小菜单兜底（返回/刷新/快捷键等）
-                if (!actionModeActive && !isFinishing()) {
-                    // 清除系统"伪选中"视觉残留（空白处长按系统会短暂选中附近文本，
-                    // 未进入 ActionMode 时选区残留看着不舒服——先清除再弹菜单）
-                    if (wv != null) {
-                        wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
-                    }
-                    showWebViewMenuSheet();
-                }
-            }, 300L);
-            return false;
-        });
-
-
         wv.setDownloadListener((dl_url, userAgent, contentDisposition, mimeType, contentLength) -> {
 
             if (mimeType.equals("application/pdf")) {
@@ -450,6 +413,43 @@ public class WebViewActivity extends AppCompatActivity {
             private float stopX;
             private float startY;
             private float stopY;
+            // 自定义长按检测（空白长按系统不触发 ActionMode，需自己检测）
+            private final Runnable longPressRunnable = () -> {
+                // 长按触发：直接 JS 查询长按点元素类型（不依赖 ACTION_DOWN 预判，
+                // 此时页面稳定可靠）。空白 → 弹小菜单；文本/链接 → 系统 ActionMode 处理
+                if (isFinishing() || wv == null) return;
+                final float px = lastLongPressX;
+                final float py = lastLongPressY;
+                if (px < 0 || py < 0) return;
+                // event.getX()/getY() 是 WebView 局部坐标（物理像素），与页面视口 CSS
+                // 坐标仅在缩放=100% 时一致。页面缩放(setInitialScale)非 100% 时，
+                // 物理像素 = CSS 像素 × scale，必须在 JS 内用当前渲染比例换算，
+                // 否则长按坐标偏移导致文字区域误判为空白（历史 bug）。
+                final String js = String.format(Locale.US, LONGPRESS_JS, px, py);
+                wv.evaluateJavascript(js, value -> {
+                    String type = value != null ? value.replace("\"", "") : "text";
+                    if ("null".equals(type) || type.isEmpty()) type = "text";
+                    android.util.Log.d("LongPress", "jsType=" + type);
+                    if ("blank".equals(type) && !isFinishing() && wv != null) {
+                        runOnUiThread(() -> {
+                            // 空白长按：若系统选中了附近文本（ActionMode 已启动），
+                            // 先 finish 取消（避免复制菜单残留），再弹小菜单。
+                            // 文字长按判 text 不执行此分支，系统选中保留。
+                            if (currentActionMode != null) {
+                                try {
+                                    currentActionMode.finish();
+                                } catch (Exception ignored) {
+                                }
+                                currentActionMode = null;
+                            }
+                            if (wv != null) {
+                                wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
+                            }
+                            showWebViewMenuSheet();
+                        });
+                    }
+                });
+            };
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -458,9 +458,22 @@ public class WebViewActivity extends AppCompatActivity {
                     return false;
 
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
+                    case MotionEvent.ACTION_DOWN:
+                        // 单指按下：记录坐标 + JS 预判元素 + 启动自定义长按检测（500ms）
+                        startX = event.getX(0);
+                        startY = event.getY(0);
+                        lastLongPressX = event.getX(0);
+                        lastLongPressY = event.getY(0);
+                        v.removeCallbacks(longPressRunnable);
+                        v.postDelayed(longPressRunnable, 500L);
+                        return false;
+
                     case MotionEvent.ACTION_POINTER_DOWN:
                         // This happens when you touch the screen with two fingers
                         mode = SWIPE;
+                        // 第二指按下视为多指手势（捏合/滑动），取消单指长按检测，
+                        // 避免双指缩放/滑动时误触发长按（误弹小菜单/干扰选中）
+                        v.removeCallbacks(longPressRunnable);
                         // You can also use event.getY(1) or the average of the two
                         startX = event.getX(0);
                         startY = event.getY(0);
@@ -495,10 +508,21 @@ public class WebViewActivity extends AppCompatActivity {
                             }
                             return true;
                         }
+                    case MotionEvent.ACTION_UP:
+                        // 抬起：取消自定义长按检测（未触发则不作处理）
+                        v.removeCallbacks(longPressRunnable);
+                        mode = NONE;
+                        return false;
+
                     case MotionEvent.ACTION_MOVE:
                         if (mode == SWIPE) {
                             stopX = event.getX(0);
                             stopY = event.getY(0);
+                        }
+                        // 移动超阈值（滑动/滚动）：取消长按检测
+                        if (Math.abs(event.getX(0) - startX) > TRESHOLD
+                                || Math.abs(event.getY(0) - startY) > TRESHOLD) {
+                            v.removeCallbacks(longPressRunnable);
                         }
                         return false;
                 }
@@ -564,17 +588,6 @@ public class WebViewActivity extends AppCompatActivity {
                 wv.canGoForward(),
                 webapp.getTextZoom(),
                 webapp.getPageZoom(),
-                webapp.isRestorePage(),
-                restore -> {
-                    // 恢复页面开关：写回 WebApp 原对象（不覆盖统计）
-                    WebApp original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
-                    if (original != null) {
-                        original.setRestorePage(restore);
-                        DataManager.getInstance().replaceWebApp(original);
-                        webapp.setRestorePage(restore);
-                    }
-                    return kotlin.Unit.INSTANCE;
-                },
                 action -> { handleMenuAction(action); return kotlin.Unit.INSTANCE; },
                 zoom -> {
                     // 实时预览字体缩放
@@ -1144,12 +1157,14 @@ public class WebViewActivity extends AppCompatActivity {
     @Override
     public void onActionModeStarted(android.view.ActionMode mode) {
         actionModeActive = true;
+        currentActionMode = mode;
         super.onActionModeStarted(mode);
     }
 
     @Override
     public void onActionModeFinished(android.view.ActionMode mode) {
         actionModeActive = false;
+        if (currentActionMode == mode) currentActionMode = null;
         super.onActionModeFinished(mode);
     }
 
@@ -1157,32 +1172,6 @@ public class WebViewActivity extends AppCompatActivity {
     protected void onDestroy() {
         // 登录态隔离：开启隔离的 WebApp 保存 Cookie 快照（异步）
         com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.saveSnapshot(this, webappID);
-        // 恢复页面（isRestorePage）：WebView 剥离入池（页面/滚动/输入完整保留），不销毁
-        // 否则：saveState 存导航历史 + 正常销毁
-        if (webapp != null && webapp.isRestorePage() && wv != null) {
-            try {
-                // 从父容器剥离（池中复用需无父容器）
-                if (wv.getParent() != null) {
-                    ((android.view.ViewGroup) wv.getParent()).removeView(wv);
-                }
-                wv.stopLoading();
-                com.cylonid.nativealpha.util.WebViewPool.INSTANCE.put(webappID, wv);
-                wv = null;
-            } catch (Exception ignored) {
-                // 入池失败：走正常销毁
-            }
-        }
-        // 保存页面状态到缓存（导航历史，作为非恢复场景的轻量兜底）
-        if (wv != null) {
-            try {
-                Bundle state = new Bundle();
-                if (wv.saveState(state) != null) {
-                    com.cylonid.nativealpha.util.PageStateCache.INSTANCE.put(webappID, state);
-                }
-            } catch (Exception ignored) {
-                // 状态保存失败静默（不影响销毁流程）
-            }
-        }
         // 显式销毁 WebView，释放渲染进程与内存（低损耗目标）
         cancelBlankScreenCheck();
         if (wv != null) {
