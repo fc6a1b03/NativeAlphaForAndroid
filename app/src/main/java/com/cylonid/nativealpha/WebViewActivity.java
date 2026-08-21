@@ -131,6 +131,8 @@ public class WebViewActivity extends AppCompatActivity {
     private PopupMenu mPopupMenu = null;
     // 长按动态分流：系统是否已启动文本/链接选择 ActionMode（区分「有内容」vs「空白处」）
     private boolean actionModeActive = false;
+    // 当前系统文本选择 ActionMode（空白长按时 finish 取消）
+    private android.view.ActionMode currentActionMode = null;
     // 权限审计：记录已发起过系统请求的权限（区分「首次请求」vs「永久拒绝」）
     private final Set<String> requestedPermissions = new HashSet<>();
     // 白屏检测：当前加载最后进度 + 进度推进时间戳（无推进超时判定白屏）
@@ -416,6 +418,16 @@ public class WebViewActivity extends AppCompatActivity {
                     android.util.Log.d("LongPress", "jsType=" + type);
                     if ("blank".equals(type) && !isFinishing() && wv != null) {
                         runOnUiThread(() -> {
+                            // 空白长按：若系统选中了附近文本（ActionMode 已启动），
+                            // 先 finish 取消（避免复制菜单残留），再弹小菜单。
+                            // 文字长按判 text 不执行此分支，系统选中保留。
+                            if (currentActionMode != null) {
+                                try {
+                                    currentActionMode.finish();
+                                } catch (Exception ignored) {
+                                }
+                                currentActionMode = null;
+                            }
                             if (wv != null) {
                                 wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
                             }
@@ -1128,71 +1140,14 @@ public class WebViewActivity extends AppCompatActivity {
     @Override
     public void onActionModeStarted(android.view.ActionMode mode) {
         actionModeActive = true;
+        currentActionMode = mode;
         super.onActionModeStarted(mode);
-        // 空白长按检测：系统对空白长按也会启动选中（误选最近文本）——
-        // 用长按坐标 JS 判定：空白 → 取消系统选中（不显示复制菜单），由自定义长按弹小菜单
-        if (wv != null && lastLongPressX >= 0 && lastLongPressY >= 0) {
-            final float px = lastLongPressX;
-            final float py = lastLongPressY;
-            final int[] loc = new int[2];
-            wv.getLocationOnScreen(loc);
-            final float pageX = px - loc[0];
-            final float pageY = py - loc[1];
-            final String js = "(function(){"
-                    + "var x=" + pageX + ",y=" + pageY + ";"
-                    + "var e=document.elementFromPoint(x,y);"
-                    + "if(!e)return 'blank';"
-                    + "var tag=e.tagName?e.tagName.toLowerCase():'';"
-                    + "if(tag==='html'||tag==='body')return 'blank';"
-                    + "var r=e.getBoundingClientRect();"
-                    + "if(x<r.left||x>r.right||y<r.top||y>r.bottom)return 'blank';"
-                    + "if(e.querySelector('img,canvas,svg,video,iframe'))return 'media';"
-                    + "if(tag==='a'||tag==='button')return 'action';"
-                    + "if(tag==='input'||tag==='textarea'||e.isContentEditable)return 'input';"
-                    + "if(e.textContent&&e.textContent.trim().length>0)return 'text';"
-                    + "return 'blank';})()";
-            wv.evaluateJavascript(js, value -> {
-                String type = value != null ? value.replace("\"", "") : "text";
-                if ("null".equals(type) || type.isEmpty()) type = "text";
-                android.util.Log.d("LongPress", "actionMode jsType=" + type);
-                if ("blank".equals(type)) {
-                    // 空白：取消系统选中（finish），避免复制菜单残留
-                    try {
-                        mode.finish();
-                    } catch (Exception ignored) {
-                    }
-                }
-            });
-        }
-        // 在系统文本选择菜单注入「更多」项（点击弹小菜单）——
-        // 文本长按/空白长按（系统选中最近文本）都能通过它进小菜单
-        try {
-            android.view.Menu menu = mode.getMenu();
-            if (menu != null) {
-                android.view.MenuItem item = menu.add(0, R.id.cmMainMenu, 0, getString(R.string.shortcut_menu_more));
-                item.setOnMenuItemClickListener(menuItem -> {
-                    // 「更多」→ 关闭系统选择 + 弹小菜单
-                    try {
-                        mode.finish();
-                    } catch (Exception ignored) {
-                    }
-                    runOnUiThread(() -> {
-                        if (wv != null) {
-                            wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
-                        }
-                        showWebViewMenuSheet();
-                    });
-                    return true;
-                });
-            }
-        } catch (Exception ignored) {
-            // 注入失败不影响文本选择
-        }
     }
 
     @Override
     public void onActionModeFinished(android.view.ActionMode mode) {
         actionModeActive = false;
+        if (currentActionMode == mode) currentActionMode = null;
         super.onActionModeFinished(mode);
     }
 
