@@ -47,6 +47,8 @@
     </string-array>
     <string name="edit_webapp_settings">Edit</string>
     <string name="stats">Statistics</string>
+    <string name="remove_shortcuts">Remove shortcuts</string>
+    <string name="add_shortcuts">Add shortcuts</string>
     <string name="shortcuts_section">Shortcuts</string>
     <string name="shortcut_send_to_page">Send key combinations to this page (page-only, no browser defaults).</string>
     <string name="shortcut_add">Add shortcut</string>
@@ -132,6 +134,10 @@
     <string name="back">Back</string>
     <string name="forward">Forward</string>
     <string name="copy_url">Copy URL</string>
+    <string name="copy_url_done">URL copied</string>
+    <string name="search_webapps">Search apps</string>
+    <string name="clear_search">Clear search</string>
+    <string name="no_search_result">No matching apps</string>
     <string name="share">Share</string>
     <string name="reload">Reload</string>
     <string name="activate_two_finger_zoom">Enable Pinch-To-Zoom</string>
@@ -256,6 +262,22 @@
     <string name="menu_settings">Settings</string>
     <string name="menu_shortcuts">Shortcuts</string>
     <string name="menu_close">Close</string>
+    <string name="menu_new_tab">New session</string>
+    <string name="menu_switch_tab">Switch session</string>
+    <string name="menu_delete_tab">Delete session</string>
+    <string name="session_at_least_one">At least one session is required</string>
+    <string name="clear_errors_title">Clear error logs</string>
+    <string name="clear_errors_confirm">Clear all error logs for this app?</string>
+    <string name="errors_cleared">Error logs cleared</string>
+    <string name="errors_clear_failed">Failed to clear error logs</string>
+    <string name="check_update">Check for updates</string>
+    <string name="desc_check_update">Check GitHub for newer version</string>
+    <string name="update_available_title">Update available</string>
+    <string name="update_available_msg">New version %1$s is available. Download now?</string>
+    <string name="update_download">Download</string>
+    <string name="update_downloading">Downloading in background…</string>
+    <string name="update_download_failed">Download failed</string>
+    <string name="update_latest">You are on the latest version</string>
     <string name="menu_font_size">Font size</string>
     <string name="menu_page_zoom">Page zoom</string>
     <string name="shortcut_sent">Sent %1$s</string>

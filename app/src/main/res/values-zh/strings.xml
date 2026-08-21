@@ -50,6 +50,8 @@
     </string-array>
     <string name="edit_webapp_settings">编辑</string>
     <string name="stats">统计</string>
+    <string name="remove_shortcuts">移除快捷键</string>
+    <string name="add_shortcuts">添加快捷键</string>
     <string name="shortcuts_section">快捷键</string>
     <string name="shortcut_send_to_page">发送组合键到当前页面（只触发页面功能，不触发浏览器默认）。</string>
     <string name="shortcut_add">添加组合键</string>
@@ -136,6 +138,10 @@
     <string name="back">后退</string>
     <string name="forward">前进</string>
     <string name="copy_url">复制 URL</string>
+    <string name="copy_url_done">链接已复制</string>
+    <string name="search_webapps">搜索应用</string>
+    <string name="clear_search">清空搜索</string>
+    <string name="no_search_result">没有匹配的应用</string>
     <string name="share">分享</string>
     <string name="reload">刷新</string>
     <string name="activate_two_finger_zoom">启用双指缩放</string>
@@ -260,6 +266,22 @@
     <string name="menu_settings">设置</string>
     <string name="menu_shortcuts">快捷键</string>
     <string name="menu_close">关闭</string>
+    <string name="menu_new_tab">新增会话</string>
+    <string name="menu_switch_tab">切换会话</string>
+    <string name="menu_delete_tab">删除会话</string>
+    <string name="session_at_least_one">至少保留一个会话</string>
+    <string name="clear_errors_title">清空错误日志</string>
+    <string name="clear_errors_confirm">确定清空该应用的所有错误日志？</string>
+    <string name="errors_cleared">错误日志已清空</string>
+    <string name="errors_clear_failed">清空错误日志失败</string>
+    <string name="check_update">检查版本更新</string>
+    <string name="desc_check_update">检查 GitHub 是否有新版本</string>
+    <string name="update_available_title">发现新版本</string>
+    <string name="update_available_msg">新版本 %1$s 可用，是否下载？</string>
+    <string name="update_download">下载</string>
+    <string name="update_downloading">正在后台下载…</string>
+    <string name="update_download_failed">下载失败</string>
+    <string name="update_latest">已是最新版本</string>
     <string name="menu_font_size">字体大小</string>
     <string name="menu_page_zoom">页面缩放</string>
     <string name="shortcut_sent">已发送 %1$s</string>

@@ -9,6 +9,7 @@ import android.webkit.WebStorage
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
 import com.cylonid.nativealpha.model.AppErrorEntry
@@ -16,6 +17,7 @@ import com.cylonid.nativealpha.model.AppErrorLogRepository
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
+import com.cylonid.nativealpha.util.UpdateChecker
 import com.cylonid.nativealpha.ui.GlobalSettingsScreen
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.NotificationUtils
@@ -111,6 +113,7 @@ class SettingsActivity : AppCompatActivity() {
                     onExport = { export() },
                     onImport = { importBackup() },
                     onExportAppErrors = { exportAppErrors() },
+                    onCheckUpdate = { checkUpdate() },
                     onGlobalWebApp = {
                         val intent = Intent(this, WebAppSettingsActivity::class.java)
                         intent.putExtra(
@@ -120,6 +123,38 @@ class SettingsActivity : AppCompatActivity() {
                         intent.setAction(Intent.ACTION_VIEW)
                         startActivity(intent)
                     }
+                )
+            }
+        }
+    }
+
+    /**
+     * 检查版本更新：GitHub API 查最新 Release → 有更新则提示下载（异步后台），
+     * 下载完成后提示安装。
+     */
+    private fun checkUpdate() {
+        UpdateChecker.check(this) { hasUpdate, latestTag, downloadUrl ->
+            if (hasUpdate) {
+                AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.update_available_title))
+                    .setMessage(getString(R.string.update_available_msg, latestTag))
+                    .setPositiveButton(getString(R.string.update_download)) { _, _ ->
+                        // 确认下载：DownloadManager 后台下载（不阻塞）
+                        if (UpdateChecker.download(this, downloadUrl)) {
+                            NotificationUtils.showInfoSnackbar(
+                                this, getString(R.string.update_downloading), Snackbar.LENGTH_LONG
+                            )
+                        } else {
+                            NotificationUtils.showInfoSnackbar(
+                                this, getString(R.string.update_download_failed), Snackbar.LENGTH_LONG
+                            )
+                        }
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            } else {
+                NotificationUtils.showInfoSnackbar(
+                    this, getString(R.string.update_latest), Snackbar.LENGTH_LONG
                 )
             }
         }

@@ -72,6 +72,7 @@ class WebAppStatsActivity : AppCompatActivity() {
                     },
                     onClearCache = { clearCache() },
                     onClearStats = { clearStats() },
+                    onClearErrors = { clearErrors() },
                     snackbarHostState = snackbarHostState
                 )
             }
@@ -138,9 +139,20 @@ class WebAppStatsActivity : AppCompatActivity() {
         }
     }
 
-    /** 导出该站页面错误（DataStore 过滤） */
-    private fun exportPageErrorsToUri(uri: android.net.Uri) {
+    /** 清空该站错误日志（只清日志，不动统计；导出错误日志用） */
+    private fun clearErrors() {
         CoroutineScope(Dispatchers.IO).launch {
+            try {
+                PageErrorRepository.clearForSite(applicationContext, webappID)
+                snackbarHostState.showSnackbar(getString(R.string.errors_cleared))
+            } catch (e: Exception) {
+                snackbarHostState.showSnackbar(getString(R.string.errors_clear_failed))
+            }
+        }
+    }
+
+    /** 导出该站页面错误（DataStore 过滤） */
+    private fun exportPageErrorsToUri(uri: android.net.Uri) {        CoroutineScope(Dispatchers.IO).launch {
             val entries = PageErrorRepository.getForSite(applicationContext, webappID)
             if (entries.isEmpty()) {
                 snackbarHostState.showSnackbar(getString(R.string.stats_no_errors_site))

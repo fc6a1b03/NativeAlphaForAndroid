@@ -56,6 +56,7 @@ fun WebAppStatsScreen(
     onExport: () -> Unit,
     onClearCache: () -> Unit,
     onClearStats: () -> Unit,
+    onClearErrors: () -> Unit,
 
     snackbarHostState: SnackbarHostState,
 ) {
@@ -78,6 +79,8 @@ fun WebAppStatsScreen(
     val allErrors = pageErrors
     // 当前查看详情的错误（点击行弹出，null=未选中）
     var selectedError by remember { mutableStateOf<PageErrorEntry?>(null) }
+    // 清空错误日志确认对话框
+    var showClearErrorsDialog by remember { mutableStateOf(false) }
     // 分组展开状态（key=错误类型，true=展开显示明细）
     var expandedGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
 
@@ -215,7 +218,7 @@ fun WebAppStatsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 错误日志（导入/导出对称）
+            // 错误日志（导出/清空对称；分组默认展开，每组限显示10条防过长）
             StatsCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -223,6 +226,15 @@ fun WebAppStatsScreen(
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.weight(1f)
                     )
+                    // 清空按钮（清空该站错误日志）
+                    if (allErrors.isNotEmpty()) {
+                        IconButton(onClick = {
+                            // 确认后清空（防误触）
+                            showClearErrorsDialog = true
+                        }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Delete, contentDescription = "清空", modifier = Modifier.size(18.dp))
+                        }
+                    }
                     // 导出按钮（错误日志只导出不导入）
                     IconButton(onClick = onExport, modifier = Modifier.size(36.dp)) {
                         Icon(Icons.Default.Download, contentDescription = "导出", modifier = Modifier.size(18.dp))
@@ -237,10 +249,10 @@ fun WebAppStatsScreen(
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
                 } else {
-                    // 按错误类型分组（长列表友好：分组折叠，不用一直下滑）
+                    // 按错误类型分组（默认展开；每组限显示10条，展开显示全部——不需要点击折叠了）
                     val grouped = allErrors.groupBy { it.type }
                     grouped.forEach { (type, entries) ->
-                        val expanded = type in expandedGroups
+                        val expanded = type in expandedGroups || expandedGroups.isEmpty()  // 默认全部展开
                         // 分组标题行（点击展开/收起）
                         Row(
                             modifier = Modifier
@@ -268,7 +280,7 @@ fun WebAppStatsScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
-                                "${entries.size}条",
+                                if (entries.size > 10) "前10条/共${entries.size}条" else "${entries.size}条",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -279,11 +291,20 @@ fun WebAppStatsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        // 展开时显示明细（每条可点详情）
+                        // 展开时显示明细（默认展开；每组最多10条，展开显示全部）
                         if (expanded) {
-                            entries.forEach { entry ->
+                            val showEntries = if (entries.size > 10) entries.take(10) else entries
+                            showEntries.forEach { entry ->
                                 ErrorRow(entry, onClick = { selectedError = entry })
                                 HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                            }
+                            if (entries.size > 10) {
+                                Text(
+                                    "… 共${entries.size}条，点击行查看详情",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
                             }
                         }
                     }
@@ -312,6 +333,28 @@ fun WebAppStatsScreen(
                     confirmButton = {
                         TextButton(onClick = { selectedError = null }) {
                             Text(stringResource(R.string.confirm))
+                        }
+                    }
+                )
+            }
+
+            // 清空错误日志确认对话框
+            if (showClearErrorsDialog) {
+                AlertDialog(
+                    onDismissRequest = { showClearErrorsDialog = false },
+                    title = { Text(stringResource(R.string.clear_errors_title)) },
+                    text = { Text(stringResource(R.string.clear_errors_confirm)) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showClearErrorsDialog = false
+                            onClearErrors()
+                        }) {
+                            Text(stringResource(R.string.confirm))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showClearErrorsDialog = false }) {
+                            Text(stringResource(R.string.cancel))
                         }
                     }
                 )

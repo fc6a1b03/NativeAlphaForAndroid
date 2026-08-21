@@ -50,6 +50,7 @@ import android.webkit.RenderProcessGoneDetail;
 import android.widget.FrameLayout;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -156,6 +157,7 @@ public class WebViewActivity extends AppCompatActivity {
             + "}"
             + "return 'blank';})()";
     int webappID = -1;
+    int webappTabIndex = 0;
     private WebView wv;
     private ProgressBar progressBar;
     private boolean currently_reloading = true;
@@ -177,50 +179,6 @@ public class WebViewActivity extends AppCompatActivity {
     private boolean actionModeActive = false;
     // 当前系统文本选择 ActionMode（空白长按时 finish 取消）
     private android.view.ActionMode currentActionMode = null;
-    // 输入框区域缓存（WebView 局部物理坐标，双击拦截输入法用）
-    private final java.util.List<float[]> editableRects = new java.util.ArrayList<>();
-
-    /** 重新缓存输入框位置（onPageFinished 调用，局部物理坐标） */
-    private void cacheEditableRects() {
-        if (isFinishing() || wv == null) return;
-        wv.evaluateJavascript(
-                "(function(){"
-                + "var dpr=window.devicePixelRatio||1;"
-                + "var innerW=window.innerWidth||document.documentElement.clientWidth;"
-                + "var outerW=window.outerWidth||innerW;"
-                + "var scale=dpr*outerW/innerW;"
-                + "if(!(scale>0)){scale=1;}"
-                + "var out=[];"
-                + "document.querySelectorAll('textarea,input,[contenteditable=\"true\"]').forEach(function(e){"
-                + "var r=e.getBoundingClientRect();"
-                + "out.push([r.left*scale,r.top*scale,r.right*scale,r.bottom*scale]);"
-                + "});"
-                + "return JSON.stringify(out);})()",
-                value -> {
-                    if (value == null) return;
-                    editableRects.clear();
-                    try {
-                        String json = value.trim();
-                        if (json.startsWith("\"")) json = json.substring(1, json.length() - 1);
-                        org.json.JSONArray arr = new org.json.JSONArray(json);
-                        for (int i = 0; i < arr.length(); i++) {
-                            org.json.JSONArray r = arr.getJSONArray(i);
-                            editableRects.add(new float[]{
-                                    (float) r.getDouble(0), (float) r.getDouble(1),
-                                    (float) r.getDouble(2), (float) r.getDouble(3)});
-                        }
-                    } catch (Exception ignored) {
-                    }
-                });
-    }
-
-    /** DOWN 判断坐标是否命中输入框（缓存） */
-    private boolean hitEditableRect(float x, float y) {
-        for (float[] r : editableRects) {
-            if (x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3]) return true;
-        }
-        return false;
-    }
     // 权限审计：记录已发起过系统请求的权限（区分「首次请求」vs「永久拒绝」）
     private final Set<String> requestedPermissions = new HashSet<>();
     // 白屏检测：当前加载最后进度 + 进度推进时间戳（无推进超时判定白屏）
@@ -252,12 +210,13 @@ public class WebViewActivity extends AppCompatActivity {
     /** 初始化/重载：按 intent 的 webappID 加载 WebApp（复用实例时先清理旧 WebView） */
     private void handleIntent(Intent intent) {
         webappID = intent.getIntExtra(Const.INTENT_WEBAPPID, -1);
+        webappTabIndex = intent.getIntExtra(Const.INTENT_TAB_INDEX, 0);
         EntryPointUtils.entryPointReached(this);
         // 重置错误页重试目标（新应用加载，避免残留旧地址）
         retryUrl = "";
         webapp = DataManager.getInstance().getWebApp(webappID);
-        // 登录态隔离：开启隔离的 WebApp 恢复自己的 Cookie 会话（异步）
-        com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.restoreSnapshot(this, webappID);
+        // 登录态隔离：开启隔离的 WebApp 恢复自己的 Cookie 会话（异步，多标签按 tabIndex）
+        com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.restoreSnapshot(this, webappID, webappTabIndex);
         if (webapp == null) {
             // Toast is shown in getWebApp method
             finish();
@@ -370,6 +329,10 @@ public class WebViewActivity extends AppCompatActivity {
         }
         // 缓存策略：默认模式，流式页面不强制离线/不缓存
         wv.getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
+        // 布局算法：NORMAL 对文本流最稳（SINGLE_COLUMN 会触发整页重排，流式更新开销大）
+        wv.getSettings().setLayoutAlgorithm(WebSettings.LayoutAlgorithm.NORMAL);
+        // 编码：UTF-8 显式声明（中文流式文本解析正确，避免编码重排）
+        wv.getSettings().setDefaultTextEncodingName("UTF-8");
         // 关闭边缘高亮减少合成开销
         wv.setOverScrollMode(View.OVER_SCROLL_NEVER);
         // 滚动条优化（长文本流式滚动）
@@ -490,39 +453,6 @@ public class WebViewActivity extends AppCompatActivity {
             private long lastDownTime = 0;
             private float lastDownX = -1f;
             private float lastDownY = -1f;
-            // 本次手势 DOWN 是否被吞（输入框首次点击拦截输入法）
-            private boolean swallowDown = false;
-            // 输入框区域缓存（WebView 局部物理坐标，DOWN 同步判断用）
-            private final java.util.List<float[]> editableRects = new java.util.ArrayList<>();
-            // 输入框拦截标志：仅拦截一次（恢复后清除）。
-            // 此前反复循环的根因：点击输入框 → ALWAYS_HIDDEN+blur → 300ms 恢复
-            // focus → 用户再点击 → 又 ALWAYS_HIDDEN+blur → 恢复…… 输入法
-            // 出来又收起反复抖动（用户实机反馈）
-            private boolean inputIntercepting = false;
-            // 输入框首次点击拦截：临时设置窗口 SOFT_INPUT_STATE_ALWAYS_HIDDEN
-            // （输入框聚焦也不弹键盘，同步可靠），300ms 无双击则恢复并 JS 聚焦
-            private final Runnable restoreFocusRunnable = () -> {
-                if (isFinishing() || wv == null) return;
-                // 恢复窗口模式（允许输入法弹出）
-                getWindow().setSoftInputMode(
-                        android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED);
-                // JS 恢复输入框焦点（触发输入法弹出）
-                wv.evaluateJavascript(
-                        "if(window.__savedFocus){window.__savedFocus.focus();window.__savedFocus=null;}",
-                        null);
-                // 拦截已完成使命：清除标志，后续点击走正常路径（不再拦截）
-                inputIntercepting = false;
-            };
-
-            /** 输入框区域缓存（onPageFinished 调用，经类级方法） */
-            private void cacheEditableRects() {
-                WebViewActivity.this.cacheEditableRects();
-            }
-
-            /** DOWN 判断坐标是否命中输入框（缓存） */
-            private boolean hitEditable(float x, float y) {
-                return WebViewActivity.this.hitEditableRect(x, y);
-            }
 
             /** 双击空白判定：JS 检测双击点是否落在文本字符上，空白则弹小菜单 */
             private void checkBlankAndShowMenu(float px, float py) {
@@ -535,16 +465,10 @@ public class WebViewActivity extends AppCompatActivity {
                     if ("blank".equals(type) && !isFinishing() && wv != null) {
                         runOnUiThread(() -> {
                             if (wv != null) {
-                                // 双击：恢复窗口模式（第一次点击设了 ALWAYS_HIDDEN，
-                                // 双击分支取消恢复任务会残留——必须恢复，否则
-                                // 之后单击输入框键盘弹不出来）
-                                getWindow().setSoftInputMode(
-                                        android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED);
+                                // 双击弹菜单时收起输入法：blur 失焦（键盘必收且小菜单
+                                // 关闭后不弹回）+ hideSoftInput 兜底
                                 wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
-                                // 根治输入法：强制输入框失焦（blur）。
-                                // 仅 hideSoftInput 不够——焦点还在输入框上，小菜单关闭后
-                                // 输入法会重新弹出（用户实测：小菜单关闭后键盘飞出来）。
-                                // blur 后输入框失焦，键盘必然收起且不再弹。
+                                // 输入框失焦：键盘必然收起且不再弹
                                 wv.evaluateJavascript(
                                         "var el=document.activeElement;"
                                         + "if(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.isContentEditable)){el.blur();}",
@@ -591,34 +515,14 @@ public class WebViewActivity extends AppCompatActivity {
                                 && Math.abs(x - lastDownX) < 40
                                 && Math.abs(y - lastDownY) < 40) {
                             lastDownTime = 0; // 重置防三连击
-                            // 双击：取消恢复焦点（保持 blur，输入法不弹），弹小菜单；
-                            // 清除拦截标志（用户意图是弹菜单，后续点击正常）
-                            v.removeCallbacks(restoreFocusRunnable);
-                            inputIntercepting = false;
+                            // 双击：弹小菜单（输入框双击也走菜单——交互一致性）
                             checkBlankAndShowMenu(x, y);
                         } else {
                             lastDownTime = now;
                             lastDownX = x;
                             lastDownY = y;
-                            // 首次点击命中输入框：拦截一次（防输入法先弹出闪烁），
-                            // 300ms 无双击恢复焦点后 inputIntercepting=false，
-                            // 后续点击不再拦截（消除恢复/收起循环抖动）
-                            if (hitEditable(x, y) && !inputIntercepting) {
-                                // 临时拦截输入法：窗口模式 ALWAYS_HIDDEN（同步生效，
-                                // 输入框聚焦也不弹键盘）+ JS blur 兜底。
-                                // 不吞事件（吞 DOWN 会破坏后续手势触摸分发——实测）。
-                                inputIntercepting = true;
-                                getWindow().setSoftInputMode(
-                                        android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
-                                wv.evaluateJavascript(
-                                        "if(document.activeElement){window.__savedFocus=document.activeElement;document.activeElement.blur();}",
-                                        null);
-                                // 双击窗口 250ms < 恢复窗口 300ms：双击（250ms 内二次点击）
-                                // 先取消恢复并触发菜单；无双击才恢复焦点弹键盘
-                                v.removeCallbacks(restoreFocusRunnable);
-                                v.postDelayed(restoreFocusRunnable, 300L);
-                            }
-                            swallowDown = false;
+                            // 单击：完全交还 WebView（键盘自然弹，无任何拦截——
+                            // 拦截/恢复机制是实机「输入法反复弹收」的根因，已删除）
                         }
                         // 单指按下：记录起始坐标（供滑动阈值判断）
                         startX = x;
@@ -665,18 +569,7 @@ public class WebViewActivity extends AppCompatActivity {
                             return true;
                         }
                     case MotionEvent.ACTION_UP:
-                        // 抬起：若本次 DOWN 被吞（输入框拦截），UP 也吞（WebView 无 DOWN）
-                        if (swallowDown) {
-                            swallowDown = false;
-                            return true;
-                        }
-                        // 滚动/拖动结束：刷新输入框位置缓存（滚动后位置变化，
-                        // 否则双击拦截失效——双击命中不到输入框）
-                        if (Math.abs(event.getY(0) - startY) > TRESHOLD
-                                || Math.abs(event.getX(0) - startX) > TRESHOLD) {
-                            cacheEditableRects();
-                        }
-                        // 抬起：重置滑动状态
+                        // 抬起：重置滑动状态（无拦截/缓存逻辑——单击输入框完全交还 WebView）
                         mode = NONE;
                         return false;
 
@@ -827,6 +720,18 @@ public class WebViewActivity extends AppCompatActivity {
                 startActivity(intent);
                 break;
             case "close": finishAndRemoveTask(); break;
+            case "new_tab":
+                // 新增会话：sessionTabCount+1，跳到新标签（销毁当前，重建）
+                addNewSessionTab();
+                break;
+            case "switch_tab":
+                // 切换会话：弹标签选择（单实例，选后销毁重建）
+                showSessionSwitchDialog();
+                break;
+            case "delete_tab":
+                // 删除会话：会话数-1，重建回第一个标签
+                deleteCurrentSessionTab();
+                break;
             case "shortcuts":
                 // 组合快捷键面板（录制/发送，页面独有快捷键）
                 showShortcutMenuSheet();
@@ -840,9 +745,64 @@ public class WebViewActivity extends AppCompatActivity {
         }
     }
 
+    /** 新增会话：sessionTabCount+1（隔离模式下），保存当前快照后销毁重建到新标签 */
+    private void addNewSessionTab() {
+        if (webapp == null) return;
+        WebApp original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
+        if (original == null) return;
+        // 会话数+1（上限10，防内存）
+        if (original.getSessionTabCount() < 10) {
+            original.setSessionTabCount(original.getSessionTabCount() + 1);
+            DataManager.getInstance().replaceWebApp(original);
+        }
+        int newTab = original.getSessionTabCount() - 1;
+        // 保存当前快照（异步），销毁当前，重建新标签
+        com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.saveSnapshot(this, webappID, webappTabIndex);
+        WebViewLauncher.startWebViewById(webappID, newTab, this);
+        finish();
+    }
+
+    /** 切换会话：弹对话框列出所有会话标签，选一个销毁重建 */
+    private void showSessionSwitchDialog() {
+        if (webapp == null) return;
+        int count = Math.max(1, webapp.getSessionTabCount());
+        String[] items = new String[count];
+        for (int i = 0; i < count; i++) {
+            items[i] = "会话 " + (i + 1) + (i == webappTabIndex ? "（当前）" : "");
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("切换会话")
+                .setItems(items, (dialog, which) -> {
+                    if (which != webappTabIndex) {
+                        com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.saveSnapshot(this, webappID, webappTabIndex);
+                        WebViewLauncher.startWebViewById(webappID, which, this);
+                        finish();
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** 删除会话：会话数-1，销毁重建到第一个会话（保留目标快照） */
+    private void deleteCurrentSessionTab() {
+        if (webapp == null) return;
+        WebApp original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
+        if (original == null) return;
+        int count = Math.max(1, original.getSessionTabCount());
+        if (count == 1) {
+            // 单会话：不删除（至少保留一个），提示
+            Toast.makeText(this, getString(R.string.session_at_least_one), Toast.LENGTH_SHORT).show();
+            return;        }
+        original.setSessionTabCount(count - 1);
+        DataManager.getInstance().replaceWebApp(original);
+        // 销毁重建到第一个会话
+        com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.saveSnapshot(this, webappID, webappTabIndex);
+        WebViewLauncher.startWebViewById(webappID, 0, this);
+        finish();
+    }
+
     /** 显示组合快捷键面板（ModalBottomSheet，纯发送；管理在设置页） */
-    private void showShortcutMenuSheet() {
-        ShortcutMenuOverlayKt.showShortcutMenuOverlay(
+    private void showShortcutMenuSheet() {        ShortcutMenuOverlayKt.showShortcutMenuOverlay(
                 this,
                 webappID,
                 shortcut -> {
@@ -1341,8 +1301,8 @@ public class WebViewActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        // 登录态隔离：开启隔离的 WebApp 保存 Cookie 快照（异步）
-        com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.saveSnapshot(this, webappID);
+        // 登录态隔离：开启隔离的 WebApp 保存 Cookie 快照（异步，多标签按 tabIndex）
+        com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.saveSnapshot(this, webappID, webappTabIndex);
         // 显式销毁 WebView，释放渲染进程与内存（低损耗目标）
         cancelBlankScreenCheck();
         if (wv != null) {
@@ -1853,8 +1813,6 @@ public class WebViewActivity extends AppCompatActivity {
                     null);
             // 页面缩放：zoomBy 模拟捏合（对移动版自适应页面可靠）
             applyPageZoom();
-            // 缓存输入框位置（双击拦截输入法用）
-            cacheEditableRects();
             super.onPageFinished(view, url);
         }
 

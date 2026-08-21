@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -43,6 +44,7 @@ fun GlobalSettingsScreen(
     onExport: () -> Unit = {},
     onImport: () -> Unit = {},
     onExportAppErrors: () -> Unit = {},
+    onCheckUpdate: () -> Unit = {},
     onGlobalWebApp: () -> Unit = {},
 ) {
     val settings = DataManager.getInstance().settings
@@ -282,6 +284,13 @@ fun GlobalSettingsScreen(
                     title = stringResource(R.string.export_app_errors),
                     subtitle = stringResource(R.string.desc_export_app_errors),
                     onClick = onExportAppErrors
+                )
+                HorizontalDivider()
+                SettingsActionRow(
+                    icon = { Icon(Icons.Default.SystemUpdate, contentDescription = null) },
+                    title = stringResource(R.string.check_update),
+                    subtitle = stringResource(R.string.desc_check_update),
+                    onClick = onCheckUpdate
                 )
             }
 

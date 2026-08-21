@@ -10,11 +10,14 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Tab
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.*
@@ -151,6 +154,16 @@ private fun WebViewMenuSheetContent(
                 MenuIconButton(Icons.Default.Settings, stringResource(R.string.menu_settings)) { onSave(); onAction("settings") }
                 MenuIconButton(Icons.Default.Keyboard, stringResource(R.string.menu_shortcuts)) { onSave(); onAction("shortcuts") }
                 MenuIconButton(Icons.Default.Close, stringResource(R.string.menu_close)) { onSave(); showSheet = false }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            // 多标签会话：新增 / 切换 / 删除（单实例，切换时销毁重建 WebViewActivity）
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                MenuIconButton(Icons.Default.Add, stringResource(R.string.menu_new_tab)) { onSave(); onAction("new_tab") }
+                MenuIconButton(Icons.Default.Tab, stringResource(R.string.menu_switch_tab)) { onSave(); onAction("switch_tab") }
+                MenuIconButton(Icons.Default.Delete, stringResource(R.string.menu_delete_tab)) { onSave(); onAction("delete_tab") }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))

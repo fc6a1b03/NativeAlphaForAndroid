@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider 路径：版本更新 APK 下载目录（公共下载目录，安装权限授予） -->
+<paths>
+    <external-path name="downloads" path="Download/" />
+</paths>

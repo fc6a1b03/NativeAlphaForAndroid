@@ -13,10 +13,10 @@ import kotlinx.coroutines.launch
  * 登录态隔离（Cookie 会话管理）。
  *
  * 原理：Android WebView 的 Cookie 是应用级单例（无法原生按实例隔离），
- * 通过「切换时保存当前站 Cookie → 清除 → 恢复目标站 Cookie」实现伪隔离。
+ * 通过「切换时保存当前站+标签 Cookie → 清除 → 恢复目标站+标签 Cookie」实现伪隔离。
  *
  * 设计：
- * - 每 WebApp 一个 Cookie 快照（DataStore KEY_COOKIE_SNAPSHOTS 存储）
+ * - 快照 key = 「webappId.tabIndex」（多标签会话隔离：同一 WebApp 多个会话独立 Cookie）
  * - 开启 isIsolatedSession 的 WebApp：打开时恢复自己的 Cookie，关闭时保存
  * - 未开启：走全局 Cookie（现状）
  * - 操作异步（IO 协程），不影响主应用
@@ -25,14 +25,18 @@ object CookieSessionManager {
 
     private val gson = Gson()
 
-    /** Cookie 快照（key=webappId，value=该站全部 Cookie 字符串） */
-    private data class CookieSnapshots(val snapshots: Map<Int, String> = emptyMap())
+    /** Cookie 快照（key=webappId.tabIndex，value=该标签 Cookie 字符串） */
+    private data class CookieSnapshots(val snapshots: Map<String, String> = emptyMap())
+
+    /** 快照 key：webappId + tabIndex */
+    private fun snapshotKey(webappId: Int, tabIndex: Int): String = "$webappId.$tabIndex"
 
     /**
-     * 保存指定 WebApp 的当前 Cookie 快照（异步）。
+     * 保存指定 WebApp + Tab 的当前 Cookie 快照（异步）。
      * 调用时机：开启隔离的 WebApp 关闭/切换时。
+     * @param tabIndex 多标签会话隔离：同一 WebApp 多个会话各自独立 Cookie
      */
-    fun saveSnapshot(context: Context, webappId: Int) {
+    fun saveSnapshot(context: Context, webappId: Int, tabIndex: Int = 0) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val webapp = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappId, true) ?: return@launch
@@ -42,7 +46,7 @@ object CookieSessionManager {
                     ?: ""
                 if (allCookies.isEmpty()) return@launch
                 val current = loadSnapshots(context)
-                val updated = current.snapshots + (webappId to allCookies)
+                val updated = current.snapshots + (snapshotKey(webappId, tabIndex) to allCookies)
                 AppStorage.writeString(
                     context, AppStorage.KEY_COOKIE_SNAPSHOTS,
                     gson.toJson(CookieSnapshots(updated))
@@ -54,16 +58,17 @@ object CookieSessionManager {
     }
 
     /**
-     * 恢复指定 WebApp 的 Cookie 快照（异步），并清除其他隔离站的 Cookie。
+     * 恢复指定 WebApp + Tab 的 Cookie 快照（异步），并清除其他隔离站的 Cookie。
      * 调用时机：开启隔离的 WebApp 打开时。
+     * @param tabIndex 多标签会话隔离：恢复对应标签的独立 Cookie
      */
-    fun restoreSnapshot(context: Context, webappId: Int) {
+    fun restoreSnapshot(context: Context, webappId: Int, tabIndex: Int = 0) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val webapp = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappId, true) ?: return@launch
                 if (!webapp.isIsolatedSession) return@launch
                 val snapshots = loadSnapshots(context)
-                val snapshot = snapshots.snapshots[webappId] ?: return@launch
+                val snapshot = snapshots.snapshots[snapshotKey(webappId, tabIndex)] ?: return@launch
                 // 清除全部 Cookie（防串站），再恢复目标站
                 CookieManager.getInstance().removeAllCookies(null)
                 CookieManager.getInstance().flush()
@@ -82,12 +87,13 @@ object CookieSessionManager {
         }
     }
 
-    /** 清除指定 WebApp 的快照（用户关闭隔离时） */
+    /** 清除指定 WebApp 的所有标签快照（用户关闭隔离时） */
     fun clearSnapshot(context: Context, webappId: Int) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val current = loadSnapshots(context)
-                val updated = current.snapshots - webappId
+                val prefix = "$webappId."
+                val updated = current.snapshots.filterKeys { !it.startsWith(prefix) }
                 AppStorage.writeString(
                     context, AppStorage.KEY_COOKIE_SNAPSHOTS,
                     gson.toJson(CookieSnapshots(updated))
