@@ -94,6 +94,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -108,6 +109,32 @@ public class WebViewActivity extends AppCompatActivity {
     private static final int NONE = 0;
     private static final int SWIPE = 1;
     private static final int TRESHOLD = 100;
+
+    /**
+     * 长按元素判定 JS 模板（预编译常量，避免每次长按拼接大字符串）。
+     * 参数 %1$f=物理X %2$f=物理Y；内部动态换算渲染缩放（scale），
+     * 返回 'blank'/'text'/'media'/'action'/'input'。
+     */
+    private static final String LONGPRESS_JS =
+            "(function(){"
+            + "var px=%1$f,py=%2$f;"
+            + "var dpr=window.devicePixelRatio||1;"
+            + "var innerW=window.innerWidth||document.documentElement.clientWidth;"
+            + "var outerW=window.outerWidth||innerW;"
+            + "var scale=dpr*outerW/innerW;"
+            + "if(!(scale>0)||scale===1){scale=1;}"
+            + "var x=px/scale,y=py/scale;"
+            + "var e=document.elementFromPoint(x,y);"
+            + "if(!e)return 'blank';"
+            + "var tag=e.tagName?e.tagName.toLowerCase():'';"
+            + "if(tag==='html'||tag==='body')return 'blank';"
+            + "var r=e.getBoundingClientRect();"
+            + "if(x<r.left||x>r.right||y<r.top||y>r.bottom)return 'blank';"
+            + "if(e.querySelector('img,canvas,svg,video,iframe'))return 'media';"
+            + "if(tag==='a'||tag==='button')return 'action';"
+            + "if(tag==='input'||tag==='textarea'||e.isContentEditable)return 'input';"
+            + "if(e.textContent&&e.textContent.trim().length>0)return 'text';"
+            + "return 'blank';})()";
     int webappID = -1;
     private WebView wv;
     private ProgressBar progressBar;
@@ -398,28 +425,7 @@ public class WebViewActivity extends AppCompatActivity {
                 // 坐标仅在缩放=100% 时一致。页面缩放(setInitialScale)非 100% 时，
                 // 物理像素 = CSS 像素 × scale，必须在 JS 内用当前渲染比例换算，
                 // 否则长按坐标偏移导致文字区域误判为空白（历史 bug）。
-                // scale = 物理px/CSSpx = devicePixelRatio × outerWidth/innerWidth
-                // （innerWidth 为缩放后的布局视口 CSS 宽，outerWidth 为外层视口宽，
-                //   两者比值即渲染缩放；再乘 dpr 得物理像素比例）
-                final String js = "(function(){"
-                        + "var px=" + px + ",py=" + py + ";"
-                        + "var dpr=window.devicePixelRatio||1;"
-                        + "var innerW=window.innerWidth||document.documentElement.clientWidth;"
-                        + "var outerW=window.outerWidth||innerW;"
-                        + "var scale=dpr*outerW/innerW;"
-                        + "if(!(scale>0)||scale===1){scale=1;}"
-                        + "var x=px/scale,y=py/scale;"
-                        + "var e=document.elementFromPoint(x,y);"
-                        + "if(!e)return 'blank';"
-                        + "var tag=e.tagName?e.tagName.toLowerCase():'';"
-                        + "if(tag==='html'||tag==='body')return 'blank';"
-                        + "var r=e.getBoundingClientRect();"
-                        + "if(x<r.left||x>r.right||y<r.top||y>r.bottom)return 'blank';"
-                        + "if(e.querySelector('img,canvas,svg,video,iframe'))return 'media';"
-                        + "if(tag==='a'||tag==='button')return 'action';"
-                        + "if(tag==='input'||tag==='textarea'||e.isContentEditable)return 'input';"
-                        + "if(e.textContent&&e.textContent.trim().length>0)return 'text';"
-                        + "return 'blank';})()";
+                final String js = String.format(Locale.US, LONGPRESS_JS, px, py);
                 wv.evaluateJavascript(js, value -> {
                     String type = value != null ? value.replace("\"", "") : "text";
                     if ("null".equals(type) || type.isEmpty()) type = "text";
