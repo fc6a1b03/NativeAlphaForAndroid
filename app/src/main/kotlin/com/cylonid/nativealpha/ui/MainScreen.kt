@@ -45,6 +45,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,7 +79,6 @@ fun MainScreen(
     onOpenStats: (WebApp) -> Unit,
     onDeleteWebApp: (WebApp) -> Unit,
     onCopyUrl: (WebApp) -> Unit,
-    onToggleShortcut: (WebApp) -> Unit,
     onGlobalSettingsClick: () -> Unit,
 ) {
     // 搜索过滤：名称/URL 模糊匹配
@@ -191,7 +193,11 @@ fun MainScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 placeholder = {
-                    Text(stringResource(R.string.search_webapps))
+                    Text(
+                        stringResource(R.string.search_webapps),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 },
                 leadingIcon = {
                     Icon(Icons.Default.Search, contentDescription = null)
@@ -214,8 +220,8 @@ fun MainScreen(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .height(56.dp)
+                    .padding(horizontal = 16.dp, vertical = 2.dp)
             )
             if (webApps.isEmpty()) {
                 EmptyState(
@@ -252,8 +258,7 @@ fun MainScreen(
                             onSettings = { onOpenSettings(webApp) },
                             onStats = { onOpenStats(webApp) },
                             onDelete = { onDeleteWebApp(webApp) },
-                            onCopyUrl = { onCopyUrl(webApp) },
-                            onToggleShortcut = { onToggleShortcut(webApp) }
+                            onCopyUrl = { onCopyUrl(webApp) }
                         )
                     }
                 }
@@ -271,7 +276,6 @@ private fun WebAppCard(
     onStats: () -> Unit,
     onDelete: () -> Unit,
     onCopyUrl: () -> Unit,
-    onToggleShortcut: () -> Unit,
 ) {
     val context = LocalContext.current
     Card(
@@ -288,14 +292,22 @@ private fun WebAppCard(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 头像图标：WebApp.iconPath 有值用自定义头像（统一源），无则字母渐变图标
+            // 头像图标：iconPath 有值用自定义头像（统一源）→ 否则异步拉 favicon →
+            // 都失败 fallback 字母渐变图标（首次拉取后缓存）
             val domain = remember(webApp.baseUrl) {
                 runCatching { java.net.URI(webApp.baseUrl).host }.getOrNull()
             }
             val customIcon = remember(webApp.iconPath) {
                 com.cylonid.nativealpha.util.WebAppIconManager.loadIcon(context, webApp)
             }
-            val iconBitmap = customIcon ?: remember(webApp.title, webApp.baseUrl) {
+            val faviconState = if (customIcon == null) {
+                produceState<android.graphics.Bitmap?>(null, webApp.baseUrl) {
+                    value = withContext(Dispatchers.IO) {
+                        com.cylonid.nativealpha.util.WebAppIconManager.loadFavicon(context, webApp)
+                    }
+                }.value
+            } else null
+            val iconBitmap = customIcon ?: faviconState ?: remember(webApp.title, webApp.baseUrl) {
                 IconGenerator.generate(webApp.title, domain, 112, 28)
             }
             Image(
@@ -359,15 +371,6 @@ private fun WebAppCard(
                         onClick = {
                             menuExpanded = false
                             onCopyUrl()
-                        }
-                    )
-                    // 快捷键切换（按钮式）：点击即切换——有则移除/无则跳设置页添加，
-                    // 菜单文字统一"快捷键"（简洁不割裂）
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.shortcuts_section)) },
-                        onClick = {
-                            menuExpanded = false
-                            onToggleShortcut()
                         }
                     )
                     DropdownMenuItem(

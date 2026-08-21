@@ -58,6 +58,47 @@ object WebAppIconManager {
         }
     }
 
+    /** 网站 favicon 缓存目录（列表图标 fallback：无自定义头像时显示网站图标） */
+    private fun faviconDir(context: Context): File =
+        File(context.cacheDir, "favicons").apply { if (!exists()) mkdirs() }
+
+    /**
+     * 加载/拉取网站 favicon（列表图标用）：优先缓存；无则拉站点根 /favicon.ico
+     * （站点直连，多数站可达；Kimi/百度等）失败 fallback Google s2。
+     * 网络在调用方协程/线程处理（本方法同步执行，需 IO 上下文）。
+     * 失败返回 null（调用方 fallback 字母图标）。
+     */
+    fun loadFavicon(context: Context, webApp: WebApp): Bitmap? {
+        val domain = try { java.net.URI(webApp.baseUrl).host } catch (e: Exception) { null }
+            ?: return null
+        val cacheFile = File(faviconDir(context), "$domain.png")
+        // 缓存命中直接读
+        if (cacheFile.exists()) {
+            return try { BitmapFactory.decodeFile(cacheFile.absolutePath) } catch (e: Exception) { null }
+        }
+        // 拉取：先站点 favicon.ico，再 Google s2 兜底
+        val candidates = listOf(
+            java.net.URI(webApp.baseUrl).let { "${it.scheme}://${it.host}/favicon.ico" },
+            "https://www.google.com/s2/favicons?domain=$domain&sz=112"
+        )
+        for (url in candidates) {
+            try {
+                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+                conn.setRequestProperty("User-Agent", "WebNative-Favicon")
+                if (conn.responseCode == 200) {
+                    val bmp = BitmapFactory.decodeStream(conn.inputStream)
+                    bmp?.let { FileOutputStream(cacheFile).use { out -> it.compress(Bitmap.CompressFormat.PNG, 90, out) } }
+                    if (bmp != null) return bmp
+                }
+            } catch (e: Exception) {
+                // 尝试下一个候选
+            }
+        }
+        return null
+    }
+
     /** 删除头像（重置为字母图标时调用；iconPath 清空） */
     fun deleteIcon(context: Context, webApp: WebApp) {
         val p = webApp.iconPath ?: return

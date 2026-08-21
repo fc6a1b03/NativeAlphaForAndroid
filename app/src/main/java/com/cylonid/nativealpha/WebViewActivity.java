@@ -765,19 +765,23 @@ public class WebViewActivity extends AppCompatActivity {
     private void showSessionSwitchDialog() {
         if (webapp == null) return;
         int count = Math.max(1, webapp.getSessionTabCount());
+        // 二级会话菜单：列表切换 + 新增（确认按钮）+ 删除当前（负按钮）
         String[] items = new String[count];
         for (int i = 0; i < count; i++) {
             items[i] = "会话 " + (i + 1) + (i == webappTabIndex ? "（当前）" : "");
         }
         new AlertDialog.Builder(this)
-                .setTitle("切换会话")
+                .setTitle(getString(R.string.menu_session))
                 .setItems(items, (dialog, which) -> {
                     if (which != webappTabIndex) {
                         com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.saveSnapshot(this, webappID, webappTabIndex);
                         WebViewLauncher.startWebViewById(webappID, which, this);
                     }
                 })
-                .setNegativeButton(android.R.string.cancel, null)
+                // 新增会话（确认恢复对话窗）
+                .setPositiveButton(getString(R.string.menu_new_tab), (d, w) -> addNewSessionTab())
+                // 删除当前会话（确认后删）
+                .setNegativeButton(getString(R.string.menu_delete_tab), (d, w) -> deleteCurrentSessionTab())
                 .show();
     }
 
