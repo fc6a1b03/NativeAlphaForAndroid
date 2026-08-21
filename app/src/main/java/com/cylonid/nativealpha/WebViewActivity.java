@@ -446,9 +446,16 @@ public class WebViewActivity extends AppCompatActivity {
                         runOnUiThread(() -> {
                             if (wv != null) {
                                 wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
+                                // 根治输入法：强制输入框失焦（blur）。
+                                // 仅 hideSoftInput 不够——焦点还在输入框上，小菜单关闭后
+                                // 输入法会重新弹出（用户实测：小菜单关闭后键盘飞出来）。
+                                // blur 后输入框失焦，键盘必然收起且不再弹。
+                                wv.evaluateJavascript(
+                                        "var el=document.activeElement;"
+                                        + "if(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.isContentEditable)){el.blur();}",
+                                        null);
                             }
-                            // 收起输入法：双击空白（含输入框区域）优先弹小菜单，
-                            // 不让输入法同时弹出（输入法和小菜单会互相打架）
+                            // 收起输入法（兜底，blur 已处理主要路径）
                             hideSoftKeyboard();
                             showWebViewMenuSheet();
                         });
@@ -475,6 +482,7 @@ public class WebViewActivity extends AppCompatActivity {
                 WebApp webapp = DataManager.getInstance().getWebApp(webappID);
                 if (webapp == null || webapp.isRequestDesktop())
                     return false;
+                android.util.Log.d("LongPress", "touch ev=" + event.getAction() + " x=" + (int) event.getX() + " y=" + (int) event.getY());
 
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
                     case MotionEvent.ACTION_DOWN:
