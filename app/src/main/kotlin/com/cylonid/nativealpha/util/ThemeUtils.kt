@@ -1,5 +1,6 @@
 package com.cylonid.nativealpha.util
 
+import android.annotation.SuppressLint
 import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import com.cylonid.nativealpha.R
@@ -41,5 +42,49 @@ object ThemeUtils {
         }
         Log.d("ThemeUtils", "applyUiMode themeId=$themeId mode=$mode")
         AppCompatDelegate.setDefaultNightMode(mode)
+    }
+
+    /**
+     * 应用系统栏颜色（状态栏/虚拟键跟随当前主题，切换主题后调用刷新）。
+     * 从当前主题读 statusBarColor/navigationBarColor/windowLightStatusBar/
+     * windowLightNavigationBar，同步到窗口——否则切换主题后系统栏颜色残留。
+     */
+    @JvmStatic
+    @SuppressLint("ResourceType") // 动态 attr 数组（statusBarColor 等系统属性），Lint 静态分析误报 styleable 期望
+    fun applySystemBarColors(activity: android.app.Activity) {
+        try {
+            val attrs = intArrayOf(
+                android.R.attr.statusBarColor,
+                android.R.attr.navigationBarColor,
+                android.R.attr.windowLightStatusBar,
+                android.R.attr.windowLightNavigationBar
+            )
+            val ta = activity.obtainStyledAttributes(attrs)
+            val statusColor = ta.getColor(0, 0)
+            val navColor = ta.getColor(1, 0)
+            val lightStatus = ta.getBoolean(2, true)
+            val lightNav = ta.getBoolean(3, true)
+            ta.recycle()
+
+            val window = activity.window
+            window.statusBarColor = statusColor
+            window.navigationBarColor = navColor
+            // 图标亮暗（浅色主题=深色图标，深色主题=浅色图标）
+            var flags = window.decorView.systemUiVisibility
+            flags = if (lightStatus) {
+                flags or android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+            } else {
+                flags and android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+            }
+            flags = if (lightNav) {
+                flags or android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+            } else {
+                flags and android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv()
+            }
+            window.decorView.systemUiVisibility = flags
+            Log.d("ThemeUtils", "applySystemBarColors status=$statusColor nav=$navColor lightStatus=$lightStatus lightNav=$lightNav")
+        } catch (e: Exception) {
+            Log.w("ThemeUtils", "applySystemBarColors failed", e)
+        }
     }
 }

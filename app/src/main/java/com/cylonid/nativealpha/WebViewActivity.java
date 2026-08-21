@@ -341,6 +341,13 @@ public class WebViewActivity extends AppCompatActivity {
         wv.getSettings().setDatabaseEnabled(true);
         wv.getSettings().setBlockNetworkLoads(false);
 
+        // ===== 禁用浏览器自带滚动条（网页内容本身的自定义滚动条不受影响） =====
+        wv.setVerticalScrollBarEnabled(false);
+        wv.setHorizontalScrollBarEnabled(false);
+        wv.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        // 隐藏滚动条占位（WebView 默认 overlay 模式，但仍显式关闭占位）
+        wv.setScrollBarStyle(View.SCROLLBARS_OUTSIDE_OVERLAY);
+
         // ===== PWA 高频文本流渲染优化（流式输出/长文档滚动场景） =====
         // 渲染优先级拉满（文本流/长文档滚动核心）
         wv.getSettings().setRenderPriority(WebSettings.RenderPriority.HIGH);
@@ -556,14 +563,15 @@ public class WebViewActivity extends AppCompatActivity {
 
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
                     case MotionEvent.ACTION_DOWN:
-                        // 双击检测：300ms 内同点（±50px）再次按下 → 双击 → 弹小菜单
-                        // （长按已完全交还系统，不再干预文字选中）
+                        // 双击检测：250ms 内同点（±40px）再次按下 → 双击 → 弹小菜单。
+                        // 250ms/40px 是快速双击窗口：慢速点击/滚动不会误判
+                        // （300ms/50px 偏宽松，滚动+连点曾误触——实测收紧）
                         final long now = System.currentTimeMillis();
                         final float x = event.getX(0);
                         final float y = event.getY(0);
-                        if (now - lastDownTime < 300
-                                && Math.abs(x - lastDownX) < 50
-                                && Math.abs(y - lastDownY) < 50) {
+                        if (now - lastDownTime < 250
+                                && Math.abs(x - lastDownX) < 40
+                                && Math.abs(y - lastDownY) < 40) {
                             lastDownTime = 0; // 重置防三连击
                             // 双击：取消恢复焦点（保持 blur，输入法不弹），弹小菜单
                             v.removeCallbacks(restoreFocusRunnable);
@@ -584,6 +592,8 @@ public class WebViewActivity extends AppCompatActivity {
                                 wv.evaluateJavascript(
                                         "if(document.activeElement){window.__savedFocus=document.activeElement;document.activeElement.blur();}",
                                         null);
+                                // 双击窗口 250ms < 恢复窗口 300ms：双击（250ms 内二次点击）
+                                // 先取消恢复并触发菜单；无双击才恢复焦点弹键盘
                                 v.removeCallbacks(restoreFocusRunnable);
                                 v.postDelayed(restoreFocusRunnable, 300L);
                             }
@@ -1804,6 +1814,22 @@ public class WebViewActivity extends AppCompatActivity {
                 loadCustomErrorPage("blank", "");
             }
             wv.evaluateJavascript("document.addEventListener(\"visibilitychange\",function (event) {event.stopImmediatePropagation();},true);", null);
+            // 移除图片 title/alt 属性（防止 WebView 查看图片时显示图片名浮层遮挡）。
+            // MutationObserver 持续清除（SPA 动态图片）；busy 标志防递归
+            // （clean 修改属性会再触发 observer）
+            wv.evaluateJavascript(
+                    "(function(){"
+                    + "var busy=false;"
+                    + "var clean=function(){"
+                    + "if(busy)return;busy=true;"
+                    + "document.querySelectorAll('img').forEach(function(i){i.removeAttribute('title');i.removeAttribute('alt');});"
+                    + "busy=false;"
+                    + "};"
+                    + "clean();"
+                    + "var mo=new MutationObserver(function(){clean();});"
+                    + "mo.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['title','alt']});"
+                    + "})()",
+                    null);
             // 页面缩放：zoomBy 模拟捏合（对移动版自适应页面可靠）
             applyPageZoom();
             // 缓存输入框位置（双击拦截输入法用）
