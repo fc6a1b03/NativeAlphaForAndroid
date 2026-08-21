@@ -2,6 +2,17 @@
 
 Guidance for AI coding agents working on **WebNative** (fork of NativeAlphaForAndroid).
 
+## 编码规范（项目级技能，必读）
+
+**Google 官方编码规范**完整版见 `.kimi/GoogleCodingStandards.md`——所有代码改动前必须阅读。
+核心要点（完整规范见文件）：
+
+- Kotlin 风格：命名/导入（禁 `.*`）/注释/格式化按 Google Kotlin Style Guide
+- 资源名 `snake_case`；字符串全部 `R.string` 外部化（en+zh 双语）；禁硬编码
+- Compose：stringResource 在组合期预取；设备状态栏统一走 `ThemeUtils.applySystemBarColors`
+- 统一源：Cookie 隔离走 `CookieSessionManager`、头像走 `WebAppIconManager`（不重复存储逻辑）
+- 提交前 `./gradlew testDebugUnitTest lintDebug` 必须全绿；新增功能配单测
+
 ## Project Overview
 
 WebNative is a single-module Android app that turns any website into a
