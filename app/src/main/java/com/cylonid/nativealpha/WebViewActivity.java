@@ -597,6 +597,8 @@ public class WebViewActivity extends AppCompatActivity {
                     case MotionEvent.ACTION_POINTER_DOWN:
                         // This happens when you touch the screen with two fingers
                         mode = SWIPE;
+                        // 多指手势（捏合/双指滚动）：不是双击，清除双击检测状态
+                        lastDownTime = 0;
                         // You can also use event.getY(1) or the average of the two
                         startX = event.getX(0);
                         startY = event.getY(0);
@@ -637,6 +639,12 @@ public class WebViewActivity extends AppCompatActivity {
                             swallowDown = false;
                             return true;
                         }
+                        // 滚动/拖动结束：刷新输入框位置缓存（滚动后位置变化，
+                        // 否则双击拦截失效——双击命中不到输入框）
+                        if (Math.abs(event.getY(0) - startY) > TRESHOLD
+                                || Math.abs(event.getX(0) - startX) > TRESHOLD) {
+                            cacheEditableRects();
+                        }
                         // 抬起：重置滑动状态
                         mode = NONE;
                         return false;
@@ -646,7 +654,16 @@ public class WebViewActivity extends AppCompatActivity {
                             stopX = event.getX(0);
                             stopY = event.getY(0);
                         }
-                        // 移动超阈值（滑动/滚动）：无额外处理（双击检测器内部自行判定）
+                        // 移动超阈值（滑动/拖动滚动）：不是双击，清除双击检测状态
+                        if (Math.abs(event.getX(0) - startX) > TRESHOLD
+                                || Math.abs(event.getY(0) - startY) > TRESHOLD) {
+                            lastDownTime = 0;
+                        }
+                        return false;
+
+                    case MotionEvent.ACTION_SCROLL:
+                        // 滚轮滚动：不是双击，清除双击检测状态（防止误判弹菜单）
+                        lastDownTime = 0;
                         return false;
                 }
                 return false;
