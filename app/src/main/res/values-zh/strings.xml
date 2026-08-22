@@ -275,6 +275,7 @@
     <string name="menu_shortcuts">快捷键</string>
     <string name="menu_close">关闭</string>
     <string name="menu_session">会话</string>
+    <string name="session_add">新增</string>
     <string name="menu_new_tab">新增会话</string>
     <string name="menu_delete_tab">删除会话</string>
     <string name="menu_switch_tab">切换会话</string>

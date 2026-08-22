@@ -70,8 +70,12 @@ fun WebAppStatsScreen(
 
     // 加载该站错误日志（reloadKey 变化时重载——清理后触发刷新）
     var reloadKey by remember { mutableStateOf(0) }
+    // 分组展开状态（key=错误类型；LaunchedEffect 加载后预填全部=默认全展开，点击正常开/关）
+    var expandedGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
     LaunchedEffect(webapp.ID, reloadKey) {
         pageErrors = PageErrorRepository.getForSite(context, webapp.ID)
+        // 默认全部展开（预填所有 type）
+        expandedGroups = pageErrors.map { it.type }.toSet()
     }
 
     // 计算统计指标（0 值显示「—」）
@@ -83,7 +87,6 @@ fun WebAppStatsScreen(
     // 清空错误日志确认对话框
     var showClearErrorsDialog by remember { mutableStateOf(false) }
     // 分组展开状态（key=错误类型，true=展开显示明细）
-    var expandedGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     Scaffold(
         topBar = {
@@ -250,10 +253,11 @@ fun WebAppStatsScreen(
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
                 } else {
-                    // 按错误类型分组（默认展开；每组限显示10条，展开显示全部——不需要点击折叠了）
+                    // 按错误类型分组（默认全展开：LaunchedEffect 预填所有 type；
+                    // 点击正常开/关——此前 isEmpty() hack 导致开关失效）
                     val grouped = allErrors.groupBy { it.type }
                     grouped.forEach { (type, entries) ->
-                        val expanded = type in expandedGroups || expandedGroups.isEmpty()  // 默认全部展开
+                        val expanded = type in expandedGroups
                         // 分组标题行（点击展开/收起）
                         Row(
                             modifier = Modifier

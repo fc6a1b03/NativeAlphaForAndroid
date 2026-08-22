@@ -153,15 +153,9 @@ private fun WebViewMenuSheetContent(
                 MenuIconButton(Icons.Default.Home, stringResource(R.string.menu_home)) { onSave(); onAction("home") }
                 MenuIconButton(Icons.Default.Settings, stringResource(R.string.menu_settings)) { onSave(); onAction("settings") }
                 MenuIconButton(Icons.Default.Keyboard, stringResource(R.string.menu_shortcuts)) { onSave(); onAction("shortcuts") }
-                MenuIconButton(Icons.Default.Close, stringResource(R.string.menu_close)) { onSave(); showSheet = false }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            // 会话入口（点击弹二级会话菜单：新增/切换/删除）——主菜单保持简洁
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+                // 会话入口（并入第二排；单会话时二级菜单只显示"新增"）
                 MenuIconButton(Icons.Default.Tab, stringResource(R.string.menu_session)) { onSave(); onAction("switch_tab") }
+                MenuIconButton(Icons.Default.Close, stringResource(R.string.menu_close)) { onSave(); showSheet = false }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
