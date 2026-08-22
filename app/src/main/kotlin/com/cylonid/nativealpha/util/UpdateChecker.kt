@@ -62,45 +62,47 @@ object UpdateChecker {
         }
     }
 
-    /** 检查最新版本（异步）。回调：onResult(true=有更新, latestTag, downloadUrl) */
-    fun check(context: Context, onResult: (Boolean, String, String) -> Unit) {
+    /** 检查最新版本（异步）。回调：onResult(hasUpdate, latestTag, downloadUrl, releaseNotes) */
+    fun check(context: Context, onResult: (Boolean, String, String, String) -> Unit) {
         if (checking) return
         checking = true
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val (latestTag, downloadUrl) = fetchLatestRelease()
+                val (latestTag, downloadUrl, notes) = fetchLatestRelease()
                 val current = currentVersionName(context)
                 if (downloadUrl.isEmpty()) {
-                    withContext(Dispatchers.Main) { onResult(false, latestTag, "") }
+                    withContext(Dispatchers.Main) { onResult(false, latestTag, "", notes) }
                 } else {
                     val hasUpdate = compareVersions(latestTag, current) > 0
                     withContext(Dispatchers.Main) {
-                        onResult(hasUpdate, latestTag, downloadUrl)
+                        onResult(hasUpdate, latestTag, downloadUrl, notes)
                     }
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { onResult(false, "", "") }
+                withContext(Dispatchers.Main) { onResult(false, "", "", "") }
             } finally {
                 checking = false
             }
         }
     }
 
-    /** 从 GitHub API 拿最新 tag 与 APK 下载 URL */
-    private suspend fun fetchLatestRelease(): Pair<String, String> = withContext(Dispatchers.IO) {
+    /** 从 GitHub API 拿最新 tag、APK 下载 URL、更新说明（release body） */
+    private suspend fun fetchLatestRelease(): Triple<String, String, String> = withContext(Dispatchers.IO) {
         try {
             val conn = URL(API_URL).openConnection() as HttpURLConnection
             conn.connectTimeout = 8000
             conn.readTimeout = 8000
             conn.setRequestProperty("User-Agent", "WebNative-UpdateChecker")
             val code = conn.responseCode
-            if (code != 200) return@withContext Pair("", "")
+            if (code != 200) return@withContext Triple("", "", "")
             val body = conn.inputStream.bufferedReader().use { it.readText() }
             val json = JSONObject(body)
             val tag = json.optString("tag_name", "")
+            // 更新说明（release body，可能含 Markdown；截断防过长）
+            val notes = json.optString("body", "").take(500)
             // 找 APK 资产（优先 arm64-v8a，其次任意 .apk）
             val assets = json.optJSONArray("assets")
-            if (assets == null || assets.length() == 0) return@withContext Pair(tag, "")
+            if (assets == null || assets.length() == 0) return@withContext Triple(tag, "", notes)
             var apkUrl = ""
             // 从 assets 找 .apk
             for (i in 0 until assets.length()) {
@@ -115,9 +117,9 @@ object UpdateChecker {
                 // 兜底：GitHub release 下载 URL（AGP 产物名 WebNative-v*.apk）
                 apkUrl = "$REPO_URL/releases/download/${tag}/WebNative-${tag}.apk"
             }
-            Pair(tag, apkUrl)
+            Triple(tag, apkUrl, notes)
         } catch (e: Exception) {
-            Pair("", "")
+            Triple("", "", "")
         }
     }
 

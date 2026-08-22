@@ -25,7 +25,7 @@ output, long documents, code blocks).
 
 - Package / namespace / applicationId: `com.cylonid.nativealpha`
 - Min SDK 31 (Android 12), target/compile SDK 37
-- Current version: 2.1.16 (`versionCode 2116`)
+- Current version: 2.1.17 (`versionCode 2117`)
 - License: GPL-3.0
 - Upstream: https://github.com/cylonid/NativeAlphaForAndroid (this repo is a fork)
 

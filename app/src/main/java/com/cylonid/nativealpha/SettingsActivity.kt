@@ -99,6 +99,8 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         // 状态栏/虚拟键跟随主题（切换主题后刷新颜色）
         ThemeUtils.applySystemBarColors(this)
+        // 进设置页主动检查更新（一天一次）
+        autoCheckUpdateOnceADay()
         setContent {
             AppMaterialTheme {
                 GlobalSettingsScreen(
@@ -133,11 +135,16 @@ class SettingsActivity : AppCompatActivity() {
      * 下载完成后提示安装。
      */
     private fun checkUpdate() {
-        UpdateChecker.check(this) { hasUpdate, latestTag, downloadUrl ->
+        UpdateChecker.check(this) { hasUpdate, latestTag, downloadUrl, notes ->
             if (hasUpdate) {
+                // 更新弹窗：内容（release notes）+ 下载/取消（统一样式）
+                val message = if (notes.isNotBlank())
+                    getString(R.string.update_available_msg, latestTag) + "\n\n" + notes
+                else
+                    getString(R.string.update_available_msg, latestTag)
                 AlertDialog.Builder(this)
                     .setTitle(getString(R.string.update_available_title))
-                    .setMessage(getString(R.string.update_available_msg, latestTag))
+                    .setMessage(message)
                     .setPositiveButton(getString(R.string.update_download)) { _, _ ->
                         // 确认下载：DownloadManager 后台下载（不阻塞）
                         if (UpdateChecker.download(this, downloadUrl)) {
@@ -157,6 +164,23 @@ class SettingsActivity : AppCompatActivity() {
                     this, getString(R.string.update_latest), Snackbar.LENGTH_LONG
                 )
             }
+        }
+    }
+
+    /**
+     * 主动检查一次（一天一次）：SettingsActivity 打开时调用；
+     * SharedPreferences 记录上次检查日期，同一天不重复。
+     */
+    private fun autoCheckUpdateOnceADay() {
+        try {
+            val prefs = getSharedPreferences("update_check", MODE_PRIVATE)
+            val today = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+            val lastCheck = prefs.getString("last_check_date", "")
+            if (lastCheck == today) return // 今天已检查
+            prefs.edit().putString("last_check_date", today).apply()
+            checkUpdate()
+        } catch (e: Exception) {
+            // 静默
         }
     }
 
