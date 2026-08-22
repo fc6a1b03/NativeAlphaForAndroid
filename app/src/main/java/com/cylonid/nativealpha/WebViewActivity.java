@@ -113,6 +113,10 @@ public class WebViewActivity extends AppCompatActivity {
     private static final int SINGLE_FINGER = 2;
     /** 单指左右滑手势触发距离（px）：比 TRESHOLD 更严——只识别明确意图的长滑，防误触 */
     private static final int GESTURE_SWIPE_MIN_PX = 150;
+    /** 单指手势边缘区宽度（屏幕横向比例）：起点在左右各 <20% 或 >80% 才识别左右滑（页面内表格不冲突） */
+    private static final float GESTURE_EDGE_ZONE_RATIO = 0.2f;
+    /** 水平位移 > 垂直位移的倍数：过滤倾斜滑动（上下滚动不误判左右手势） */
+    private static final float GESTURE_HORIZONTAL_DOMINANCE = 1.2f;
     private static final int TRESHOLD = 100;
 
     /**
@@ -540,7 +544,6 @@ public class WebViewActivity extends AppCompatActivity {
                         // 空白检测通过，再探测是否命中 media（双击图片时弹保存菜单而非小菜单）
                         wv.evaluateJavascript(mediaJs, mediaValue -> {
                             String mediaUrl = mediaValue != null ? mediaValue.replace("\"", "") : "null";
-                            android.util.Log.d("LongPress", "doubleTap mediaUrl=" + mediaUrl);
                             if ("null".equals(mediaUrl) || mediaUrl.isEmpty() || !isBlank) {
                                 // 非 media（空白/文本）→ 走原有小菜单
                                 runOnUiThread(() -> {
@@ -560,8 +563,7 @@ public class WebViewActivity extends AppCompatActivity {
                                 });
                             } else {
                                 // 命中图片/视频 → 弹「保存图片/保存视频」菜单
-                                final String url = mediaUrl;
-                                runOnUiThread(() -> showMediaSaveMenu(url));
+                                runOnUiThread(() -> showMediaSaveMenu(mediaUrl));
                             }
                         });
                     }
@@ -573,10 +575,8 @@ public class WebViewActivity extends AppCompatActivity {
                 if (isFinishing() || wv == null || mediaUrl == null) return;
                 View center = findViewById(R.id.anchorCenterScreen);
                 PopupMenu popup = IconPopupMenuHelper.getMenu(center, R.menu.wv_media_menu, WebViewActivity.this);
-                // 命中类型判断：video 标签 → 保存视频；否则保存图片
-                boolean isVideo = mediaUrl.contains(".mp4") || mediaUrl.contains(".webm")
-                        || mediaUrl.contains(".m3u8") || mediaUrl.contains(".ogg")
-                        || mediaUrl.contains(".mov") || mediaUrl.contains(".mkv");
+                // 命中类型判断：video 标签 → 保存视频；否则保存图片（isVideoUrl 去 query 按后缀）
+                boolean isVideo = isVideoUrl(mediaUrl);
                 popup.getMenu().findItem(R.id.cmMediaSaveImage).setVisible(!isVideo);
                 popup.getMenu().findItem(R.id.cmMediaSaveVideo).setVisible(isVideo);
                 popup.setOnMenuItemClickListener(menuItem -> {
@@ -588,6 +588,19 @@ public class WebViewActivity extends AppCompatActivity {
                     return false;
                 });
                 popup.show();
+            }
+
+            /** 判断下载 URL 是否为视频（去 query/fragment 后按后缀；带签名参数的 CDN 链接也能识别） */
+            private boolean isVideoUrl(String url) {
+                if (url == null) return false;
+                String clean = url;
+                int q = clean.indexOf('?');
+                if (q >= 0) clean = clean.substring(0, q);
+                int h = clean.indexOf('#');
+                if (h >= 0) clean = clean.substring(0, h);
+                clean = clean.toLowerCase();
+                return clean.endsWith(".mp4") || clean.endsWith(".webm") || clean.endsWith(".mov")
+                        || clean.endsWith(".ogg") || clean.endsWith(".mkv") || clean.endsWith(".m3u8");
             }
 
             /** 保存图片/视频：复用 DownloadManager（与全站下载一致的统一处理） */
@@ -607,21 +620,11 @@ public class WebViewActivity extends AppCompatActivity {
                 }
                 try {
                     DownloadManager.Request request = new DownloadManager.Request(Uri.parse(dl_url));
-                    if (dl_url.endsWith(".mp4") || dl_url.endsWith(".webm") || dl_url.endsWith(".mov")
-                            || dl_url.endsWith(".ogg") || dl_url.endsWith(".mkv") || dl_url.endsWith(".m3u8")) {
-                        request.setMimeType("video/*");
-                    } else {
-                        request.setMimeType("image/*");
-                    }
+                    boolean isMediaVideo = isVideoUrl(dl_url);
+                    request.setMimeType(isMediaVideo ? "video/*" : "image/*");
                     String file_name = Utility.getFileNameFromDownload(dl_url, null, null);
                     if (file_name == null || file_name.isEmpty()) {
-                        file_name = "media_" + System.currentTimeMillis();
-                        if (dl_url.endsWith(".mp4") || dl_url.endsWith(".webm") || dl_url.endsWith(".mov")
-                                || dl_url.endsWith(".ogg") || dl_url.endsWith(".mkv") || dl_url.endsWith(".m3u8")) {
-                            file_name += ".mp4";
-                        } else {
-                            file_name += ".png";
-                        }
+                        file_name = "media_" + System.currentTimeMillis() + (isMediaVideo ? ".mp4" : ".png");
                     }
                     request.setTitle(file_name);
                     request.allowScanningByMediaScanner();
@@ -742,9 +745,10 @@ public class WebViewActivity extends AppCompatActivity {
                             float dx = stopX - startX;
                             float dy = Math.abs(stopY - startY);
                             float screenW = getResources().getDisplayMetrics().widthPixels;
-                            boolean edgeZone = startX < screenW * 0.2f || startX > screenW * 0.8f;
+                            boolean edgeZone = startX < screenW * GESTURE_EDGE_ZONE_RATIO
+                                    || startX > screenW * (1f - GESTURE_EDGE_ZONE_RATIO);
                             if (edgeZone && Math.abs(dx) > GESTURE_SWIPE_MIN_PX
-                                    && Math.abs(dx) > dy * 1.2f) {
+                                    && Math.abs(dx) > dy * GESTURE_HORIZONTAL_DOMINANCE) {
                                 if (dx > 0) {
                                     // 右滑后退（与系统返回一致），先处理 WebView 历史再退出
                                     safeBackPressed();

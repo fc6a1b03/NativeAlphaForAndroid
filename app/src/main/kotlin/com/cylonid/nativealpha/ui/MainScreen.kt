@@ -303,8 +303,8 @@ private fun WebAppCard(
             }
             val faviconState = if (customIcon == null) {
                 produceState<android.graphics.Bitmap?>(null, webApp.baseUrl) {
-                    // 首帧拉取；失败后延迟重试（网络恢复/慢速场景能补拉，最多 3 次）
-                    repeat(3) { attempt ->
+                    // 首帧拉取；失败后 5s 重试一次（网络瞬断场景补拉；不做长重试——成功已持久化 restart 即有）
+                    repeat(2) { attempt ->
                         val bmp = withContext(Dispatchers.IO) {
                             com.cylonid.nativealpha.util.WebAppIconManager.loadFavicon(context, webApp)
                         }
@@ -312,7 +312,7 @@ private fun WebAppCard(
                             value = bmp
                             return@produceState
                         }
-                        if (attempt < 2) delay(30_000L)
+                        if (attempt < 1) delay(5_000L)
                     }
                 }.value
             } else null
