@@ -750,7 +750,10 @@ public class WebViewActivity extends AppCompatActivity {
                                     safeGoForward();
                                 }
                                 lastDownTime = 0; // 滑动后清除双击状态
-                                return true;
+                                // 关键：不消费 UP（return false）——WebView 需要完整 DOWN→MOVE→UP
+                                // 事件流，消费 UP 会让 WebView 触摸状态机卡在"按住"，
+                                // 导致后续上下滑动完全失效（用户反馈的 bug 根因）
+                                return false;
                             }
                         }
                         mode = NONE;
