@@ -137,14 +137,22 @@ class SettingsActivity : AppCompatActivity() {
     private fun checkUpdate() {
         UpdateChecker.check(this) { hasUpdate, latestTag, downloadUrl, notes ->
             if (hasUpdate) {
-                // 更新弹窗：内容（release notes）+ 下载/取消（统一样式）
-                val message = if (notes.isNotBlank())
-                    getString(R.string.update_available_msg, latestTag) + "\n\n" + notes
-                else
-                    getString(R.string.update_available_msg, latestTag)
+                // 更新弹窗：md 渲染 release notes（GitHub 内容为 Markdown）+ 下载/取消
+                // Markwon 渲染：标题用版本号提示，正文 md 转 Spanned 显示（支持 #/**/列表）
+                val contentView = android.widget.TextView(this).apply {
+                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+                    setPadding(
+                        (24 * resources.displayMetrics.density).toInt(),
+                        (8 * resources.displayMetrics.density).toInt(),
+                        (24 * resources.displayMetrics.density).toInt(),
+                        0
+                    )
+                    text = com.cylonid.nativealpha.util.MdRenderer.render(this@SettingsActivity, notes)
+                    movementMethod = android.text.method.ScrollingMovementMethod()
+                }
                 AlertDialog.Builder(this)
-                    .setTitle(getString(R.string.update_available_title))
-                    .setMessage(message)
+                    .setTitle(getString(R.string.update_available_msg, latestTag))
+                    .setView(contentView)
                     .setPositiveButton(getString(R.string.update_download)) { _, _ ->
                         // 确认下载：DownloadManager 后台下载（不阻塞）
                         if (UpdateChecker.download(this, downloadUrl)) {

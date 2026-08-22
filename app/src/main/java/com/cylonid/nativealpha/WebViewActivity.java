@@ -111,6 +111,8 @@ public class WebViewActivity extends AppCompatActivity {
     private static final int NONE = 0;
     private static final int SWIPE = 1;
     private static final int SINGLE_FINGER = 2;
+    /** 单指左右滑手势触发距离（px）：比 TRESHOLD 更严——只识别明确意图的长滑，防误触 */
+    private static final int GESTURE_SWIPE_MIN_PX = 150;
     private static final int TRESHOLD = 100;
 
     /**
@@ -193,6 +195,10 @@ public class WebViewActivity extends AppCompatActivity {
     private WebView wv;
     private ProgressBar progressBar;
     private android.widget.ImageView loadingAnimal;
+    /** 加载页动物动画最长显示时间（ms）：站点自带 loader/慢加载站点不长期盖住 */
+    private static final long ANIMAL_MAX_SHOW_MS = 3000L;
+    /** 动画显示起止计时（onProgressChanged 里判定短暂显示窗口用） */
+    private long pageLoadStartTime2 = 0L;
     private boolean currently_reloading = true;
     private GeolocationPermissions.Callback mGeoPermissionRequestCallback = null;
     private String mGeoPermissionRequestOrigin = null;
@@ -226,6 +232,19 @@ public class WebViewActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // 虚拟按键/手势返回（Android 13+ OnBackInvokedDispatcher）：
+        // Manifest enableOnBackInvokedCallback=true 时 onBackPressed 不再被系统调用，
+        // **必须注册回调**——否则按返回直接退出 Activity 而不触发网页后退（用户反馈的核心 bug）。
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            try {
+                getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                        android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                        () -> onBackPressed()
+                );
+            } catch (Exception ignored) {
+                // 注册失败退回系统默认（老路径仍可用）
+            }
+        }
         handleIntent(getIntent());
     }
 
@@ -263,7 +282,24 @@ public class WebViewActivity extends AppCompatActivity {
             }
             // 统计埋点：记录打开次数
             StatsRecorder.INSTANCE.recordLaunch(webappID);
-            setupWebView();
+            try {
+                setupWebView();
+            } catch (Exception e) {
+                // WebView inflate 失败兜底（内核态损坏/崩溃恢复后 WebView 不可用——
+                // "AwContents must be created if we are not posting" 等）：
+                // 不崩溃，提示用户稍后重试（Activity 正常 finish）
+                android.util.Log.e("WebViewActivity", "setupWebView failed", e);
+                StatsRecorder.INSTANCE.recordPageError(webappID, ErrorType.RENDER.name(),
+                        ErrorType.RENDER.getCode(), "WebView init failed: " + (e.getMessage() != null ? e.getMessage() : ""));
+                runOnUiThread(() -> {
+                    NotificationUtils.showInfoSnackbar(
+                        WebViewActivity.this,
+                        getString(R.string.webview_init_failed),
+                        Snackbar.LENGTH_LONG
+                    );
+                });
+                finish();
+            }
         }
     }
 
@@ -673,15 +709,14 @@ public class WebViewActivity extends AppCompatActivity {
                                     WebViewLauncher.startWebView(DataManager.getInstance().getPredecessor(webappID), WebViewActivity.this);
                                     finish();
                                 } else if (DataManager.getInstance().getSettings().isTwoFingerMultitouch()) {
-                                    if (wv.canGoForward())
-                                        wv.goForward();
+                                    safeGoForward();
                                 }
                             } else {
                                 if (prevCount == 3 && DataManager.getInstance().getSettings().isThreeFingerMultitouch()) {
                                     WebViewLauncher.startWebView(DataManager.getInstance().getSuccessor(webappID), WebViewActivity.this);
                                     finish();
                                 } else if (DataManager.getInstance().getSettings().isTwoFingerMultitouch())
-                                    onBackPressed();
+                                    safeBackPressed();
 
                             }
                             return true;
@@ -689,7 +724,7 @@ public class WebViewActivity extends AppCompatActivity {
                         if (DataManager.getInstance().getSettings().isMultitouchReload() && Math.abs(startY - stopY) > TRESHOLD) {
                             if (stopY > startY) {
                                 currently_reloading = true;
-                                wv.reload();
+                                safeReload();
                             }
                             return true;
                         }
@@ -698,18 +733,21 @@ public class WebViewActivity extends AppCompatActivity {
                         // 单指左右滑手势（竖屏单手控制前进/后退）：
                         // - 右滑（stopX > startX）= 后退（回上一个页面，与返回一致）
                         // - 左滑（stopX < startX）= 前进（有历史才执行）
-                        // 阈值 100px 是竖屏单手安全距离（TRESHOLD），
-                        // 要求水平位移 > 垂直位移（避免滚动页面误触）。
+                        // 防冲突（用户反馈）：只识别**屏幕左右边缘区**（起点在左右各 20% 内）——
+                        // 页面中间区域（表格/轮播等可横向滚动内容）完全交还 WebView，不拦截。
+                        // 触发距离 150px（比 TRESHOLD 更严），要求水平位移 > 垂直位移*1.2。
                         if (mode == SINGLE_FINGER && event.getPointerCount() == 1) {
                             float dx = stopX - startX;
                             float dy = Math.abs(stopY - startY);
-                            if (Math.abs(dx) > TRESHOLD && Math.abs(dx) > dy * 1.2f) {
+                            float screenW = getResources().getDisplayMetrics().widthPixels;
+                            boolean edgeZone = startX < screenW * 0.2f || startX > screenW * 0.8f;
+                            if (edgeZone && Math.abs(dx) > GESTURE_SWIPE_MIN_PX
+                                    && Math.abs(dx) > dy * 1.2f) {
                                 if (dx > 0) {
                                     // 右滑后退（与系统返回一致），先处理 WebView 历史再退出
-                                    onBackPressed();
+                                    safeBackPressed();
                                 } else if (dx < 0) {
-                                    if (wv.canGoForward())
-                                        wv.goForward();
+                                    safeGoForward();
                                 }
                                 lastDownTime = 0; // 滑动后清除双击状态
                                 return true;
@@ -793,6 +831,37 @@ public class WebViewActivity extends AppCompatActivity {
             }
         }
 
+    }
+
+    /** 安全前进（WebView 状态异常时不崩溃——手势误触/内核态异常兜底） */
+    private void safeGoForward() {
+        try {
+            if (wv != null && wv.canGoForward()) wv.goForward();
+        } catch (Exception e) {
+            android.util.Log.w("WebViewActivity", "safeGoForward failed", e);
+        }
+    }
+
+    /** 安全后退（WebView 状态异常时回落到系统返回） */
+    private void safeBackPressed() {
+        try {
+            if (wv != null && wv.canGoBack()) {
+                wv.goBack();
+            } else {
+                onBackPressed();
+            }
+        } catch (Exception e) {
+            android.util.Log.w("WebViewActivity", "safeBackPressed failed", e);
+        }
+    }
+
+    /** 安全刷新（reload 异常兜底） */
+    private void safeReload() {
+        try {
+            if (wv != null) wv.reload();
+        } catch (Exception e) {
+            android.util.Log.w("WebViewActivity", "safeReload failed", e);
+        }
     }
 
     /** 启动加载页动物走路动画（ImageView + AnimationDrawable） */
@@ -1862,15 +1931,27 @@ public class WebViewActivity extends AppCompatActivity {
                 scheduleBlankScreenCheck();
             }
 
-            if (DataManager.getInstance().getSettings().isShowProgressbar() || currently_reloading) {
-                if (progressBar.getVisibility() == ProgressBar.GONE && progress < 100) {
-                    progressBar.setVisibility(ProgressBar.VISIBLE);
-                }
-                // 加载动画：进度条显示时同步显示动物走路动画（页面加载中可见）
-                if (progress < 100 && progressBar.getVisibility() == ProgressBar.VISIBLE) {
+            // 加载动画：独立于进度条显示开关——页面加载期短暂展示（站点 loader 接管前撤）：
+            // - progress < 100（整段加载）
+            // - 距加载开始 < ANIMAL_MAX_SHOW_MS（避免长期盖住带自带 loader 的慢站）
+            // 注意：放进度条判断外，用户未开启进度条时动画依然可见（此前默认关闭进度条导致动画不显示）
+            if (progress < 100 && loadingAnimal != null) {
+                // 距加载开始时间（首次 onPageStarted 前 pageLoadStartTime2=0 → 视为 0 刚从窗口内开始）
+                long elapsed = pageLoadStartTime2 == 0L
+                        ? 0L
+                        : System.currentTimeMillis() - pageLoadStartTime2;
+                if (elapsed < ANIMAL_MAX_SHOW_MS) {
                     startLoadingAnimal();
                 } else {
                     stopLoadingAnimal();
+                }
+            } else {
+                stopLoadingAnimal();
+            }
+
+            if (DataManager.getInstance().getSettings().isShowProgressbar() || currently_reloading) {
+                if (progressBar.getVisibility() == ProgressBar.GONE && progress < 100) {
+                    progressBar.setVisibility(ProgressBar.VISIBLE);
                 }
 
                 // 平滑过渡（150ms），避免进度跳变
@@ -2022,6 +2103,8 @@ public class WebViewActivity extends AppCompatActivity {
             pageLoadFinished = false;
             lastProgress = 0;
             lastProgressTime = System.currentTimeMillis();
+            // 加载动画计时起点（短暂显示窗口判定）
+            pageLoadStartTime2 = System.currentTimeMillis();
             scheduleBlankScreenCheck();
             // 统计埋点：记录加载开始时间
             pageLoadStartTime = System.currentTimeMillis();
