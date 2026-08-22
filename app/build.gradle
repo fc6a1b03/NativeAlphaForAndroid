@@ -119,6 +119,8 @@ dependencies {
     implementation libs.vico.compose.m3
     // 快捷方式对话框 favicon 加载进度圈（保留）
     implementation 'com.mikhaellopez:circularprogressbar:3.1.0'
+    // Markdown 渲染（更新内容 GitHub release notes 支持 md）
+    implementation libs.markwon
 
     // 测试
     testImplementation libs.junit
