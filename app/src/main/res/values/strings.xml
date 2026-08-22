@@ -271,6 +271,7 @@
     <string name="menu_shortcuts">Shortcuts</string>
     <string name="menu_close">Close</string>
     <string name="menu_session">Sessions</string>
+    <string name="session_add">Add</string>
     <string name="menu_new_tab">New session</string>
     <string name="menu_delete_tab">Delete session</string>
     <string name="menu_switch_tab">Switch session</string>

@@ -765,12 +765,12 @@ public class WebViewActivity extends AppCompatActivity {
     private void showSessionSwitchDialog() {
         if (webapp == null) return;
         int count = Math.max(1, webapp.getSessionTabCount());
-        // 二级会话菜单：列表切换 + 新增（确认按钮）+ 删除当前（负按钮）
+        // 二级会话菜单（简约）：列表切换 + "新增"；多会话才显示"删除"
         String[] items = new String[count];
         for (int i = 0; i < count; i++) {
             items[i] = "会话 " + (i + 1) + (i == webappTabIndex ? "（当前）" : "");
         }
-        new AlertDialog.Builder(this)
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
                 .setTitle(getString(R.string.menu_session))
                 .setItems(items, (dialog, which) -> {
                     if (which != webappTabIndex) {
@@ -778,11 +778,12 @@ public class WebViewActivity extends AppCompatActivity {
                         WebViewLauncher.startWebViewById(webappID, which, this);
                     }
                 })
-                // 新增会话（确认恢复对话窗）
-                .setPositiveButton(getString(R.string.menu_new_tab), (d, w) -> addNewSessionTab())
-                // 删除当前会话（确认后删）
-                .setNegativeButton(getString(R.string.menu_delete_tab), (d, w) -> deleteCurrentSessionTab())
-                .show();
+                .setPositiveButton(R.string.session_add, (d, w) -> addNewSessionTab());
+        // 单会话不显示删除（至少保留一个）
+        if (count > 1) {
+            b.setNegativeButton(R.string.delete, (d, w) -> deleteCurrentSessionTab());
+        }
+        b.show();
     }
 
     /** 删除会话：会话数-1，销毁重建到第一个会话（保留目标快照） */

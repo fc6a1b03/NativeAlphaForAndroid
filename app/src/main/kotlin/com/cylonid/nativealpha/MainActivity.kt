@@ -36,6 +36,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         // 状态栏/虚拟键跟随主题（切换主题后刷新颜色）
         ThemeUtils.applySystemBarColors(this)
+        // 记录当前主题（onResume 对比用：变化才 recreate，首次不重建）
+        lastAppliedThemeId = DataManager.getInstance().settings.themeId
 
         entryPointReached(this)
 
@@ -126,12 +128,21 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         // 数据可能在设置页被修改，重新加载后刷新 Compose 状态
         DataManager.getInstance().loadAppData()
+        // 主题即时切换（像微信）：onResume 对比 themeId，变化则 recreate（系统栏/状态栏即时刷新）
+        val themeId = DataManager.getInstance().settings.themeId
+        if (lastAppliedThemeId != themeId) {
+            lastAppliedThemeId = themeId
+            recreate()
+        }
         refreshTrigger++
     }
 
     companion object {
         /** 用于触发 Compose 列表刷新的计数器（onResume 时自增）——必须用 Compose state，普通变量无法触发重组 */
         var refreshTrigger: Int by mutableIntStateOf(0)
+        /** 主题即时切换：记录上次应用的 themeId（onResume 对比，变化 recreate） */
+        @Volatile
+        var lastAppliedThemeId: Int = -1
         /** 崩溃提示去重：记录最近提示过的崩溃时间戳（同次崩溃只弹一次） */
         private const val PREFS_CRASH_PROMPT = "crash_prompt"
         private const val KEY_LAST_PROMPTED_CRASH = "last_prompted_crash_time"
