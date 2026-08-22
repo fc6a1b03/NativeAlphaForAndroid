@@ -60,6 +60,30 @@ object WebAppDataFetcher {
         return foundIcons
     }
 
+    /**
+     * 判断标题是否为"挑战页/占位页脏标题"（Cloudflare "Just a moment..."、
+     * 安全验证页等）。此类标题不应该被当成站点真实名称回填——抓取失败时
+     * 宁可不填（保持用户输入），也不要硬塞英文挑战文案。
+     */
+    @JvmStatic
+    fun isChallengeTitle(title: String): Boolean {
+        val t = title.trim()
+        if (t.isEmpty()) return false
+        // "Just a moment..."：Cloudflare 反爬挑战页的标准标题
+        return t.equals("Just a moment...", ignoreCase = true) ||
+                t.equals("Just a moment", ignoreCase = true) ||
+                t.startsWith("Attention Required", ignoreCase = true) ||
+                t.startsWith("Access Denied", ignoreCase = true) ||
+                t.startsWith("Access denied", ignoreCase = true) ||
+                t.startsWith("One more step", ignoreCase = true) ||
+                t.startsWith("请稍候", ignoreCase = true) ||
+                t.startsWith("验证", ignoreCase = true) ||
+                t.startsWith("安全验证", ignoreCase = true) ||
+                t.startsWith("人机验证", ignoreCase = true) ||
+                // 常见的简短占位：无关内容无意义标题
+                t.length <= 3 && (t == "404" || t == "403" || t == "502" || t == "503")
+    }
+
     /** 抓取站点元数据；所有 IO 在调用线程执行（调用方负责切后台线程） */
     @JvmStatic
     fun fetch(baseUrl: String, userAgent: String = Const.DESKTOP_USER_AGENT): Result {
@@ -72,7 +96,9 @@ object WebAppDataFetcher {
             var doc = Jsoup.connect(currentUrl)
                 .ignoreHttpErrors(true)
                 .userAgent(userAgent)
+                .header("Accept-Language", LocaleUtils.acceptLanguage)
                 .followRedirects(true)
+                .timeout(CONNECT_TIMEOUT_MS)
                 .get()
 
             // Step 1: META refresh 重定向
@@ -84,7 +110,7 @@ object WebAppDataFetcher {
                 val redirectUrl = if (m.matches()) m.group(1) else null
                 if (redirectUrl != null) {
                     currentUrl = redirectUrl
-                    doc = Jsoup.connect(currentUrl).followRedirects(true).get()
+                    doc = Jsoup.connect(currentUrl).followRedirects(true).timeout(CONNECT_TIMEOUT_MS).get()
                 }
             }
 
@@ -93,7 +119,7 @@ object WebAppDataFetcher {
             if (manifest.isNotEmpty()) {
                 val mf = manifest.first()!!
                 val data = Jsoup.connect(mf.absUrl("href"))
-                    .ignoreContentType(true).execute().body()
+                    .ignoreContentType(true).timeout(CONNECT_TIMEOUT_MS).execute().body()
                 val json = JSONObject(data)
 
                 try {
@@ -206,6 +232,8 @@ object WebAppDataFetcher {
             val url = URL(strUrl)
             val con = url.openConnection() as HttpURLConnection
             try {
+                con.connectTimeout = CONNECT_TIMEOUT_MS
+                con.readTimeout = CONNECT_TIMEOUT_MS
                 val bytes = con.inputStream.readBytes()
                 var bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                 if (bitmap == null) {
@@ -219,6 +247,9 @@ object WebAppDataFetcher {
             null
         }
     }
+
+    /** 网络连接/读取超时（ms）。挑战站/无响应站快速失败，避免添加流程卡死 */
+    private const val CONNECT_TIMEOUT_MS = 10000
 
     /** 可接受的最小图标宽度（px）。16x16 是 HTML 规范 favicon 下限。 */
     private const val MIN_ACCEPTABLE_WIDTH = 16

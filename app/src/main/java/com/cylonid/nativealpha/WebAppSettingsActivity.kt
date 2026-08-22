@@ -64,6 +64,14 @@ class WebAppSettingsActivity : AppCompatActivity() {
     }
 
     private fun save(modified: WebApp) {
+        // 图标统一源防护：ShortcutDialogFragment（重新创建快捷方式弹窗）操作的是
+        // 原对象 webapp（快捷方式图标/名称回填会更新其 iconPath），
+        // 保存时必须把原对象的最新 iconPath 同步到 modified——否则用旧副本覆盖
+        // 会把弹窗刚获取的图标抹掉（列表图标回退字母——重开丢失根因之一）。
+        val originIconPath = webapp?.iconPath
+        if (modified.iconPath == null && originIconPath != null) {
+            modified.iconPath = originIconPath
+        }
         if (isGlobalWebApp) {
             DataManager.getInstance().settings.globalWebApp = modified
             DataManager.getInstance().saveGlobalSettings()

@@ -48,4 +48,17 @@
         <item name="colorSurfaceContainerHigh">@color/md_theme_surfaceContainerHigh</item>
         <item name="colorSurfaceContainerHighest">@color/md_theme_surfaceContainerHighest</item>
     </style>
+
+    <!-- 深色主题固定色板（强制深色模式，不依赖 values-night 自动解析）。
+         加载页（splash）背景深色：避免晚上启动闪瞎——主题适配加载页。 -->
+    <style name="AppTheme.Launcher">
+        <item name="android:windowBackground">@drawable/launch_screen_dark</item>
+        <!-- Android 12+ 系统 splash：深色背景 -->
+        <item name="android:windowSplashScreenBackground">#1F1F25</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_transparent</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#1F1F25</item>
+    </style>
+
+    <style name="AppTheme.WebView">
+    </style>
 </resources>

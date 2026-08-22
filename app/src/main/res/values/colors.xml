@@ -46,6 +46,7 @@
     <color name="md_theme_surfaceContainerHigh">#E9E7F0</color>
     <color name="md_theme_surfaceContainerHighest">#E4E1EA</color>
     <color name="webnative_splash_bg">#4F46E5</color>
+    <color name="webnative_splash_dark_bg">#1F1F25</color>
     <color name="colorSignature">#4A47D6</color>
     <color name="webnative_progress_track">#334A47D6</color>
 </resources>

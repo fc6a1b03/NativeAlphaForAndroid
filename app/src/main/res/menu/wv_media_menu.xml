@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    app:showAsAction="always">
+
+    <!-- 长按图片/视频弹出的统一操作菜单（media 长按） -->
+    <group android:id="@+id/cmGroupMedia">
+        <item
+            android:id="@+id/cmMediaSaveImage"
+            android:title="@string/save_image"
+            android:iconTint="?attr/colorOnSurface"
+            android:icon="@drawable/ic_baseline_content_copy_24" />
+
+        <item
+            android:id="@+id/cmMediaSaveVideo"
+            android:title="@string/save_video"
+            android:iconTint="?attr/colorOnSurface"
+            android:icon="@drawable/ic_baseline_share_24" />
+
+        <item
+            android:id="@+id/cmMediaCancel"
+            android:title="@string/cancel"
+            android:visible="false"
+            tools:ignore="HardcodedText" />
+    </group>
+</menu>

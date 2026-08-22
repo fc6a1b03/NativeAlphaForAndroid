@@ -17,8 +17,9 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     var isOpenUrlExternal = false
     var isAllowCookies = true
     var isAllowThirdPartyCookies = false
-    /** 登录态隔离：true 时该 WebApp 独立 Cookie 会话（切换时保存/恢复，不与其他站共享） */
-    var isIsolatedSession = false
+    /** 登录态隔离：true 时该 WebApp 独立 Cookie 会话（切换时保存/恢复，不与其他站共享）。
+     *  默认 true——多标签会话之间本来就应隔离登录态，无需用户单独开启 */
+    var isIsolatedSession = true
     /** 多标签会话数（隔离模式下：同一 WebApp 多个独立会话，各自 Cookie 独立）。
      *  Gson 旧数据可能为 0，getter 归一化到最少 1（getSessionTabCount/set 配套） */
     var sessionTabCount: Int = 1
