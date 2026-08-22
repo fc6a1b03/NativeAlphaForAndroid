@@ -347,6 +347,13 @@ public class ShortcutDialogFragment extends DialogFragment  {
             webapp.setTitle(final_title);
         }
         webapp.setDisplayName(final_title);
+        // 图标回填（旧数据兼容）：重新创建快捷方式 = 重新获取图标 → 写回 iconPath，
+        // 列表图标即时用新图标（之前只给系统快捷方式，列表不更新）
+        if (bitmap != null) {
+            com.cylonid.nativealpha.util.WebAppIconManager.INSTANCE.saveIcon(
+                requireActivity(), webapp, bitmap
+            );
+        }
         DataManager.getInstance().saveWebAppData();
 
         if (ShortcutManagerCompat.isRequestPinShortcutSupported(requireActivity())) {

@@ -70,12 +70,11 @@ fun WebAppStatsScreen(
 
     // 加载该站错误日志（reloadKey 变化时重载——清理后触发刷新）
     var reloadKey by remember { mutableStateOf(0) }
-    // 分组展开状态（key=错误类型；LaunchedEffect 加载后预填全部=默认全展开，点击正常开/关）
+    // 分组展开状态（key=错误类型；默认全部收起——用户点击展开/收起）
     var expandedGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
     LaunchedEffect(webapp.ID, reloadKey) {
         pageErrors = PageErrorRepository.getForSite(context, webapp.ID)
-        // 默认全部展开（预填所有 type）
-        expandedGroups = pageErrors.map { it.type }.toSet()
+        // 默认折叠（收起）：不预填 expandedGroups
     }
 
     // 计算统计指标（0 值显示「—」）
