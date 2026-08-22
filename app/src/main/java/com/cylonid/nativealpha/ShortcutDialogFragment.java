@@ -28,6 +28,7 @@ import com.cylonid.nativealpha.model.WebApp;
 import com.cylonid.nativealpha.util.App;
 import com.cylonid.nativealpha.util.Const;
 import com.cylonid.nativealpha.util.IconGenerator;
+import com.cylonid.nativealpha.util.LocaleUtils;
 import com.cylonid.nativealpha.util.NotificationUtils;
 import com.cylonid.nativealpha.util.ShortcutIconUtils;
 import com.cylonid.nativealpha.util.WebAppDataFetcher;
@@ -201,7 +202,9 @@ public class ShortcutDialogFragment extends DialogFragment  {
 
         try {
             //Connect to the website
-            Document doc = Jsoup.connect(base_url).ignoreHttpErrors(true).userAgent(Const.DESKTOP_USER_AGENT).followRedirects(true).get();
+            Document doc = Jsoup.connect(base_url).ignoreHttpErrors(true).userAgent(Const.DESKTOP_USER_AGENT)
+                    .header("Accept-Language", LocaleUtils.getAcceptLanguage())
+                    .followRedirects(true).get();
 
             //Step 1: Check for META Redirect
             Elements metaTags = doc.select("meta[http-equiv=refresh]");
@@ -395,7 +398,9 @@ public class ShortcutDialogFragment extends DialogFragment  {
 
     private void setShortcutTitle(String shortcut_title) {
         if (shortcut_title != null) {
-            if (!shortcut_title.equals(""))
+            // 过滤挑战页/占位脏标题（Cloudflare "Just a moment..." 等）——
+            // 宁可不回填也不硬塞英文挑战文案（与 AddWebApp 的 isChallengeTitle 一致）
+            if (!shortcut_title.equals("") && !WebAppDataFetcher.isChallengeTitle(shortcut_title))
                 uiTitle.setText(shortcut_title);
 
         }

@@ -39,6 +39,17 @@
             android:progressDrawable="@drawable/webnative_progressbar"
             android:background="@android:color/transparent"
             tools:ignore="UnusedAttribute" />
+        <!-- 加载页动画：可爱的动物走路动画（页面加载时显示，加载完成隐藏） -->
+        <ImageView
+            android:id="@+id/loadingAnimal"
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:layout_gravity="center"
+            android:src="@drawable/animal_walk_anim"
+            android:visibility="gone"
+            android:contentDescription="@string/loading"
+            android:importantForAccessibility="no"
+            tools:ignore="UnusedAttribute" />
         <TextView
             android:id="@+id/anchorCenterScreen"
             android:layout_width="wrap_content"

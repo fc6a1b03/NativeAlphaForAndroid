@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ 深色主题 SplashScreen：深色背景（避免晚上启动闪瞎） -->
+    <style name="AppTheme.Launcher" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#1F1F25</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_transparent</item>
+        <item name="windowSplashScreenIconBackgroundColor">#1F1F25</item>
+        <item name="postSplashScreenTheme">@style/AppTheme</item>
+    </style>
+</resources>

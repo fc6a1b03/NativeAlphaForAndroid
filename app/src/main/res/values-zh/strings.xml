@@ -6,6 +6,7 @@
     <string name="use_three_finger_swipes_to_switch_between_web_apps_experimental">使用三指滑动在 Web App 之间切换（实验性）</string>
     <string name="select_ui_mode">选择界面模式</string>
     <string name="save">保存</string>
+    <string name="loading">加载中…</string>
     <string name="loading_icon_and_website_title">正在加载图标和网站标题…</string>
     <!-- 添加向导 -->
     <string name="add_step_1">第 1 步 · 输入网站地址</string>
@@ -156,6 +157,8 @@
     <string name="allow_media_playback_in_background">允许后台媒体播放</string>
     <string name="start_url">起始 URL</string>
     <string name="more">更多</string>
+    <string name="save_image">保存图片</string>
+    <string name="save_video">保存视频</string>
     <string name="close_web_app">关闭 Web App</string>
     <string name="to_main_menu">主菜单</string>
     <string name="cancel">取消</string>
@@ -275,6 +278,7 @@
     <string name="menu_shortcuts">快捷键</string>
     <string name="menu_close">关闭</string>
     <string name="menu_session">会话</string>
+    <string name="session_isolated_hint">会话之间登录态隔离：每个会话独立保存登录状态。</string>
     <string name="session_add">新增</string>
     <string name="menu_new_tab">新增会话</string>
     <string name="menu_delete_tab">删除会话</string>

@@ -58,6 +58,16 @@ object WebAppIconManager {
         }
     }
 
+    /** 站点根 favicon.ico URL（从 baseUrl 提取协议+host） */
+    private fun hostFor(baseUrl: String): String = try {
+        java.net.URI(baseUrl).let { "${it.scheme}://${it.host}/favicon.ico" }
+    } catch (e: Exception) {
+        "$baseUrl/favicon.ico"
+    }
+
+    /** favicon 最小边长（px）：过滤 1x1 占位符等异常图 */
+    private const val MIN_FAVICON_PX = 16
+
     /** 网站 favicon 缓存目录（列表图标 fallback：无自定义头像时显示网站图标） */
     private fun faviconDir(context: Context): File =
         File(context.cacheDir, "favicons").apply { if (!exists()) mkdirs() }
@@ -66,31 +76,54 @@ object WebAppIconManager {
      * 加载/拉取网站 favicon（列表图标用）：优先缓存；无则拉站点根 /favicon.ico
      * （站点直连，多数站可达；Kimi/百度等）失败 fallback Google s2。
      * 网络在调用方协程/线程处理（本方法同步执行，需 IO 上下文）。
+     * 一旦拉取成功：**持久化到 iconPath（filesDir 永久存储）+ 缓存**——
+     * 列表图标稳定显示（不再依赖 cacheDir 易被系统清理，重启不丢）。
      * 失败返回 null（调用方 fallback 字母图标）。
      */
     fun loadFavicon(context: Context, webApp: WebApp): Bitmap? {
         val domain = try { java.net.URI(webApp.baseUrl).host } catch (e: Exception) { null }
             ?: return null
         val cacheFile = File(faviconDir(context), "$domain.png")
-        // 缓存命中直接读
+        // 缓存命中直接读（成功后 persistent；失败标记不存图片，每次重试防新图标）
         if (cacheFile.exists()) {
-            return try { BitmapFactory.decodeFile(cacheFile.absolutePath) } catch (e: Exception) { null }
+            val cached = try { BitmapFactory.decodeFile(cacheFile.absolutePath) } catch (e: Exception) { null }
+            if (cached != null) return cached
+            // 缓存文件损坏：删掉重拉
+            cacheFile.delete()
         }
-        // 拉取：先站点 favicon.ico，再 Google s2 兜底
+        // 拉取候选（多源冗余，国内/代理环境至少一个可达）：
+        // 1. 站点根 /favicon.ico（本地直连，最快）
+        // 2. Google s2（境外站兜底，代理环境可达）
+        // 3. icon.horse（第三方聚合服务，冗余）
+        // 4. DuckDuckGo icons（第三方聚合服务，冗余）
         val candidates = listOf(
-            java.net.URI(webApp.baseUrl).let { "${it.scheme}://${it.host}/favicon.ico" },
-            "https://www.google.com/s2/favicons?domain=$domain&sz=112"
+            hostFor(webApp.baseUrl),
+            "https://www.google.com/s2/favicons?domain=$domain&sz=112",
+            "https://icon.horse/icon/$domain",
+            "https://icons.duckduckgo.com/ip3/$domain.ico"
         )
         for (url in candidates) {
             try {
                 val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 5000
-                conn.readTimeout = 5000
+                conn.connectTimeout = 4000
+                conn.readTimeout = 4000
                 conn.setRequestProperty("User-Agent", "WebNative-Favicon")
                 if (conn.responseCode == 200) {
-                    val bmp = BitmapFactory.decodeStream(conn.inputStream)
-                    bmp?.let { FileOutputStream(cacheFile).use { out -> it.compress(Bitmap.CompressFormat.PNG, 90, out) } }
-                    if (bmp != null) return bmp
+                    // 先读完整 bytes（流只能读一次），PNG/JPEG 直接解，ICO 用容器解析器
+                    val bytes = conn.inputStream.readBytes()
+                    var bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    if (bmp == null) {
+                        bmp = WebAppDataFetcher.decodeIco(bytes)
+                    }
+                    // 合法性校验：像素过小的异常图（如 1x1 占位）跳过
+                    if (bmp != null && bmp.width >= MIN_FAVICON_PX && bmp.height >= MIN_FAVICON_PX) {
+                        // 写缓存（cacheDir）+ 持久化 iconPath（filesDir 永久）
+                        FileOutputStream(cacheFile).use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 90, out) }
+                        saveIcon(context, webApp, bmp)
+                        // 持久化 iconPath 到 DataManager（防重启丢失）
+                        com.cylonid.nativealpha.model.DataManager.getInstance().saveWebAppData()
+                        return bmp
+                    }
                 }
             } catch (e: Exception) {
                 // 尝试下一个候选

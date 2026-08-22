@@ -23,6 +23,7 @@ import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -109,6 +110,7 @@ public class WebViewActivity extends AppCompatActivity {
     //Constants for touchlistener
     private static final int NONE = 0;
     private static final int SWIPE = 1;
+    private static final int SINGLE_FINGER = 2;
     private static final int TRESHOLD = 100;
 
     /**
@@ -156,10 +158,41 @@ public class WebViewActivity extends AppCompatActivity {
             + "}"
             + "}"
             + "return 'blank';})()";
+
+    /**
+     * media 长按检测 JS：返回长按点命中的 img/video 的绝对 URL（src/currentSrc），
+     * 没命中返回 'null'。供长按图片/视频弹「保存图片/保存视频」菜单用。
+     * 与 LONGPRESS_JS 的坐标换算保持一致（devicePixelRatio + 视口缩放）。
+     */
+    private static final String MEDIA_LONGPRESS_JS =
+            "(function(){"
+            + "var px=%1$f,py=%2$f;"
+            + "var dpr=window.devicePixelRatio||1;"
+            + "var innerW=window.innerWidth||document.documentElement.clientWidth;"
+            + "var outerW=window.outerWidth||innerW;"
+            + "var scale=dpr*outerW/innerW;"
+            + "if(!(scale>0)||scale===1){scale=1;}"
+            + "var x=px/scale,y=py/scale;"
+            + "var e=document.elementFromPoint(x,y);"
+            + "if(!e)return 'null';"
+            + "var te=e;"
+            + "while(te&&te!==document.body){"
+            + "var tt=te.tagName?te.tagName.toLowerCase():'';"
+            + "if(tt==='img'){var s=te.currentSrc||te.src;"
+            + "if(s&&s.indexOf('data:')!==0)return s;"
+            + "return 'null';}"
+            + "if(tt==='video'){var v=te.currentSrc||te.src;"
+            + "if(v&&v.indexOf('data:')!==0)return v;"
+            + "return 'null';}"
+            + "te=te.parentElement;"
+            + "}"
+            + "return 'null';})()";
+
     int webappID = -1;
     int webappTabIndex = 0;
     private WebView wv;
     private ProgressBar progressBar;
+    private android.widget.ImageView loadingAnimal;
     private boolean currently_reloading = true;
     private GeolocationPermissions.Callback mGeoPermissionRequestCallback = null;
     private String mGeoPermissionRequestOrigin = null;
@@ -246,6 +279,7 @@ public class WebViewActivity extends AppCompatActivity {
         String url = webapp.getBaseUrl();
 
         progressBar = findViewById(R.id.progressBar);
+        loadingAnimal = findViewById(R.id.loadingAnimal);
 
         wv = findViewById(R.id.webview);
 
@@ -458,28 +492,112 @@ public class WebViewActivity extends AppCompatActivity {
             private void checkBlankAndShowMenu(float px, float py) {
                 if (isFinishing() || wv == null) return;
                 final String js = String.format(Locale.US, LONGPRESS_JS, px, py);
+                final String mediaJs = String.format(Locale.US, MEDIA_LONGPRESS_JS, px, py);
                 wv.evaluateJavascript(js, value -> {
                     String type = value != null ? value.replace("\"", "") : "blank";
                     if ("null".equals(type) || type.isEmpty()) type = "blank";
                     android.util.Log.d("LongPress", "doubleTap jsType=" + type);
-                    if ("blank".equals(type) && !isFinishing() && wv != null) {
-                        runOnUiThread(() -> {
-                            if (wv != null) {
-                                // 双击弹菜单时收起输入法：blur 失焦（键盘必收且小菜单
-                                // 关闭后不弹回）+ hideSoftInput 兜底
-                                wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
-                                // 输入框失焦：键盘必然收起且不再弹
-                                wv.evaluateJavascript(
-                                        "var el=document.activeElement;"
-                                        + "if(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.isContentEditable)){el.blur();}",
-                                        null);
+                    final boolean isBlank = "blank".equals(type);
+                    if (isBlank && !isFinishing() && wv != null) {
+                        // 空白检测通过，再探测是否命中 media（双击图片时弹保存菜单而非小菜单）
+                        wv.evaluateJavascript(mediaJs, mediaValue -> {
+                            String mediaUrl = mediaValue != null ? mediaValue.replace("\"", "") : "null";
+                            android.util.Log.d("LongPress", "doubleTap mediaUrl=" + mediaUrl);
+                            if ("null".equals(mediaUrl) || mediaUrl.isEmpty() || !isBlank) {
+                                // 非 media（空白/文本）→ 走原有小菜单
+                                runOnUiThread(() -> {
+                                    if (wv != null) {
+                                        // 双击弹菜单时收起输入法：blur 失焦（键盘必收且小菜单
+                                        // 关闭后不弹回）+ hideSoftInput 兜底
+                                        wv.evaluateJavascript("window.getSelection().removeAllRanges();", null);
+                                        // 输入框失焦：键盘必然收起且不再弹
+                                        wv.evaluateJavascript(
+                                                "var el=document.activeElement;"
+                                                + "if(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.isContentEditable)){el.blur();}",
+                                                null);
+                                    }
+                                    // 收起输入法（兜底，blur 已处理主要路径）
+                                    hideSoftKeyboard();
+                                    showWebViewMenuSheet();
+                                });
+                            } else {
+                                // 命中图片/视频 → 弹「保存图片/保存视频」菜单
+                                final String url = mediaUrl;
+                                runOnUiThread(() -> showMediaSaveMenu(url));
                             }
-                            // 收起输入法（兜底，blur 已处理主要路径）
-                            hideSoftKeyboard();
-                            showWebViewMenuSheet();
                         });
                     }
                 });
+            }
+
+            /** 长按/双击命中图片或视频：弹统一保存菜单（保存图片/保存视频） */
+            private void showMediaSaveMenu(String mediaUrl) {
+                if (isFinishing() || wv == null || mediaUrl == null) return;
+                View center = findViewById(R.id.anchorCenterScreen);
+                PopupMenu popup = IconPopupMenuHelper.getMenu(center, R.menu.wv_media_menu, WebViewActivity.this);
+                // 命中类型判断：video 标签 → 保存视频；否则保存图片
+                boolean isVideo = mediaUrl.contains(".mp4") || mediaUrl.contains(".webm")
+                        || mediaUrl.contains(".m3u8") || mediaUrl.contains(".ogg")
+                        || mediaUrl.contains(".mov") || mediaUrl.contains(".mkv");
+                popup.getMenu().findItem(R.id.cmMediaSaveImage).setVisible(!isVideo);
+                popup.getMenu().findItem(R.id.cmMediaSaveVideo).setVisible(isVideo);
+                popup.setOnMenuItemClickListener(menuItem -> {
+                    int id = menuItem.getItemId();
+                    if (id == R.id.cmMediaSaveImage || id == R.id.cmMediaSaveVideo) {
+                        downloadMedia(mediaUrl);
+                        return true;
+                    }
+                    return false;
+                });
+                popup.show();
+            }
+
+            /** 保存图片/视频：复用 DownloadManager（与全站下载一致的统一处理） */
+            private void downloadMedia(String url) {
+                if (url == null || url.isEmpty()) {
+                    NotificationUtils.showToast(WebViewActivity.this,
+                            getString(R.string.file_download), Toast.LENGTH_SHORT);
+                    return;
+                }
+                String dl_url = url;
+                if (dl_url.startsWith("blob:")) {
+                    dl_url = dl_url.replace("blob:", "");
+                    try {
+                        dl_url = URLDecoder.decode(dl_url, "UTF-8");
+                    } catch (UnsupportedEncodingException ignored) {
+                    }
+                }
+                try {
+                    DownloadManager.Request request = new DownloadManager.Request(Uri.parse(dl_url));
+                    if (dl_url.endsWith(".mp4") || dl_url.endsWith(".webm") || dl_url.endsWith(".mov")
+                            || dl_url.endsWith(".ogg") || dl_url.endsWith(".mkv") || dl_url.endsWith(".m3u8")) {
+                        request.setMimeType("video/*");
+                    } else {
+                        request.setMimeType("image/*");
+                    }
+                    String file_name = Utility.getFileNameFromDownload(dl_url, null, null);
+                    if (file_name == null || file_name.isEmpty()) {
+                        file_name = "media_" + System.currentTimeMillis();
+                        if (dl_url.endsWith(".mp4") || dl_url.endsWith(".webm") || dl_url.endsWith(".mov")
+                                || dl_url.endsWith(".ogg") || dl_url.endsWith(".mkv") || dl_url.endsWith(".m3u8")) {
+                            file_name += ".mp4";
+                        } else {
+                            file_name += ".png";
+                        }
+                    }
+                    request.setTitle(file_name);
+                    request.allowScanningByMediaScanner();
+                    request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, file_name);
+                    DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                    if (dm != null) {
+                        dm.enqueue(request);
+                        NotificationUtils.showInfoSnackbar(WebViewActivity.this, getString(R.string.file_download), Snackbar.LENGTH_SHORT);
+                    }
+                } catch (Exception e) {
+                    NotificationUtils.showToast(WebViewActivity.this,
+                            getString(R.string.file_download), Toast.LENGTH_SHORT);
+                }
             }
 
             /** 收起软键盘（双击空白弹小菜单时调用，避免输入法和小菜单打架） */
@@ -525,8 +643,13 @@ public class WebViewActivity extends AppCompatActivity {
                             // 拦截/恢复机制是实机「输入法反复弹收」的根因，已删除）
                         }
                         // 单指按下：记录起始坐标（供滑动阈值判断）
+                        // stopX/stopY 同时初始化（防 POINTER_UP 用旧值/0 误判）
                         startX = x;
                         startY = y;
+                        stopX = x;
+                        stopY = y;
+                        // 单指手势：仅单指（未进入多指）时启用
+                        mode = SINGLE_FINGER;
                         return false;
 
                     case MotionEvent.ACTION_POINTER_DOWN:
@@ -542,9 +665,11 @@ public class WebViewActivity extends AppCompatActivity {
                     case MotionEvent.ACTION_POINTER_UP:
                         // This happens when you release the second finger
                         mode = NONE;
+                        // release 前指针数（POINTER_UP 时 getPointerCount 已减 1）
+                        int prevCount = event.getPointerCount() + 1;
                         if (Math.abs(startX - stopX) > TRESHOLD) {
                             if (startX > stopX) {
-                                if (event.getPointerCount() == 3 && DataManager.getInstance().getSettings().isThreeFingerMultitouch()) {
+                                if (prevCount == 3 && DataManager.getInstance().getSettings().isThreeFingerMultitouch()) {
                                     WebViewLauncher.startWebView(DataManager.getInstance().getPredecessor(webappID), WebViewActivity.this);
                                     finish();
                                 } else if (DataManager.getInstance().getSettings().isTwoFingerMultitouch()) {
@@ -552,7 +677,7 @@ public class WebViewActivity extends AppCompatActivity {
                                         wv.goForward();
                                 }
                             } else {
-                                if (event.getPointerCount() == 3 && DataManager.getInstance().getSettings().isThreeFingerMultitouch()) {
+                                if (prevCount == 3 && DataManager.getInstance().getSettings().isThreeFingerMultitouch()) {
                                     WebViewLauncher.startWebView(DataManager.getInstance().getSuccessor(webappID), WebViewActivity.this);
                                     finish();
                                 } else if (DataManager.getInstance().getSettings().isTwoFingerMultitouch())
@@ -569,18 +694,38 @@ public class WebViewActivity extends AppCompatActivity {
                             return true;
                         }
                     case MotionEvent.ACTION_UP:
-                        // 抬起：重置滑动状态（无拦截/缓存逻辑——单击输入框完全交还 WebView）
+                        // 抬起：重置滑动状态。
+                        // 单指左右滑手势（竖屏单手控制前进/后退）：
+                        // - 右滑（stopX > startX）= 后退（回上一个页面，与返回一致）
+                        // - 左滑（stopX < startX）= 前进（有历史才执行）
+                        // 阈值 100px 是竖屏单手安全距离（TRESHOLD），
+                        // 要求水平位移 > 垂直位移（避免滚动页面误触）。
+                        if (mode == SINGLE_FINGER && event.getPointerCount() == 1) {
+                            float dx = stopX - startX;
+                            float dy = Math.abs(stopY - startY);
+                            if (Math.abs(dx) > TRESHOLD && Math.abs(dx) > dy * 1.2f) {
+                                if (dx > 0) {
+                                    // 右滑后退（与系统返回一致），先处理 WebView 历史再退出
+                                    onBackPressed();
+                                } else if (dx < 0) {
+                                    if (wv.canGoForward())
+                                        wv.goForward();
+                                }
+                                lastDownTime = 0; // 滑动后清除双击状态
+                                return true;
+                            }
+                        }
                         mode = NONE;
                         return false;
 
                     case MotionEvent.ACTION_MOVE:
-                        if (mode == SWIPE) {
-                            stopX = event.getX(0);
-                            stopY = event.getY(0);
-                        }
+                        // 无论单指/多指都记录当前坐标（stopX/stopY 保持最新，POINTER_UP/UP 用最新值）
+                        // 单指非滑动（mode==单指）也更新：防 POINTER_UP 用旧值误判
+                        stopX = event.getX(0);
+                        stopY = event.getY(0);
                         // 移动超阈值（滑动/拖动滚动）：不是双击，清除双击检测状态
-                        if (Math.abs(event.getX(0) - startX) > TRESHOLD
-                                || Math.abs(event.getY(0) - startY) > TRESHOLD) {
+                        if (Math.abs(stopX - startX) > TRESHOLD
+                                || Math.abs(stopY - startY) > TRESHOLD) {
                             lastDownTime = 0;
                         }
                         return false;
@@ -624,7 +769,17 @@ public class WebViewActivity extends AppCompatActivity {
                 }
             } else {
                 getDelegate().setLocalNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
-                wv.setBackgroundColor(Color.WHITE);
+                // 加载页背景跟随应用主题（不固定白底）：深色主题下避免加载白屏闪瞎
+                // 读当前主题 colorBackground（浅色 #FBF8FF / 深色 #131318）
+                int themeBg = Color.WHITE;
+                try {
+                    TypedValue tv = new TypedValue();
+                    if (getTheme().resolveAttribute(android.R.attr.colorBackground, tv, true)) {
+                        themeBg = tv.data;
+                    }
+                } catch (Exception ignored) {
+                }
+                wv.setBackgroundColor(themeBg);
 
                 if (isForceDarkSupported) {
                     WebSettingsCompat.setForceDark(wv.getSettings(), WebSettingsCompat.FORCE_DARK_OFF);
@@ -638,6 +793,37 @@ public class WebViewActivity extends AppCompatActivity {
             }
         }
 
+    }
+
+    /** 启动加载页动物走路动画（ImageView + AnimationDrawable） */
+    private void startLoadingAnimal() {
+        try {
+            if (loadingAnimal == null) return;
+            if (loadingAnimal.getVisibility() != View.VISIBLE) {
+                loadingAnimal.setVisibility(View.VISIBLE);
+            }
+            android.graphics.drawable.AnimationDrawable anim =
+                    (android.graphics.drawable.AnimationDrawable) loadingAnimal.getDrawable();
+            if (anim != null && !anim.isRunning()) {
+                anim.start();
+            }
+        } catch (Exception ignored) {
+            // 动画启动失败不影响主功能
+        }
+    }
+
+    /** 停止并隐藏加载页动物动画 */
+    private void stopLoadingAnimal() {
+        try {
+            if (loadingAnimal == null) return;
+            android.graphics.drawable.AnimationDrawable anim =
+                    (android.graphics.drawable.AnimationDrawable) loadingAnimal.getDrawable();
+            if (anim != null && anim.isRunning()) {
+                anim.stop();
+            }
+            loadingAnimal.setVisibility(View.GONE);
+        } catch (Exception ignored) {
+        }
     }
 
     /** 显示 Compose 底部菜单（当前页叠加，WebView 保留在后面；滑杆实时预览，关闭即保存） */
@@ -772,6 +958,7 @@ public class WebViewActivity extends AppCompatActivity {
         }
         AlertDialog.Builder b = new AlertDialog.Builder(this)
                 .setTitle(getString(R.string.menu_session))
+                .setMessage(getString(R.string.session_isolated_hint))
                 .setItems(items, (dialog, which) -> {
                     if (which != webappTabIndex) {
                         com.cylonid.nativealpha.util.CookieSessionManager.INSTANCE.saveSnapshot(this, webappID, webappTabIndex);
@@ -1334,6 +1521,7 @@ public class WebViewActivity extends AppCompatActivity {
         Map<String, String> extraHeaders = new HashMap<>();
         extraHeaders.put("DNT", "1");
         extraHeaders.put("X-REQUESTED-WITH", "");
+        extraHeaders.put("Accept-Language", LocaleUtils.getAcceptLanguage());
         if (save_data)
             extraHeaders.put("Save-Data", "on");
         return Collections.unmodifiableMap(extraHeaders);
@@ -1678,6 +1866,12 @@ public class WebViewActivity extends AppCompatActivity {
                 if (progressBar.getVisibility() == ProgressBar.GONE && progress < 100) {
                     progressBar.setVisibility(ProgressBar.VISIBLE);
                 }
+                // 加载动画：进度条显示时同步显示动物走路动画（页面加载中可见）
+                if (progress < 100 && progressBar.getVisibility() == ProgressBar.VISIBLE) {
+                    startLoadingAnimal();
+                } else {
+                    stopLoadingAnimal();
+                }
 
                 // 平滑过渡（150ms），避免进度跳变
                 progressBar.setProgress(progress, true);
@@ -1685,9 +1879,11 @@ public class WebViewActivity extends AppCompatActivity {
                 if (progress == 100) {
                     progressBar.setVisibility(ProgressBar.GONE);
                     currently_reloading = false;
+                    stopLoadingAnimal();
                 }
             }
         }
+
 
         @Override
         public void onGeolocationPermissionsShowPrompt(final String origin,
@@ -1786,6 +1982,8 @@ public class WebViewActivity extends AppCompatActivity {
             // 加载完成：取消白屏检测（避免误判）
             pageLoadFinished = true;
             cancelBlankScreenCheck();
+            // 页面加载完成：隐藏加载页动物动画
+            stopLoadingAnimal();
             // 统计埋点：主体加载耗时（started 到 finished）
             if (pageLoadStartTime > 0) {
                 StatsRecorder.INSTANCE.recordPageLoaded(webappID, System.currentTimeMillis() - pageLoadStartTime);

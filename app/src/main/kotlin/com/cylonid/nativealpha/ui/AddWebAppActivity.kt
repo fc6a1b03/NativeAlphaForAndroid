@@ -192,11 +192,16 @@ private fun AddWebAppScreen(
             } else {
                 fetchedFavicon = result.second
             }
-            if (result.first.title.isNullOrBlank()) {
-                fetchedTitle = null
+            // 标题回填：仅当抓到真实站点标题（过滤 Cloudflare 挑战页等脏值）才回填，
+            // 取不到就不动用户输入（保持 nameText 原值/空，不强行填默认文本）
+            val cleanTitle = result.first.title
+                ?.let { it.trim() }
+                ?.takeIf { it.isNotEmpty() && !WebAppDataFetcher.isChallengeTitle(it) }
+            if (cleanTitle != null) {
+                fetchedTitle = cleanTitle
+                nameText = cleanTitle
             } else {
-                fetchedTitle = result.first.title
-                nameText = result.first.title ?: ""
+                fetchedTitle = null
             }
         }
     }
@@ -229,6 +234,17 @@ private fun AddWebAppScreen(
             com.cylonid.nativealpha.util.WebAppIconManager.saveIcon(context, webapp, icon)
         }
         DataManager.getInstance().addWebsite(webapp)
+        // 兜底：favicon 直抓失败（如 Cloudflare 挑战站 linux.do）时，
+        // 再用列表同款 loadFavicon（Google s2）拉一次——成功则写回 iconPath 持久化，
+        // 解决「添加时没图标、列表却有、重启又丢」的场景。
+        if (webapp.iconPath == null) {
+            val contextLocal = context
+            scope.launch {
+                withContext(Dispatchers.IO) {
+                    com.cylonid.nativealpha.util.WebAppIconManager.loadFavicon(contextLocal, webapp)
+                }
+            }
+        }
         // 自动创建桌面快捷方式
         requestPinShortcut(webapp, customIcon ?: fetchedFavicon)
         // 返回主界面（onResume 触发刷新）

@@ -20,6 +20,22 @@ object UrlUtils {
         if (!url.startsWith("https://") && !url.startsWith("http://")) {
             url = "https://$url"
         }
+        // host 规范化：统一小写（URL host 不区分大小写，但展示/回填需一致；
+        // 避免 Uri.buildUpon 的类型推导问题，纯字符串处理 protocol://Host 段）
+        val schemeEnd = url.indexOf("://")
+        if (schemeEnd >= 0) {
+            val rest = url.substring(schemeEnd + 3)
+            val pathStart = rest.indexOf('/')
+            val hostPart = if (pathStart >= 0) rest.substring(0, pathStart) else rest
+            // host 可能带端口（host:port），仅小写 host 部分
+            val portIdx = hostPart.lastIndexOf(':')
+            val hostPure = if (portIdx > 0) hostPart.substring(0, portIdx) else hostPart
+            val portSuffix = if (portIdx > 0) hostPart.substring(portIdx) else ""
+            if (hostPure.isNotEmpty()) {
+                return url.substring(0, schemeEnd + 3) + hostPure.lowercase() + portSuffix +
+                        (if (pathStart >= 0) rest.substring(pathStart) else "")
+            }
+        }
         return url
     }
 

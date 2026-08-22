@@ -6,6 +6,7 @@
     <string name="use_three_finger_swipes_to_switch_between_web_apps_experimental">Use three-finger swipes ⇄ to switch between Web Apps (experimental)</string>
     <string name="select_ui_mode">Select UI mode</string>
     <string name="save">Save</string>
+    <string name="loading">Loading…</string>
     <string name="loading_icon_and_website_title">Loading icon and website title…</string>
     <!-- 添加向导 -->
     <string name="add_step_1">Step 1 · Enter website URL</string>
@@ -152,6 +153,8 @@
     <string name="allow_media_playback_in_background">Allow media playback in background</string>
     <string name="start_url">Start URL</string>
     <string name="more">More</string>
+    <string name="save_image">Save image</string>
+    <string name="save_video">Save video</string>
     <string name="close_web_app">Close Web App</string>
     <string name="to_main_menu">To Main Menu</string>
     <string name="cancel">Cancel</string>
@@ -271,6 +274,7 @@
     <string name="menu_shortcuts">Shortcuts</string>
     <string name="menu_close">Close</string>
     <string name="menu_session">Sessions</string>
+    <string name="session_isolated_hint">Sessions are isolated: each one keeps its own login state.</string>
     <string name="session_add">Add</string>
     <string name="menu_new_tab">New session</string>
     <string name="menu_delete_tab">Delete session</string>

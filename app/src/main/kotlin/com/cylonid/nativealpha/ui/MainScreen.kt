@@ -47,6 +47,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.produceState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -302,8 +303,16 @@ private fun WebAppCard(
             }
             val faviconState = if (customIcon == null) {
                 produceState<android.graphics.Bitmap?>(null, webApp.baseUrl) {
-                    value = withContext(Dispatchers.IO) {
-                        com.cylonid.nativealpha.util.WebAppIconManager.loadFavicon(context, webApp)
+                    // 首帧拉取；失败后延迟重试（网络恢复/慢速场景能补拉，最多 3 次）
+                    repeat(3) { attempt ->
+                        val bmp = withContext(Dispatchers.IO) {
+                            com.cylonid.nativealpha.util.WebAppIconManager.loadFavicon(context, webApp)
+                        }
+                        if (bmp != null) {
+                            value = bmp
+                            return@produceState
+                        }
+                        if (attempt < 2) delay(30_000L)
                     }
                 }.value
             } else null
