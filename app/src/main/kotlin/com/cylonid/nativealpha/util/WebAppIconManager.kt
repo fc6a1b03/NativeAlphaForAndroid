@@ -68,6 +68,9 @@ object WebAppIconManager {
     /** favicon 最小边长（px）：过滤 1x1 占位符等异常图 */
     private const val MIN_FAVICON_PX = 16
 
+    /** favicon 网络超时（ms） */
+    private const val FAVICON_TIMEOUT_MS = 4000
+
     /** 网站 favicon 缓存目录（列表图标 fallback：无自定义头像时显示网站图标） */
     private fun faviconDir(context: Context): File =
         File(context.cacheDir, "favicons").apply { if (!exists()) mkdirs() }
@@ -105,8 +108,8 @@ object WebAppIconManager {
         for (url in candidates) {
             try {
                 val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 4000
-                conn.readTimeout = 4000
+                conn.connectTimeout = FAVICON_TIMEOUT_MS
+                conn.readTimeout = FAVICON_TIMEOUT_MS
                 conn.setRequestProperty("User-Agent", "WebNative-Favicon")
                 if (conn.responseCode == 200) {
                     // 先读完整 bytes（流只能读一次），PNG/JPEG 直接解，ICO 用容器解析器

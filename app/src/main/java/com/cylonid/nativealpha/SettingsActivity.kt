@@ -20,6 +20,7 @@ import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.util.UpdateChecker
 import com.cylonid.nativealpha.ui.GlobalSettingsScreen
 import com.cylonid.nativealpha.util.Const
+import com.cylonid.nativealpha.util.MdRenderer
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.CoroutineScope
@@ -147,7 +148,7 @@ class SettingsActivity : AppCompatActivity() {
                         (24 * resources.displayMetrics.density).toInt(),
                         0
                     )
-                    text = com.cylonid.nativealpha.util.MdRenderer.render(this@SettingsActivity, notes)
+                    text = MdRenderer.render(this@SettingsActivity, notes)
                     movementMethod = android.text.method.ScrollingMovementMethod()
                 }
                 AlertDialog.Builder(this)
