@@ -195,6 +195,7 @@ public class WebViewActivity extends AppCompatActivity {
     private WebView wv;
     private ProgressBar progressBar;
     private android.widget.ImageView loadingAnimal;
+    private View loadingBg;
     /** 加载页动物动画最长显示时间（ms）：站点自带 loader/慢加载站点不长期盖住 */
     private static final long ANIMAL_MAX_SHOW_MS = 3000L;
     /** 动画显示起止计时（onProgressChanged 里判定短暂显示窗口用） */
@@ -316,6 +317,7 @@ public class WebViewActivity extends AppCompatActivity {
 
         progressBar = findViewById(R.id.progressBar);
         loadingAnimal = findViewById(R.id.loadingAnimal);
+        loadingBg = findViewById(R.id.loadingBg);
 
         wv = findViewById(R.id.webview);
 
@@ -867,10 +869,14 @@ public class WebViewActivity extends AppCompatActivity {
         }
     }
 
-    /** 启动加载页动物走路动画（ImageView + AnimationDrawable） */
+    /** 启动加载页动物走路动画（ImageView + AnimationDrawable）+ 主题背景 */
     private void startLoadingAnimal() {
         try {
             if (loadingAnimal == null) return;
+            // 主题背景同步显示：加载期 WebView 内容未渲染，铺主题色防深色白屏
+            if (loadingBg != null && loadingBg.getVisibility() != View.VISIBLE) {
+                loadingBg.setVisibility(View.VISIBLE);
+            }
             if (loadingAnimal.getVisibility() != View.VISIBLE) {
                 loadingAnimal.setVisibility(View.VISIBLE);
             }
@@ -884,9 +890,12 @@ public class WebViewActivity extends AppCompatActivity {
         }
     }
 
-    /** 停止并隐藏加载页动物动画 */
+    /** 停止并隐藏加载页动物动画 + 主题背景 */
     private void stopLoadingAnimal() {
         try {
+            if (loadingBg != null && loadingBg.getVisibility() != View.GONE) {
+                loadingBg.setVisibility(View.GONE);
+            }
             if (loadingAnimal == null) return;
             android.graphics.drawable.AnimationDrawable anim =
                     (android.graphics.drawable.AnimationDrawable) loadingAnimal.getDrawable();

@@ -39,6 +39,14 @@
             android:progressDrawable="@drawable/webnative_progressbar"
             android:background="@android:color/transparent"
             tools:ignore="UnusedAttribute" />
+        <!-- 加载页主题背景：动画显示时铺主题色底（防深色主题白屏——加载期 WebView 内容未渲染默认白） -->
+        <View
+            android:id="@+id/loadingBg"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="?android:attr/colorBackground"
+            android:visibility="gone"
+            tools:ignore="UnusedAttribute" />
         <!-- 加载页动画：可爱的动物走路动画（页面加载时显示，加载完成隐藏） -->
         <ImageView
             android:id="@+id/loadingAnimal"
