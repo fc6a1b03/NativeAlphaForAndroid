@@ -189,6 +189,21 @@ private fun AddWebAppScreen(
             isFetching = false
             if (result.second == null) {
                 fetchFailed = true
+                // 创建即失败（Cloudflare 挑战站 linux.do 等）：立即后台补拉 favicon（与列表同源，
+                // 真机可达——创建时图标直接可用，不依赖"创建完列表才有"的割裂体验）
+                val contextLocal = context
+                scope.launch {
+                    val bmp = withContext(Dispatchers.IO) {
+                        com.cylonid.nativealpha.util.WebAppIconManager.loadFavicon(
+                            contextLocal,
+                            com.cylonid.nativealpha.model.WebApp(url, -1)
+                        )
+                    }
+                    if (bmp != null && coroutineContext.isActive) {
+                        fetchedFavicon = bmp
+                        fetchFailed = false
+                    }
+                }
             } else {
                 fetchedFavicon = result.second
             }
@@ -245,8 +260,9 @@ private fun AddWebAppScreen(
                 }
             }
         }
-        // 自动创建桌面快捷方式
-        requestPinShortcut(webapp, customIcon ?: fetchedFavicon)
+        // 自动创建桌面快捷方式：图标与列表同源（resolveIcon——iconPath→favicon→字母），
+        // 桌面快捷方式与列表图标保持一致（此前用创建时抓取结果——失败则不同步）
+        requestPinShortcut(webapp)
         // 返回主界面（onResume 触发刷新）
         onBack()
     }
@@ -510,20 +526,24 @@ private fun IconPreview(bmp: android.graphics.Bitmap) {
     )
 }
 
-/** 创建桌面快捷方式（复用 ShortcutDialogFragment 的 pin 逻辑） */
-private fun requestPinShortcut(webapp: WebApp, iconBitmap: android.graphics.Bitmap?) {
+/** 创建桌面快捷方式（复用 ShortcutDialogFragment 的 pin 逻辑）。
+ *  图标与列表同源：resolveIcon（iconPath→favicon→字母渐变）——桌面快捷方式=列表图标。
+ *  网络拉取异步：先 pin（临时用当前 iconPath/字母），后台拉 favicon 成功后更新（不阻塞创建）。 */
+private fun requestPinShortcut(webapp: WebApp) {
     val context = App.getAppContext()
     val intent = WebViewLauncher.createWebViewIntent(webapp, context) ?: return
 
-    val icon = if (iconBitmap != null) {
-        IconCompat.createWithBitmap(iconBitmap)
-    } else {
-        val fallback = IconGenerator.generate(
-            webapp.title,
-            runCatching { Uri.parse(webapp.baseUrl).host }.getOrNull(),
-            192, 48
+    // 图标：优先已持久化 iconPath；无则字母（favicon 后台拉取后 resolveIcon 立即更新）
+    val icon = if (webapp.iconPath != null) {
+        val bmp = com.cylonid.nativealpha.util.WebAppIconManager.loadIcon(context, webapp)
+        if (bmp != null) IconCompat.createWithBitmap(bmp)
+        else IconCompat.createWithBitmap(
+            com.cylonid.nativealpha.util.WebAppIconManager.resolveIcon(context, webapp)
         )
-        IconCompat.createWithBitmap(fallback)
+    } else {
+        IconCompat.createWithBitmap(
+            com.cylonid.nativealpha.util.WebAppIconManager.resolveIcon(context, webapp)
+        )
     }
 
     val title = webapp.title
