@@ -31,8 +31,8 @@ android {
         applicationId "com.cylonid.nativealpha"
         minSdk libs.versions.minSdk.get().toInteger()
         targetSdk libs.versions.targetSdk.get().toInteger()
-        versionCode 2122
-        versionName "2.1.22"
+        versionCode 2123
+        versionName "2.1.23"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments clearPackageData: 'true'
@@ -130,6 +130,9 @@ dependencies {
     androidTestImplementation libs.androidx.test.junit
     androidTestImplementation libs.androidx.test.runner
     androidTestImplementation libs.androidx.test.rules
+    androidTestImplementation platform(libs.androidx.compose.bom)
+    androidTestImplementation libs.androidx.compose.ui.test.junit4
+    debugImplementation libs.androidx.compose.ui.test.manifest
     androidTestImplementation libs.espresso.core
     androidTestUtil libs.androidx.test.orchestrator
 }

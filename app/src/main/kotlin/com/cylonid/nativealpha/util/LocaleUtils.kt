@@ -1,6 +1,6 @@
 package com.cylonid.nativealpha.util
 
-import java.util.*
+import java.util.Locale
 
 object LocaleUtils {
 

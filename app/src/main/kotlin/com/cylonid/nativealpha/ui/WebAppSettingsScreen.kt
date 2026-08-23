@@ -60,7 +60,6 @@ fun WebAppSettingsScreen(
         mutableStateOf(
             WebApp(webapp.baseUrl, webapp.ID, webapp.order).apply {
                 title = webapp.title
-                displayName = webapp.displayName
                 // 跟随全局时显示全局值，否则显示 WebApp 自己的值
                 val source = if (!isGlobal && !webapp.isOverrideGlobalSettings) globalTemplate else webapp
                 copySettings(source)
@@ -76,7 +75,6 @@ fun WebAppSettingsScreen(
     fun update(block: WebApp.() -> Unit) {
         val copy = WebApp(modified.baseUrl, modified.ID, modified.order).apply {
             title = modified.title
-            displayName = modified.displayName
             copySettings(modified)
             isOverrideGlobalSettings = modified.isOverrideGlobalSettings
             copyStatsAndShortcuts(modified)
@@ -89,7 +87,6 @@ fun WebAppSettingsScreen(
     fun updateSettings(block: WebApp.() -> Unit) {
         val copy = WebApp(modified.baseUrl, modified.ID, modified.order).apply {
             title = modified.title
-            displayName = modified.displayName
             copySettings(modified)
             copyStatsAndShortcuts(modified)
         }
@@ -103,7 +100,6 @@ fun WebAppSettingsScreen(
         if (isGlobal) return
         val copy = WebApp(modified.baseUrl, modified.ID, modified.order).apply {
             title = modified.title
-            displayName = modified.displayName
             copySettings(globalTemplate)
             isOverrideGlobalSettings = false
             copyStatsAndShortcuts(modified)
@@ -160,8 +156,8 @@ fun WebAppSettingsScreen(
                 SettingsCard {
                     // 名称（WebApp 本身的显示名称：主界面/快捷方式显示的就是它）
                     OutlinedTextField(
-                        value = modified.displayName ?: modified.title,
-                        onValueChange = { update { displayName = it.ifBlank { null } } },
+                        value = modified.title,
+                        onValueChange = { update { title = it.ifBlank { title } } },
                         label = { Text(stringResource(R.string.label)) },
                         singleLine = true,
                         modifier = Modifier
@@ -915,6 +911,7 @@ private fun IconSettingsRow(
     }
 
     // 相册选图：ImageDecoder 解码 → WebAppIconManager 保存 → 回调 iconPath
+    val msgPickFailed = stringResource(R.string.icon_pick_failed)
     val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri ->
@@ -926,7 +923,7 @@ private fun IconSettingsRow(
                 val ok = com.cylonid.nativealpha.util.WebAppIconManager.saveIcon(context, webApp, bmp)
                 if (ok) onIconSaved(webApp.iconPath)
             } catch (e: Exception) {
-                android.widget.Toast.makeText(context, "选择图片失败", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, msgPickFailed, android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }

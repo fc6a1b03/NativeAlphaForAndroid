@@ -109,6 +109,7 @@
     <string name="allow_location_access">允许位置访问</string>
     <string name="allow_drm_content">允许 DRM 内容</string>
     <string name="file_download">文件正在下载…</string>
+    <string name="file_download_started">已开始下载</string>
     <string name="custom_icon">选择自定义图标</string>
     <string name="show_progress_bar_during_page_load">页面加载时显示进度条</string>
     <string name="use_custom_user_agent">使用自定义 User Agent</string>
@@ -146,6 +147,7 @@
     <string name="app_icon_hint">选择图片或回填网站图标</string>
     <string name="app_icon_dialog_hint">选择相册图片或使用字母图标</string>
     <string name="app_icon_pick">选择图片</string>
+    <string name="icon_pick_failed">选择图片失败</string>
     <string name="app_icon_reset">重置</string>
 <string name="copy_url">复制 URL</string>
     <string name="copy_url_done">链接已复制</string>
@@ -158,8 +160,6 @@
     <string name="allow_media_playback_in_background">允许后台媒体播放</string>
     <string name="start_url">起始 URL</string>
     <string name="more">更多</string>
-    <string name="save_image">保存图片</string>
-    <string name="save_video">保存视频</string>
     <string name="close_web_app">关闭 Web App</string>
     <string name="to_main_menu">主菜单</string>
     <string name="cancel">取消</string>

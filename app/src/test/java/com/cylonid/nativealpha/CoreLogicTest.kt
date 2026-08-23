@@ -66,7 +66,6 @@ class CoreLogicTest {
     fun `webapp copy copies all settings`() {
         val original = WebApp("https://example.com", 0, 1).apply {
             title = "Example"
-            displayName = "My Site"
             isAllowJs = false
             isAllowCookies = false
             isRequestDesktop = true
@@ -78,11 +77,9 @@ class CoreLogicTest {
         }
         val copy = WebApp(original.baseUrl, original.ID, original.order).apply {
             title = original.title
-            displayName = original.displayName
             copySettings(original)
         }
         assertEquals(original.title, copy.title)
-        assertEquals(original.displayName, copy.displayName)
         assertEquals(original.isAllowJs, copy.isAllowJs)
         assertEquals(original.isAllowCookies, copy.isAllowCookies)
         assertEquals(original.isRequestDesktop, copy.isRequestDesktop)
