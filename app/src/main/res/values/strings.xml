@@ -49,23 +49,13 @@
     </string-array>
     <string name="edit_webapp_settings">Edit</string>
     <string name="stats">Statistics</string>
-    <string name="remove_shortcuts">Remove shortcuts</string>
-    <string name="add_shortcuts">Add shortcuts</string>
-    <string name="remove_shortcuts_confirm_title">Remove shortcuts</string>
-    <string name="remove_shortcuts_confirm_msg">Remove all shortcuts for this app?</string>
-    <string name="shortcuts_removed">Shortcuts removed</string>
     <string name="shortcuts_section">Shortcuts</string>
     <string name="shortcut_send_to_page">Send key combinations to this page (page-only, no browser defaults).</string>
-    <string name="shortcut_add">Add shortcut</string>
-    <string name="shortcut_confirm">Confirm</string>
     <string name="shortcut_empty">No shortcuts yet.</string>
     <string name="shortcut_exist">This combination already exists.</string>
-    <string name="shortcut_max">Up to 5 shortcuts per app.</string>
-    <string name="shortcut_select_key">Key</string>
     <string name="crash_detected_title">App crashed last time</string>
     <string name="crash_detected_msg">The app crashed during your last session. Export the error log so we can investigate?</string>
     <string name="crash_export_logs">Export logs</string>
-    <string name="shortcut_menu_more">More</string>
     <string name="add_webapp">Add</string>
     <string name="next">Next</string>
     <string name="welcome_msg">Welcome!\nAdd your first app:</string>
@@ -154,7 +144,6 @@
     <string name="reload">Reload</string>
     <string name="activate_two_finger_zoom">Enable Pinch-To-Zoom</string>
     <string name="allow_media_playback_in_background">Allow media playback in background</string>
-    <string name="start_url">Start URL</string>
     <string name="more">More</string>
     <string name="close_web_app">Close Web App</string>
     <string name="to_main_menu">To Main Menu</string>
@@ -169,9 +158,6 @@
     <string name="username">User name</string>
     <string name="password">Password</string>
     <string name="enter_http_auth_credentials">Enter credentials for %1$s at %2$s:</string>
-
-    <string name="follows_global_hint">This Web App follows the global settings. Change any option below to use app-specific settings, or tap "Sync with global".</string>
-    <string name="overrides_global_hint">This app uses its own settings, overriding the global defaults. Tap "Sync with global" to follow the global settings again.</string>
     <string name="sync_global_settings">Sync with global settings</string>
     <string name="synced_global_settings">Synced with global settings</string>
     <string name="app_subtitle">%1$d Apps</string>
@@ -249,10 +235,7 @@
     <string name="confirm">Confirm</string>
     <string name="clear_stats">Clear statistics</string>
     <string name="clear_stats_confirm">Reset launches, load times and error counts?</string>
-    <string name="error_log">Error log</string>
     <string name="no_errors">✅ No errors for this site</string>
-    <string name="imported_count">%1$d imported (view only)</string>
-    <string name="clear_imported">Clear imported</string>
     <string name="first_used">First used</string>
     <string name="last_used">Last used</string>
     <string name="suggestions_title">Suggestions</string>
@@ -264,7 +247,6 @@
     <string name="stats_cleared">Statistics cleared</string>
     <string name="stats_clear_failed">Clear failed, try again</string>
     <string name="export_failed_generic">Export failed, try again</string>
-    <string name="imported_done">Imported %1$d records (view only)</string>
     <string name="menu_back">Back</string>
     <string name="menu_forward">Forward</string>
     <string name="menu_reload">Refresh</string>
@@ -277,9 +259,6 @@
     <string name="menu_session">Sessions</string>
     <string name="session_isolated_hint">Each session keeps its own login state.</string>
     <string name="session_add">Add</string>
-    <string name="menu_new_tab">New session</string>
-    <string name="menu_delete_tab">Delete session</string>
-    <string name="menu_switch_tab">Switch session</string>
     <string name="session_at_least_one">At least one session is required</string>
     <string name="clear_errors_title">Clear error logs</string>
     <string name="clear_errors_confirm">Clear all error logs for this app?</string>
@@ -287,7 +266,6 @@
     <string name="errors_clear_failed">Failed to clear error logs</string>
     <string name="check_update">Check for updates</string>
     <string name="desc_check_update">Check GitHub for newer version</string>
-    <string name="update_available_title">Update available</string>
     <string name="update_available_msg">New version %1$s is available. Download now?</string>
     <string name="update_download">Download</string>
     <string name="update_downloading">Downloading in background…</string>
@@ -301,8 +279,6 @@
     <string name="shortcut_manage_hint">Shortcuts are managed in app settings; they only reach the page, never trigger browser defaults</string>
     <string name="shortcut_send_hint">Send key combinations to this page</string>
     <string name="stats_no_errors_site">No error records for this site</string>
-    <string name="stats_import_invalid">No records in file or invalid format</string>
-    <string name="stats_app_errors_export_only">App error logs are export-only — view them in Global Settings</string>
     <string name="shortcut_delete_desc">Delete %1$s</string>
     <string name="shortcut_key_label">Key: %1$s</string>
     <string name="shortcut_need_modifier">Select at least one modifier key</string>

@@ -31,8 +31,8 @@ android {
         applicationId "com.cylonid.nativealpha"
         minSdk libs.versions.minSdk.get().toInteger()
         targetSdk libs.versions.targetSdk.get().toInteger()
-        versionCode 2124
-        versionName "2.1.24"
+        versionCode 2125
+        versionName "2.1.25"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments clearPackageData: 'true'
@@ -126,6 +126,10 @@ dependencies {
     testImplementation libs.robolectric
     testImplementation libs.mockito.core
     testImplementation libs.mockito.kotlin
+    // Compose UI 测试（JVM Robolectric——绕开模拟器 InputManager 镜像问题）
+    testImplementation platform(libs.androidx.compose.bom)
+    testImplementation libs.androidx.compose.ui.test.junit4
+    testImplementation libs.androidx.compose.ui.test.manifest
     androidTestImplementation libs.androidx.test.junit
     androidTestImplementation libs.androidx.test.runner
     androidTestImplementation libs.androidx.test.rules
