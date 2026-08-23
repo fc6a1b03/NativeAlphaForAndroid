@@ -52,23 +52,13 @@
     </string-array>
     <string name="edit_webapp_settings">编辑</string>
     <string name="stats">统计</string>
-    <string name="remove_shortcuts">移除快捷键</string>
-    <string name="add_shortcuts">添加快捷键</string>
-    <string name="remove_shortcuts_confirm_title">移除快捷键</string>
-    <string name="remove_shortcuts_confirm_msg">确定移除该应用的所有快捷键？</string>
-    <string name="shortcuts_removed">快捷键已移除</string>
     <string name="shortcuts_section">快捷键</string>
     <string name="shortcut_send_to_page">发送组合键到当前页面（只触发页面功能，不触发浏览器默认）。</string>
-    <string name="shortcut_add">添加组合键</string>
-    <string name="shortcut_confirm">确认绑定</string>
     <string name="shortcut_empty">暂无快捷键。</string>
     <string name="shortcut_exist">该组合已存在。</string>
-    <string name="shortcut_max">每个应用最多 5 个快捷键。</string>
-    <string name="shortcut_select_key">主键</string>
     <string name="crash_detected_title">上次应用崩溃了</string>
     <string name="crash_detected_msg">上次使用过程中应用发生了崩溃，是否导出错误日志以便排查？</string>
     <string name="crash_export_logs">导出日志</string>
-    <string name="shortcut_menu_more">更多</string>
     <string name="add_webapp">添加</string>
     <string name="next">下一步</string>
     <string name="welcome_msg">欢迎！
@@ -158,7 +148,6 @@
     <string name="reload">刷新</string>
     <string name="activate_two_finger_zoom">启用双指缩放</string>
     <string name="allow_media_playback_in_background">允许后台媒体播放</string>
-    <string name="start_url">起始 URL</string>
     <string name="more">更多</string>
     <string name="close_web_app">关闭 Web App</string>
     <string name="to_main_menu">主菜单</string>
@@ -173,9 +162,6 @@
     <string name="username">用户名</string>
     <string name="password">密码</string>
     <string name="enter_http_auth_credentials">为 %1$s 在 %2$s 输入凭据：</string>
-
-    <string name="follows_global_hint">此 Web App 当前跟随全局设置。修改下方任意选项将切换为应用设置为主，或点击"同步全局设置"。</string>
-    <string name="overrides_global_hint">此应用使用自身设置，覆盖全局默认值。点击「同步全局设置」可恢复跟随全局。</string>
     <string name="sync_global_settings">同步全局设置</string>
     <string name="synced_global_settings">已同步全局设置</string>
     <string name="app_subtitle">%1$d 个应用</string>
@@ -253,10 +239,7 @@
     <string name="confirm">确定</string>
     <string name="clear_stats">清空统计</string>
     <string name="clear_stats_confirm">将重置本应用的打开次数、加载耗时与错误计数，确定？</string>
-    <string name="error_log">错误日志</string>
     <string name="no_errors">✅ 此站点无错误记录</string>
-    <string name="imported_count">导入 %1$d 条（仅展示）</string>
-    <string name="clear_imported">清除导入</string>
     <string name="first_used">首次使用</string>
     <string name="last_used">最近使用</string>
     <string name="suggestions_title">使用建议</string>
@@ -268,7 +251,6 @@
     <string name="stats_cleared">统计已清空</string>
     <string name="stats_clear_failed">清空失败，请重试</string>
     <string name="export_failed_generic">导出失败，请重试</string>
-    <string name="imported_done">已导入 %1$d 条错误记录（仅展示）</string>
     <string name="menu_back">返回</string>
     <string name="menu_forward">前进</string>
     <string name="menu_reload">刷新</string>
@@ -281,9 +263,6 @@
     <string name="menu_session">会话</string>
     <string name="session_isolated_hint">每个会话独立保存登录状态，互不干扰。</string>
     <string name="session_add">新增</string>
-    <string name="menu_new_tab">新增会话</string>
-    <string name="menu_delete_tab">删除会话</string>
-    <string name="menu_switch_tab">切换会话</string>
     <string name="session_at_least_one">至少保留一个会话</string>
     <string name="clear_errors_title">清空错误日志</string>
     <string name="clear_errors_confirm">确定清空该应用的所有错误日志？</string>
@@ -291,7 +270,6 @@
     <string name="errors_clear_failed">清空错误日志失败</string>
     <string name="check_update">检查版本更新</string>
     <string name="desc_check_update">检查 GitHub 是否有新版本</string>
-    <string name="update_available_title">发现新版本</string>
     <string name="update_available_msg">新版本 %1$s 可用，是否下载？</string>
     <string name="update_download">下载</string>
     <string name="update_downloading">正在后台下载…</string>
@@ -305,8 +283,6 @@
     <string name="shortcut_manage_hint">组合键在 WebApp 设置页管理，只发送给页面不触发浏览器默认</string>
     <string name="shortcut_send_hint">发送到当前页面的组合键</string>
     <string name="stats_no_errors_site">此站点无错误记录</string>
-    <string name="stats_import_invalid">文件中无错误记录或格式不正确</string>
-    <string name="stats_app_errors_export_only">应用错误日志仅导出，请在全局设置查看</string>
     <string name="shortcut_delete_desc">删除 %1$s</string>
     <string name="shortcut_key_label">主键: %1$s</string>
     <string name="shortcut_need_modifier">请至少选择一个修饰键</string>
