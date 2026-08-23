@@ -157,7 +157,8 @@ fun WebAppSettingsScreen(
                     // 名称（WebApp 本身的显示名称：主界面/快捷方式显示的就是它）
                     OutlinedTextField(
                         value = modified.title,
-                        onValueChange = { update { title = it.ifBlank { title } } },
+                        // title 唯一名称：清空保持原值（title 必填）；正常输入写 title
+                        onValueChange = { newName -> update { title = newName.ifBlank { this.title } } },
                         label = { Text(stringResource(R.string.label)) },
                         singleLine = true,
                         modifier = Modifier
