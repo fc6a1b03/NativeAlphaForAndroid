@@ -251,20 +251,28 @@ private fun AddWebAppScreen(
         DataManager.getInstance().addWebsite(webapp)
         // 兜底：favicon 直抓失败（如 Cloudflare 挑战站 linux.do）时，
         // 再用列表同款 loadFavicon（Google s2）拉一次——成功则写回 iconPath 持久化，
-        // 解决「添加时没图标、列表却有、重启又丢」的场景。
+        // 并**补拉完成后才 pin 快捷方式**（pin 是一次性冻结——若先 pin 会永久用字母，
+        // 列表后有图标但快捷方式没有——正是 linux.do 故障根因）
         if (webapp.iconPath == null) {
+            // 补拉 favicon（后台）→ 完成（UI 线程）pin → 返回主界面。
+            // pin 延后：quick 方式一次性冻结图标——先 pin 会永久字母（linux.do 根因）
             val contextLocal = context
             scope.launch {
                 withContext(Dispatchers.IO) {
                     com.cylonid.nativealpha.util.WebAppIconManager.loadFavicon(contextLocal, webapp)
                 }
+                // 补拉完成（无论成败）→ 有图标用图标；仍无则字母（已尽力）
+                if (coroutineContext.isActive) {
+                    requestPinShortcut(webapp)
+                    onBack()
+                }
             }
+        } else {
+            // 图标已就绪（抓取成功/用户选图）——直接 pin + 返回
+            requestPinShortcut(webapp)
+            // 返回主界面（onResume 触发刷新）
+            onBack()
         }
-        // 自动创建桌面快捷方式：图标与列表同源（resolveIcon——iconPath→favicon→字母），
-        // 桌面快捷方式与列表图标保持一致（此前用创建时抓取结果——失败则不同步）
-        requestPinShortcut(webapp)
-        // 返回主界面（onResume 触发刷新）
-        onBack()
     }
 
     Scaffold(
