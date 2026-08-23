@@ -317,6 +317,8 @@ private fun WebAppCard(
                     }
                 }.value
             }
+            // 异步拉取未完成时 iconBitmap 为 null——用字母渐变兜住空窗（resolveIcon 内已含字母兜底，
+            // 此处只防异步空窗；成功后图标立即替换）
             val finalIcon = iconBitmap ?: remember(webApp.title, webApp.baseUrl) {
                 val d = runCatching { java.net.URI(webApp.baseUrl).host }.getOrNull()
                 IconGenerator.generate(webApp.title, d, 112, 28)
