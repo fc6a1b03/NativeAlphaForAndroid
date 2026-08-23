@@ -60,6 +60,7 @@ fun WebAppSettingsScreen(
         mutableStateOf(
             WebApp(webapp.baseUrl, webapp.ID, webapp.order).apply {
                 title = webapp.title
+                iconPath = webapp.iconPath  // 初始化保留自身图标（copySettings(#source) 不含 iconPath）
                 // 跟随全局时显示全局值，否则显示 WebApp 自己的值
                 val source = if (!isGlobal && !webapp.isOverrideGlobalSettings) globalTemplate else webapp
                 copySettings(source)
@@ -75,6 +76,7 @@ fun WebAppSettingsScreen(
     fun update(block: WebApp.() -> Unit) {
         val copy = WebApp(modified.baseUrl, modified.ID, modified.order).apply {
             title = modified.title
+            iconPath = modified.iconPath  // iconPath 自身专有——副本显式保留（copySettings 不含）
             copySettings(modified)
             isOverrideGlobalSettings = modified.isOverrideGlobalSettings
             copyStatsAndShortcuts(modified)
@@ -87,6 +89,7 @@ fun WebAppSettingsScreen(
     fun updateSettings(block: WebApp.() -> Unit) {
         val copy = WebApp(modified.baseUrl, modified.ID, modified.order).apply {
             title = modified.title
+            iconPath = modified.iconPath  // 显式保留（copySettings 不含 iconPath）
             copySettings(modified)
             copyStatsAndShortcuts(modified)
         }
@@ -100,6 +103,7 @@ fun WebAppSettingsScreen(
         if (isGlobal) return
         val copy = WebApp(modified.baseUrl, modified.ID, modified.order).apply {
             title = modified.title
+            iconPath = modified.iconPath  // 同步全局不丢自身图标（copySettings(globalTemplate) 不含 iconPath）
             copySettings(globalTemplate)
             isOverrideGlobalSettings = false
             copyStatsAndShortcuts(modified)

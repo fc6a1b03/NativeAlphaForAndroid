@@ -100,6 +100,7 @@ data class WebApp(var baseUrl: String, val ID: Int) {
 
     constructor(other: WebApp) : this(other.baseUrl, other.ID) {
         title = other.title
+        iconPath = other.iconPath  // 副本构造保留自身图标（copySettings 不含 iconPath）
         isOverrideGlobalSettings = other.isOverrideGlobalSettings
         containerId = other.containerId
         isUseContainer = other.isUseContainer
