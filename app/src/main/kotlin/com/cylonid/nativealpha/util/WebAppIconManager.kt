@@ -135,6 +135,25 @@ object WebAppIconManager {
         return null
     }
 
+    /**
+     * 统一图标解析入口（**唯一展示逻辑**）：
+     * 1. iconPath 有值 → 用户头像/网站图标（filesDir 持久化）
+     * 2. 无 → 网站 favicon（loadFavicon：直连多候选 + 成功后持久化 iconPath）
+     * 3. 仍无 → 字母渐变图标（IconGenerator）
+     *
+     * 所有 UI（列表/设置页/添加向导预览/快捷方式 fallback）统一调用本方法，
+     * 避免各处在各自 fallback 逻辑（此前 4 处 IconGenerator.generate 冗余）。
+     * 注：网络拉取在调用方协程执行；本方法同步（失败返回字母图标，不发网络）。
+     */
+    fun resolveIcon(context: Context, webApp: WebApp): Bitmap {
+        loadIcon(context, webApp)?.let { return it }
+        // 网络拉取（调用方负责 IO 线程）——成功持久化 iconPath
+        loadFavicon(context, webApp)?.let { return it }
+        // 字母渐变兜底
+        val d = try { java.net.URI(webApp.baseUrl).host } catch (e: Exception) { null }
+        return IconGenerator.generate(webApp.title, d, 112, 28)
+    }
+
     /** 删除头像（重置为字母图标时调用；iconPath 清空） */
     fun deleteIcon(context: Context, webApp: WebApp) {
         val p = webApp.iconPath ?: return

@@ -113,6 +113,8 @@ public class WebViewActivity extends AppCompatActivity {
     private static final int SINGLE_FINGER = 2;
     /** 单指左右滑手势触发距离（px）：比 TRESHOLD 更严——只识别明确意图的长滑，防误触 */
     private static final int GESTURE_SWIPE_MIN_PX = 150;
+    /** 长按触发时间（ms）——长按媒体直接下载（500ms 主流折中：不误触不迟钝） */
+    private static final long LONG_PRESS_MS = 500L;
     /** 单指手势边缘区宽度（屏幕横向比例）：起点在左右各 <20% 或 >80% 才识别左右滑（页面内表格不冲突） */
     private static final float GESTURE_EDGE_ZONE_RATIO = 0.2f;
     /** 水平位移 > 垂直位移的倍数：过滤倾斜滑动（上下滚动不误判左右手势） */
@@ -166,8 +168,8 @@ public class WebViewActivity extends AppCompatActivity {
             + "return 'blank';})()";
 
     /**
-     * media 长按检测 JS：返回长按点命中的 img/video 的绝对 URL（src/currentSrc），
-     * 没命中返回 'null'。供长按图片/视频弹「保存图片/保存视频」菜单用。
+     * 图片长按检测 JS：返回长按点命中的 img 的绝对 URL（src/currentSrc），
+     * 没命中返回 'null'。**只匹配 img**——视频不做长按下载（全屏播放/页面视频均不误触）。
      * 与 LONGPRESS_JS 的坐标换算保持一致（devicePixelRatio + 视口缩放）。
      */
     private static final String MEDIA_LONGPRESS_JS =
@@ -186,9 +188,6 @@ public class WebViewActivity extends AppCompatActivity {
             + "var tt=te.tagName?te.tagName.toLowerCase():'';"
             + "if(tt==='img'){var s=te.currentSrc||te.src;"
             + "if(s&&s.indexOf('data:')!==0)return s;"
-            + "return 'null';}"
-            + "if(tt==='video'){var v=te.currentSrc||te.src;"
-            + "if(v&&v.indexOf('data:')!==0)return v;"
             + "return 'null';}"
             + "te=te.parentElement;"
             + "}"
@@ -229,6 +228,9 @@ public class WebViewActivity extends AppCompatActivity {
     private int lastProgress = 0;
     private long lastProgressTime = 0L;
     private final Handler blankScreenHandler = new Handler();
+    /** 长按检测（媒体保存菜单）：按下 600ms 无移动触发 */
+    private final Handler longPressHandler = new Handler();
+    private Runnable longPressRunnable = null;
     private final Runnable blankScreenCheck = this::handleBlankScreen;
     private boolean pageLoadFinished = false;
     // 统计埋点：页面加载开始时间（onPageStarted 到 onPageFinished 计算耗时）
@@ -538,7 +540,6 @@ public class WebViewActivity extends AppCompatActivity {
                 wv.evaluateJavascript(js, value -> {
                     String type = value != null ? value.replace("\"", "") : "blank";
                     if ("null".equals(type) || type.isEmpty()) type = "blank";
-                    android.util.Log.d("LongPress", "doubleTap jsType=" + type);
                     final boolean isBlank = "blank".equals(type);
                     if (isBlank && !isFinishing() && wv != null) {
                         // 空白检测通过，再探测是否命中 media（双击图片时弹保存菜单而非小菜单）
@@ -562,32 +563,12 @@ public class WebViewActivity extends AppCompatActivity {
                                     showWebViewMenuSheet();
                                 });
                             } else {
-                                // 命中图片/视频 → 弹「保存图片/保存视频」菜单
-                                runOnUiThread(() -> showMediaSaveMenu(mediaUrl));
+                                // 命中图片/视频：交还 WebView（双击放大由网页处理；保存走长按）
+                                android.util.Log.d("LongPress", "media double-tap -> webview handles");
                             }
                         });
                     }
                 });
-            }
-
-            /** 长按/双击命中图片或视频：弹统一保存菜单（保存图片/保存视频） */
-            private void showMediaSaveMenu(String mediaUrl) {
-                if (isFinishing() || wv == null || mediaUrl == null) return;
-                View center = findViewById(R.id.anchorCenterScreen);
-                PopupMenu popup = IconPopupMenuHelper.getMenu(center, R.menu.wv_media_menu, WebViewActivity.this);
-                // 命中类型判断：video 标签 → 保存视频；否则保存图片（isVideoUrl 去 query 按后缀）
-                boolean isVideo = isVideoUrl(mediaUrl);
-                popup.getMenu().findItem(R.id.cmMediaSaveImage).setVisible(!isVideo);
-                popup.getMenu().findItem(R.id.cmMediaSaveVideo).setVisible(isVideo);
-                popup.setOnMenuItemClickListener(menuItem -> {
-                    int id = menuItem.getItemId();
-                    if (id == R.id.cmMediaSaveImage || id == R.id.cmMediaSaveVideo) {
-                        downloadMedia(mediaUrl);
-                        return true;
-                    }
-                    return false;
-                });
-                popup.show();
             }
 
             /** 判断下载 URL 是否为视频（去 query/fragment 后按后缀；带签名参数的 CDN 链接也能识别） */
@@ -627,18 +608,47 @@ public class WebViewActivity extends AppCompatActivity {
                         file_name = "media_" + System.currentTimeMillis() + (isMediaVideo ? ".mp4" : ".png");
                     }
                     request.setTitle(file_name);
+                    request.setDescription(getString(R.string.file_download_started));
                     request.allowScanningByMediaScanner();
                     request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
                     request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, file_name);
                     DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
                     if (dm != null) {
+                        // 与「应用更新」一致：系统 DownloadManager + 开始/完成通知；开始即 Snackbar 提示
                         dm.enqueue(request);
-                        NotificationUtils.showInfoSnackbar(WebViewActivity.this, getString(R.string.file_download), Snackbar.LENGTH_SHORT);
+                        NotificationUtils.showInfoSnackbar(
+                            WebViewActivity.this,
+                            getString(R.string.file_download_started),
+                            Snackbar.LENGTH_SHORT
+                        );
                     }
                 } catch (Exception e) {
                     NotificationUtils.showToast(WebViewActivity.this,
                             getString(R.string.file_download), Toast.LENGTH_SHORT);
                 }
+            }
+
+            /** 取消长按检测（移动/抬起/多指时） */
+            private void cancelLongPress() {
+                if (longPressRunnable != null) {
+                    longPressHandler.removeCallbacks(longPressRunnable);
+                    longPressRunnable = null;
+                }
+            }
+
+            /** 长按命中 media：直接下载（用户需求——长按即存，无中间菜单） */
+            private void checkMediaLongPress(float px, float py) {
+                if (isFinishing() || wv == null) return;
+                final String mediaJs = String.format(Locale.US, MEDIA_LONGPRESS_JS, px, py);
+                wv.evaluateJavascript(mediaJs, value -> {
+                    String mediaUrl = value != null ? value.replace("\"", "") : "null";
+                    if (!"null".equals(mediaUrl) && !mediaUrl.isEmpty() && !isFinishing()) {
+                        runOnUiThread(() -> {
+                            // 直接下载（DownloadManager）；Toast 提示已存
+                            downloadMedia(mediaUrl);
+                        });
+                    }
+                });
             }
 
             /** 收起软键盘（双击空白弹小菜单时调用，避免输入法和小菜单打架） */
@@ -660,7 +670,6 @@ public class WebViewActivity extends AppCompatActivity {
                 WebApp webapp = DataManager.getInstance().getWebApp(webappID);
                 if (webapp == null || webapp.isRequestDesktop())
                     return false;
-                android.util.Log.d("LongPress", "touch ev=" + event.getAction() + " x=" + (int) event.getX() + " y=" + (int) event.getY());
 
                 switch (event.getAction() & MotionEvent.ACTION_MASK) {
                     case MotionEvent.ACTION_DOWN:
@@ -689,6 +698,14 @@ public class WebViewActivity extends AppCompatActivity {
                         startY = y;
                         stopX = x;
                         stopY = y;
+                        // 长按检测：600ms 无移动且命中图片/视频 → 弹保存菜单
+                        if (longPressRunnable != null) longPressHandler.removeCallbacks(longPressRunnable);
+                        final float pressX = x, pressY = y;
+                        longPressRunnable = () -> {
+                            longPressHandler.removeCallbacks(longPressRunnable);
+                            checkMediaLongPress(pressX, pressY);
+                        };
+                        longPressHandler.postDelayed(longPressRunnable, LONG_PRESS_MS);
                         // 单指手势：仅单指（未进入多指）时启用
                         mode = SINGLE_FINGER;
                         return false;
@@ -762,6 +779,7 @@ public class WebViewActivity extends AppCompatActivity {
                                 return false;
                             }
                         }
+                        cancelLongPress();
                         mode = NONE;
                         return false;
 
@@ -770,10 +788,11 @@ public class WebViewActivity extends AppCompatActivity {
                         // 单指非滑动（mode==单指）也更新：防 POINTER_UP 用旧值误判
                         stopX = event.getX(0);
                         stopY = event.getY(0);
-                        // 移动超阈值（滑动/拖动滚动）：不是双击，清除双击检测状态
+                        // 移动超阈值（滑动/拖动滚动）：不是双击，清除双击检测状态；移动也取消长按
                         if (Math.abs(stopX - startX) > TRESHOLD
                                 || Math.abs(stopY - startY) > TRESHOLD) {
                             lastDownTime = 0;
+                            cancelLongPress();
                         }
                         return false;
 

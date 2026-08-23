@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -87,7 +88,7 @@ fun MainScreen(
     val filteredApps = remember(webApps, searchQuery) {
         if (searchQuery.isBlank()) webApps
         else webApps.filter { app ->
-            val name = (app.displayName ?: app.title ?: "").lowercase()
+            val name = (app.title ?: "").lowercase()
             val url = (app.baseUrl ?: "").lowercase()
             name.contains(searchQuery.lowercase()) || url.contains(searchQuery.lowercase())
         }
@@ -161,6 +162,7 @@ fun MainScreen(
             // 品牌渐变 FAB（靛蓝→紫，Material 3 渐变小面积点缀）
             FloatingActionButton(
                 onClick = onAddClick,
+                modifier = Modifier.testTag("fab_add"),
                 containerColor = Color.Transparent,
                 shape = RoundedCornerShape(18.dp)
             ) {
@@ -223,6 +225,7 @@ fun MainScreen(
                     .fillMaxWidth()
                     .height(56.dp)
                     .padding(horizontal = 16.dp, vertical = 2.dp)
+                    .testTag("search_field")
             )
             if (webApps.isEmpty()) {
                 EmptyState(
@@ -282,6 +285,7 @@ private fun WebAppCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("webapp_card")
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
@@ -293,20 +297,17 @@ private fun WebAppCard(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 头像图标：iconPath 有值用自定义头像（统一源）→ 否则异步拉 favicon →
-            // 都失败 fallback 字母渐变图标（首次拉取后缓存）
-            val domain = remember(webApp.baseUrl) {
-                runCatching { java.net.URI(webApp.baseUrl).host }.getOrNull()
-            }
-            val customIcon = remember(webApp.iconPath) {
-                com.cylonid.nativealpha.util.WebAppIconManager.loadIcon(context, webApp)
-            }
-            val faviconState = if (customIcon == null) {
+            // 统一图标（resolveIcon 唯一入口）：iconPath 头像 → favicon（持久化）→ 字母渐变
+            // 异步拉取（网络 IO）+ 失败重试一次；成功即持久化，之后从 iconPath 直接读
+            val iconBitmap = if (webApp.iconPath != null) {
+                remember(webApp.iconPath) {
+                    com.cylonid.nativealpha.util.WebAppIconManager.loadIcon(context, webApp)
+                }
+            } else {
                 produceState<android.graphics.Bitmap?>(null, webApp.baseUrl) {
-                    // 首帧拉取；失败后 5s 重试一次（网络瞬断场景补拉；不做长重试——成功已持久化 restart 即有）
                     repeat(2) { attempt ->
                         val bmp = withContext(Dispatchers.IO) {
-                            com.cylonid.nativealpha.util.WebAppIconManager.loadFavicon(context, webApp)
+                            com.cylonid.nativealpha.util.WebAppIconManager.resolveIcon(context, webApp)
                         }
                         if (bmp != null) {
                             value = bmp
@@ -315,12 +316,13 @@ private fun WebAppCard(
                         if (attempt < 1) delay(5_000L)
                     }
                 }.value
-            } else null
-            val iconBitmap = customIcon ?: faviconState ?: remember(webApp.title, webApp.baseUrl) {
-                IconGenerator.generate(webApp.title, domain, 112, 28)
+            }
+            val finalIcon = iconBitmap ?: remember(webApp.title, webApp.baseUrl) {
+                val d = runCatching { java.net.URI(webApp.baseUrl).host }.getOrNull()
+                IconGenerator.generate(webApp.title, d, 112, 28)
             }
             Image(
-                bitmap = iconBitmap.asImageBitmap(),
+                bitmap = finalIcon.asImageBitmap(),
                 contentDescription = null,
                 modifier = Modifier
                     .size(56.dp)
@@ -331,7 +333,7 @@ private fun WebAppCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = webApp.displayName ?: webApp.title,
+                    text = webApp.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,

@@ -5,12 +5,9 @@ import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.ShortcutIconUtils
 import com.cylonid.nativealpha.util.Utility
-import java.util.*
 
 data class WebApp(var baseUrl: String, val ID: Int) {
     var title: String
-    /** 用户自定义显示名称；null 时列表/快捷方式回退用 title */
-    var displayName: String? = null
     var isActiveEntry = true
     var isOverrideGlobalSettings = true
 
@@ -103,7 +100,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
 
     constructor(other: WebApp) : this(other.baseUrl, other.ID) {
         title = other.title
-        displayName = other.displayName
         isOverrideGlobalSettings = other.isOverrideGlobalSettings
         containerId = other.containerId
         isUseContainer = other.isUseContainer

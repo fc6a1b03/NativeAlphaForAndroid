@@ -94,7 +94,7 @@ import kotlinx.coroutines.withContext
  *   Step 1: 输入 URL（自动补全 https://，校验格式）
  *   Step 2: 自动识别标题回填显示名称 + 图标选择 + 完成
  *
- * 完成后：保存 WebApp（displayName 优先）并自动创建桌面快捷方式。
+ * 完成后：保存 WebApp（title 唯一名称）并自动创建桌面快捷方式。
  */
 class AddWebAppActivity : AppCompatActivity() {
 
@@ -226,8 +226,8 @@ private fun AddWebAppScreen(
             DataManager.getInstance().incrementedID,
             DataManager.getInstance().incrementedOrder
         )
-        val displayName = nameText.trim()
-        if (displayName.isNotEmpty()) webapp.displayName = displayName
+        val appName = nameText.trim()
+        if (appName.isNotEmpty()) webapp.title = appName
         webapp.applySettingsForNewWebApp()
         // 头像统一源：选中/回填图标持久化到 iconPath（列表/快捷方式统一取用）
         (customIcon ?: fetchedFavicon)?.let { icon ->
@@ -526,7 +526,7 @@ private fun requestPinShortcut(webapp: WebApp, iconBitmap: android.graphics.Bitm
         IconCompat.createWithBitmap(fallback)
     }
 
-    val title = webapp.displayName ?: webapp.title
+    val title = webapp.title
     val safeTitle = if (title.isNullOrBlank()) "Unknown" else title
 
     if (ShortcutManagerCompat.isRequestPinShortcutSupported(context)) {

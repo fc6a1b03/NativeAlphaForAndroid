@@ -345,11 +345,10 @@ public class ShortcutDialogFragment extends DialogFragment  {
             final_title = "Unknown";
         }
 
-        // 名称回填：弹窗输入的名称写回 WebApp（title + displayName），保存后 UI 刷新
+        // 名称回填：弹窗输入的名称写回 WebApp（title 唯一名称），保存后 UI 刷新
         if (!final_title.equals(webapp.getTitle())) {
             webapp.setTitle(final_title);
         }
-        webapp.setDisplayName(final_title);
         // 图标回填（旧数据兼容）：重新创建快捷方式 = 重新获取图标 → 写回 iconPath，
         // 列表图标即时用新图标（之前只给系统快捷方式，列表不更新）
         if (bitmap != null) {
@@ -413,9 +412,8 @@ public class ShortcutDialogFragment extends DialogFragment  {
     private void applyNewBaseUrl(String url) {
         if (url != null) {
             webapp.setBaseUrl(url);
-            // 表单关系回填：URL 变更 → 若用户未自定义名称（displayName 为 null），
-            // title 从新 URL 提取，保证列表/快捷方式名称显示一致
-            if (webapp.getDisplayName() == null) {
+            // 表单关系回填：URL 变更 → 名称从新 URL 提取（title 唯一名称，保持一致）
+            if (webapp.getTitle() == null || webapp.getTitle().isEmpty()) {
                 String derived = url.replace("http://", "").replace("https://", "").replace("www.", "");
                 webapp.setTitle(derived);
             }

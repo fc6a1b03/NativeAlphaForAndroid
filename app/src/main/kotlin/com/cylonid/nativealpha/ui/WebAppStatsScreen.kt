@@ -90,7 +90,7 @@ fun WebAppStatsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.stats_title, webapp.displayName ?: webapp.title)) },
+                title = { Text(stringResource(R.string.stats_title, webapp.title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")

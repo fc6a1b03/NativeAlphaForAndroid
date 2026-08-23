@@ -105,6 +105,7 @@
     <string name="allow_location_access">Allow location access</string>
     <string name="allow_drm_content">Allow DRM content</string>
     <string name="file_download">File is being downloaded…</string>
+    <string name="file_download_started">Download started</string>
     <string name="custom_icon">Select custom icon</string>
     <string name="show_progress_bar_during_page_load">Show progress bar during page load</string>
     <string name="use_custom_user_agent">Use custom user agent</string>
@@ -142,6 +143,7 @@
     <string name="app_icon_hint">Pick or restore website icon</string>
     <string name="app_icon_dialog_hint">Choose a photo or use the letter icon</string>
     <string name="app_icon_pick">Pick image</string>
+    <string name="icon_pick_failed">Failed to pick image</string>
     <string name="app_icon_reset">Reset</string>
 <string name="copy_url">Copy URL</string>
     <string name="copy_url_done">URL copied</string>
@@ -154,8 +156,6 @@
     <string name="allow_media_playback_in_background">Allow media playback in background</string>
     <string name="start_url">Start URL</string>
     <string name="more">More</string>
-    <string name="save_image">Save image</string>
-    <string name="save_video">Save video</string>
     <string name="close_web_app">Close Web App</string>
     <string name="to_main_menu">To Main Menu</string>
     <string name="cancel">Cancel</string>
