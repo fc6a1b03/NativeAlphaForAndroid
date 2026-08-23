@@ -114,7 +114,8 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         isAllowThirdPartyCookies = other.isAllowThirdPartyCookies
         isIsolatedSession = other.isIsolatedSession
         sessionTabCount = other.sessionTabCount
-        iconPath = other.iconPath
+        // iconPath 不参与设置合并（WebApp 自身专有，与 title/统计同理）——
+        // 否则跟随全局的 WebApp 图标被全局模板覆盖（列表图标丢失的根因）
         isAllowJs = other.isAllowJs
         isActiveEntry = other.isActiveEntry
         isRequestDesktop = other.isRequestDesktop

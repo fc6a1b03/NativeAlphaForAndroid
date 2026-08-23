@@ -299,24 +299,20 @@ private fun WebAppCard(
         ) {
             // 统一图标（resolveIcon 唯一入口）：iconPath 头像 → favicon（持久化）→ 字母渐变
             // 异步拉取（网络 IO）+ 失败重试一次；成功即持久化，之后从 iconPath 直接读
-            val iconBitmap = if (webApp.iconPath != null) {
-                remember(webApp.iconPath) {
-                    com.cylonid.nativealpha.util.WebAppIconManager.loadIcon(context, webApp)
-                }
-            } else {
-                produceState<android.graphics.Bitmap?>(null, webApp.baseUrl) {
-                    repeat(2) { attempt ->
-                        val bmp = withContext(Dispatchers.IO) {
-                            com.cylonid.nativealpha.util.WebAppIconManager.resolveIcon(context, webApp)
-                        }
-                        if (bmp != null) {
-                            value = bmp
-                            return@produceState
-                        }
-                        if (attempt < 1) delay(5_000L)
+            // 统一图标（resolveIcon 唯一入口——iconPath→favicon→字母，零分支）：
+            // 修复「列表 K 但快捷方式图标」（原 iconPath 分支文件失效直接字母；resolveIcon 会再拉 favicon）
+            val iconBitmap = produceState<android.graphics.Bitmap?>(null, webApp.baseUrl, webApp.iconPath) {
+                repeat(2) { attempt ->
+                    val bmp = withContext(Dispatchers.IO) {
+                        com.cylonid.nativealpha.util.WebAppIconManager.resolveIcon(context, webApp)
                     }
-                }.value
-            }
+                    if (bmp != null) {
+                        value = bmp
+                        return@produceState
+                    }
+                    if (attempt < 1) delay(5_000L)
+                }
+            }.value
             // 异步拉取未完成时 iconBitmap 为 null——用字母渐变兜住空窗（resolveIcon 内已含字母兜底，
             // 此处只防异步空窗；成功后图标立即替换）
             val finalIcon = iconBitmap ?: remember(webApp.title, webApp.baseUrl) {
