@@ -299,13 +299,17 @@ public class WebViewActivity extends AppCompatActivity {
                 StatsRecorder.INSTANCE.recordPageError(webappID, ErrorType.RENDER.name(),
                         ErrorType.RENDER.getCode(), "WebView init failed: " + (e.getMessage() != null ? e.getMessage() : ""));
                 runOnUiThread(() -> {
+                    // 提示后回主界面（finish 前跳转——用户可重新打开重试）
                     NotificationUtils.showInfoSnackbar(
                         WebViewActivity.this,
                         getString(R.string.webview_init_failed),
                         Snackbar.LENGTH_LONG
                     );
+                    Intent backHome = new Intent(WebViewActivity.this, MainActivity.class);
+                    backHome.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    startActivity(backHome);
+                    finish();
                 });
-                finish();
             }
         }
     }
