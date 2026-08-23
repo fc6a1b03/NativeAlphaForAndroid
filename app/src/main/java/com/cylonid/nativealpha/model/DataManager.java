@@ -252,6 +252,8 @@ public class DataManager {
                 // 深拷贝后合并全局设置，避免污染原对象（原对象保留自身设置，供"应用设置为主"使用）
                 WebApp merged = new WebApp(webApp.getBaseUrl(), webApp.getID(), webApp.getOrder());
                 merged.setTitle(webApp.getTitle());
+                // iconPath 不参与全局合并（copySettings 已排除）——深拷贝时单独保留（防图标丢失）
+                merged.setIconPath(webApp.getIconPath());
                 merged.copySettings(settings.getGlobalWebApp());
                 // 外观设置（字体/页面缩放）不参与全局合并：始终用 WebApp 自身的值
                 merged.setTextZoom(webApp.getTextZoom());
