@@ -158,6 +158,13 @@ public class DataManager {
             ArrayList<WebApp> new_websites = gson.fromJson(json, new TypeToken<ArrayList<WebApp>>() {}.getType());
             if (new_websites != null) {
                 checkIfWebAppIdsCollide(websites, new_websites);
+                // 旧数据迁移（v2.1.23 前 displayName 字段）：用户改过的名字 → 迁移回 title
+                for (WebApp w : new_websites) {
+                    if (w != null && w.getLegacyDisplayName() != null && !w.getLegacyDisplayName().isEmpty()) {
+                        w.setTitle(w.getLegacyDisplayName());
+                        w.setLegacyDisplayName(null);
+                    }
+                }
                 websites = new_websites;
             }
         }

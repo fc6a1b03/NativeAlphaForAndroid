@@ -47,20 +47,34 @@ object WebAppIconManager {
         }
     }
 
-    /** 加载头像 bitmap（iconPath 存在且文件可读时；否则 null → 调用方用字母图标） */
+    /** 加载头像 bitmap（iconPath 存在且文件可读时；否则 null → 调用方用字母图标）。
+     *  健壮性：decode 失败/文件损坏 → 删文件 + 清 iconPath（防脏引用反复走字母且永不复位） */
     fun loadIcon(context: Context, webApp: WebApp): Bitmap? {
         val p = webApp.iconPath ?: return null
         return try {
             val f = File(p)
-            if (f.exists()) BitmapFactory.decodeFile(p) else null
+            if (f.exists()) {
+                val bmp = BitmapFactory.decodeFile(p)
+                if (bmp == null) {
+                    // 文件损坏：清理防污染（下次 resolveIcon 重新拉）
+                    f.delete()
+                    webApp.iconPath = null
+                    com.cylonid.nativealpha.model.DataManager.getInstance().saveWebAppData()
+                    return null
+                }
+                bmp
+            } else null
         } catch (e: Exception) {
             null
         }
     }
 
-    /** 站点根 favicon.ico URL（从 baseUrl 提取协议+host） */
+    /** 站点根 favicon.ico URL（从 baseUrl 提取协议+host+端口——IP:port 站如 Kimi Code 需保留端口） */
     private fun hostFor(baseUrl: String): String = try {
-        java.net.URI(baseUrl).let { "${it.scheme}://${it.host}/favicon.ico" }
+        java.net.URI(baseUrl).let { uri ->
+            val port = if (uri.port > 0) ":${uri.port}" else ""
+            "${uri.scheme}://${uri.host}$port/favicon.ico"
+        }
     } catch (e: Exception) {
         "$baseUrl/favicon.ico"
     }

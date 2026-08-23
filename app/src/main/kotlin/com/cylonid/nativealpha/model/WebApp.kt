@@ -8,6 +8,11 @@ import com.cylonid.nativealpha.util.Utility
 
 data class WebApp(var baseUrl: String, val ID: Int) {
     var title: String
+
+    /** 旧版 displayName 兼容（v2.1.23 前字段）：Gson 读取旧数据用——加载后迁移回 title。
+     *  transient 不参与持久化（迁移后即弃）；仅反序列化时填充 */
+    @com.google.gson.annotations.SerializedName("displayName")
+    var legacyDisplayName: String? = null
     var isActiveEntry = true
     var isOverrideGlobalSettings = true
 
