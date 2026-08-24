@@ -36,8 +36,4 @@ object Const {
     // ===== 统计 =====
     /** 白屏检测超时（20s 进度无推进判定白屏） */
     const val BLANK_SCREEN_TIMEOUT_MS = 20_000
-
-    // ===== 错误页 =====
-    /** 错误页固定字体缩放（130：当前设备实测最舒适，不继承用户页面缩放） */
-    const val ERROR_PAGE_TEXT_ZOOM = 130
 }

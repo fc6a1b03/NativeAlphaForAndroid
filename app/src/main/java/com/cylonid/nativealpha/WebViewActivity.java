@@ -980,13 +980,20 @@ public class WebViewActivity extends AppCompatActivity {
     /** 菜单中页面缩放预览值（保存时写回 webapp） */
     private int mMenuPageZoom = 100;
 
-    /** 保存字体/缩放设置到 WebApp 原对象（菜单关闭时触发），不污染合并对象 */
+    /** 保存字体/缩放设置到 WebApp 原对象（菜单关闭时触发），不污染合并对象。
+     *  菜单调整 = 应用设置（单一事实源，不存在优先级困惑）：
+     *  跟随全局（override=false）时，先把当前生效配置整体继承为应用自身配置，
+     *  再开 override——除本次缩放外，其他设置不因 override 切换而跳变。 */
     private void saveZoomSettings() {
         if (wv == null || webapp == null) return;
         WebApp original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
         if (original == null) return;
+        if (!original.isOverrideGlobalSettings()) {
+            original.copySettings(webapp);  // webapp = 当前生效的合并对象
+        }
         original.setTextZoom(wv.getSettings().getTextZoom());
         original.setPageZoom(mMenuPageZoom);
+        original.setOverrideGlobalSettings(true);
         DataManager.getInstance().replaceWebApp(original);
     }
 
@@ -2071,13 +2078,16 @@ public class WebViewActivity extends AppCompatActivity {
      * 加载自定义错误页（M3 靛蓝统一风格，替代系统默认白屏）。
      * 带错误码/描述参数（query 传入，页面显示开发者向信息）。
      * 语言：跟随 LocaleUtils（zh/en）。
-     * 注意：临时重置 textZoom=100——错误页不应继承用户对原页面的缩放（否则太小/太大）。
+     * 字体/页面缩放：跟随当前生效配置（与页面同一套，不再有独立缩放）。
      */
     private void loadCustomErrorPage(String code, String desc) {
         if (wv == null) return;
         try {
-            // 错误页用固定缩放（130：当前设备实测最舒适，不继承原页面缩放）
-            wv.getSettings().setTextZoom(Const.ERROR_PAGE_TEXT_ZOOM);
+            // 缩放跟随生效配置（原固定 130 独立配置已废弃）
+            if (webapp != null) {
+                wv.getSettings().setTextZoom(webapp.getTextZoom());
+                applyPageZoom();
+            }
             String lang = LocaleUtils.getFileEnding();
             String safeCode = code != null ? code : "";
             String safeDesc = desc != null ? desc : "";
