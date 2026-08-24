@@ -31,8 +31,8 @@ android {
         applicationId "com.cylonid.nativealpha"
         minSdk libs.versions.minSdk.get().toInteger()
         targetSdk libs.versions.targetSdk.get().toInteger()
-        versionCode 2131
-        versionName "2.1.31"
+        versionCode 2132
+        versionName "2.1.32"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments clearPackageData: 'true'
