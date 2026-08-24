@@ -5,10 +5,14 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.ui.ShortcutRecreateDialog
 import com.cylonid.nativealpha.ui.WebAppSettingsScreen
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.Utility
@@ -21,6 +25,7 @@ class WebAppSettingsActivity : AppCompatActivity() {
     private var webappID: Int = -1
     private var webapp: WebApp? = null
     private var isGlobalWebApp: Boolean = false
+    private var recreateDialog by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeUtils.applyUiMode()
@@ -55,10 +60,12 @@ class WebAppSettingsActivity : AppCompatActivity() {
                     onBack = { finish() },
                     onSave = { modified -> save(modified) },
                     onRecreateShortcut = {
-                        val frag = ShortcutDialogFragment.newInstance(webapp!!)
-                        frag.show(supportFragmentManager, "SCFetcher-" + webapp!!.ID)
+                        recreateDialog = true
                     }
                 )
+                if (recreateDialog && webapp != null && !isGlobalWebApp) {
+                    ShortcutRecreateDialog(webapp = webapp!!, onDismiss = { recreateDialog = false })
+                }
             }
         }
     }

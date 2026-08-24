@@ -1,6 +1,5 @@
 package com.cylonid.nativealpha.model
 
-import android.app.Activity
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.ShortcutIconUtils
@@ -196,14 +195,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
             */
     fun applySettingsForNewWebApp() {
         isOverrideGlobalSettings = false
-    }
-
-    fun markInactive(activity: Activity) {
-        isActiveEntry = false
-        ShortcutIconUtils.deleteShortcuts(
-            listOf(ID),
-            activity
-        )
     }
 
 

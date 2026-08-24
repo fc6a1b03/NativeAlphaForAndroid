@@ -24,6 +24,7 @@ import com.cylonid.nativealpha.ui.AddWebAppActivity
 import com.cylonid.nativealpha.ui.MainScreen
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.EntryPointUtils.entryPointReached
+import com.cylonid.nativealpha.util.ShortcutIconUtils
 import com.cylonid.nativealpha.util.WebViewLauncher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -149,7 +150,14 @@ class MainActivity : AppCompatActivity() {
 
     /** 删除 WebApp：直接删除，不弹确认（用户要求） */
     private fun deleteWebApp(webApp: WebApp) {
-        DataManager.getInstance().getWebAppIgnoringGlobalOverride(webApp.ID, true)?.markInactive(this)
+        // 深拷贝陷阱（P1 修复 2026-08-24）：跟随全局的站点 getWebApp 返回 merged 深拷贝，
+        // markInactive 改拷贝无效——必须按 ID 取内存原对象置 inactive，并落库防进程重启复活
+        DataManager.getInstance().getWebAppIgnoringGlobalOverride(webApp.ID, true)
+            ?.let { target ->
+                target.isActiveEntry = false
+                ShortcutIconUtils.deleteShortcuts(listOf(target.ID), this)
+            }
+        DataManager.getInstance().saveWebAppData()
         // 刷新列表（删除后立即移除条目）
         refreshTrigger++
     }

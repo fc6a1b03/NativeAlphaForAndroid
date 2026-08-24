@@ -10,7 +10,10 @@
 > **第二刀已完成（2026-08-24）**：DataManager.java(459行) → DataManager.kt(502行)，
 > 80 调用点零改动（唯一例外：SettingsActivity.kt 一处 getActiveWebsitesCount()
 > 属性化）。新增 DataManagerGsonContractTest（4 测试：Gson 字段名锁 + 合并语义锁）。
-> 剩余 Java：2 文件 2806 行（ShortcutDialogFragment 441 + WebViewActivity 2365）。
+> 剩余 Java：1 文件 2365 行（仅 WebViewActivity）。第三刀完成（2026-08-24）：
+> ShortcutDialogFragment 441 行 → Compose 弹窗 ShortcutRecreateDialog（复用
+> WebAppDataFetcher/pin 逻辑），删 shortcut_dialog.xml + CircularProgressBar 依赖
+> + markInactive 死代码；同刀修复 P1（删除不落库——真机验证 2 Apps 不复活）。
 > 另有 5 个 .kt 文件滞留 java 目录（GlobalSettings/SettingsActivity/WebViewLauncher/
 > WebAppSettingsActivity/WebAppStatsActivity）——第三/四刀迁移对应文件时顺手搬入
 > kotlin 目录，目录退役时清零。下一刀：ShortcutDialogFragment。
@@ -126,7 +129,8 @@
 - [ ] 真机三点验证：① IP/自托管站图标 HTML 实拉；② 老快捷方式手动重建；
       ③ OEM launcher 对 `updateShortcuts` 的支持度
 - [ ] 表格横滑 vs 手势冲突实机复现 → 随第四刀修
-- [ ] **删除 WebApp 不落库（P1 既有 bug，2026-08-24 M3 实测发现）**：
+- [x] ~~**删除 WebApp 不落库（P1 既有 bug）**~~ → 第三刀修复（deleteWebApp 按 ID
+      取原对象置 inactive + saveWebAppData；真机验证删除+重启 2 Apps 不复活）。
       `MainActivity.deleteWebApp` → `markInactive` 只改内存对象，全链路无
       `saveWebAppData()`——杀进程即复活（v2.1.31 原版同样复现，非迁移回归）。
       且跟随全局的站点 `getWebAppIgnoringGlobalOverride(ID, true)` 返回深拷贝，
