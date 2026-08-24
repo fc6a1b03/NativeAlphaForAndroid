@@ -217,6 +217,8 @@
     <string name="app_errors_export_success">Error logs exported</string>
     <string name="app_errors_export_failed">Failed to export error logs</string>
     <string name="app_errors_none">No error logs in the last 3 days</string>
+    <string name="gesture_no_prev_page">No previous page</string>
+    <string name="gesture_no_next_page">No next page</string>
 
 <string name="stats_title">Statistics · %1$s</string>
     <string name="stat_launches">Launches</string>

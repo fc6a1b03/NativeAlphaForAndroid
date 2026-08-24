@@ -54,6 +54,8 @@ public class DataManager {
     private static final String SHARED_PREF_GLOBAL_SETTINGS_JSON = "globalSettingsStoredAsJson";
 
     private static final DataManager instance = new DataManager();
+    /** 共享 Gson 实例（线程安全）——避免每次读写都新建（saveWebAppData 为热路径） */
+    private static final Gson GSON = new Gson();
     private ArrayList<WebApp> websites;
     private int max_assigned_ID;
     private SharedPreferences appdata;
@@ -81,11 +83,11 @@ public class DataManager {
     }
 
     public void saveWebAppData() {
-        Utility.Assert(App.getAppContext() != null, "App.getAppContext() null before saving sharedpref");
+        Utility.assertTrue(App.getAppContext() != null, "App.getAppContext() null before saving sharedpref");
 
         appdata = App.getAppContext().getSharedPreferences(SHARED_PREF_KEY, MODE_PRIVATE);
         SharedPreferences.Editor editor = appdata.edit();
-        Gson gson = new Gson();
+        Gson gson = GSON;
         String json = gson.toJson(websites);
         editor.putString(SHARED_PREF_WEBAPP_DATA, json);
         editor.putInt(SHARED_PREF_MAX_ID, max_assigned_ID);
@@ -111,7 +113,7 @@ public class DataManager {
     }
 
     private SharedPreferences getGeneralInfo() {
-        Utility.Assert(App.getAppContext() != null, "App.getAppContext() null before saving sharedpref");
+        Utility.assertTrue(App.getAppContext() != null, "App.getAppContext() null before saving sharedpref");
         return App.getAppContext().getSharedPreferences(GENERAL_INFO, MODE_PRIVATE);
 
     }
@@ -148,12 +150,12 @@ public class DataManager {
     public void loadAppData(boolean force) {
         if (dataLoaded && !force) return;
 
-        Utility.Assert(App.getAppContext() != null, "App.getAppContext() null before loading sharedpref");
+        Utility.assertTrue(App.getAppContext() != null, "App.getAppContext() null before loading sharedpref");
 
         appdata = App.getAppContext().getSharedPreferences(SHARED_PREF_KEY, MODE_PRIVATE);
         //Webapp data（D14：不做旧版兼容，直接默认 Gson 反序列化）
         if (appdata.contains(SHARED_PREF_WEBAPP_DATA)) {
-            Gson gson = new Gson();
+            Gson gson = GSON;
             String json = appdata.getString(SHARED_PREF_WEBAPP_DATA, "");
             ArrayList<WebApp> new_websites = gson.fromJson(json, new TypeToken<ArrayList<WebApp>>() {}.getType());
             if (new_websites != null) {
@@ -176,7 +178,7 @@ public class DataManager {
         }
         //Global settings（D14：不做旧版兼容，直接默认 Gson 反序列化）
         if (appdata.contains(SHARED_PREF_GLOBAL_SETTINGS)) {
-            Gson gson = new Gson();
+            Gson gson = GSON;
             String json = appdata.getString(SHARED_PREF_GLOBAL_SETTINGS, "");
             GlobalSettings loaded = gson.fromJson(json, GlobalSettings.class);
             if (loaded != null) {
@@ -204,12 +206,12 @@ public class DataManager {
     }
 
     public void saveGlobalSettings() {
-        Utility.Assert(App.getAppContext() != null, "App.getAppContext() null before saving appdata to sharedpref");
+        Utility.assertTrue(App.getAppContext() != null, "App.getAppContext() null before saving appdata to sharedpref");
 
         appdata = App.getAppContext().getSharedPreferences(SHARED_PREF_KEY, MODE_PRIVATE);
         SharedPreferences.Editor editor = appdata.edit();
 
-        Gson gson = new Gson();
+        Gson gson = GSON;
         String json = gson.toJson(settings);
         editor.putString(SHARED_PREF_GLOBAL_SETTINGS, json);
         editor.putBoolean(SHARED_PREF_GLOBAL_SETTINGS_JSON, true);
@@ -230,7 +232,7 @@ public class DataManager {
     }
 
     public ArrayList<WebApp> getWebsites() {
-        Utility.Assert(websites != null, "Websites not loaded");
+        Utility.assertTrue(websites != null, "Websites not loaded");
         return websites;
     }
 
@@ -333,7 +335,7 @@ public class DataManager {
             backup.put("websites", websites);
             backup.put("settings", settings);
 
-            String json = new Gson().toJson(backup);
+            String json = GSON.toJson(backup);
             String checksum = sha256Hex(json);
             String payload = "{\"checksum\":\"" + checksum + "\",\"data\":" + json + "}";
 
@@ -393,7 +395,7 @@ public class DataManager {
                 throw new InvalidChecksumException("Unsupported backup format version: " + version);
             }
 
-            Gson gson = new Gson();
+            Gson gson = GSON;
             ArrayList<WebApp> loadedWebsites = gson.fromJson(
                     dataObj.get("websites"), new TypeToken<ArrayList<WebApp>>() {}.getType());
             GlobalSettings loadedSettings = gson.fromJson(dataObj.get("settings"), GlobalSettings.class);

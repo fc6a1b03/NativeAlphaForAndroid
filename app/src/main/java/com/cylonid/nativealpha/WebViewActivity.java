@@ -771,10 +771,22 @@ public class WebViewActivity extends AppCompatActivity {
                             if (edgeZone && Math.abs(dx) > GESTURE_SWIPE_MIN_PX
                                     && Math.abs(dx) > dy * GESTURE_HORIZONTAL_DOMINANCE) {
                                 if (dx > 0) {
-                                    // 右滑后退（与系统返回一致），先处理 WebView 历史再退出
-                                    safeBackPressed();
+                                    // 右滑后退：有历史才退（与系统返回一致）；
+                                    // 无历史不动作（此前会退出应用）——给轻提示
+                                    if (wv != null && wv.canGoBack()) {
+                                        safeBackPressed();
+                                    } else {
+                                        NotificationUtils.showToast(WebViewActivity.this,
+                                                getString(R.string.gesture_no_prev_page));
+                                    }
                                 } else if (dx < 0) {
-                                    safeGoForward();
+                                    // 左滑前进：有前进历史才执行；无则不动作，给轻提示
+                                    if (wv != null && wv.canGoForward()) {
+                                        safeGoForward();
+                                    } else {
+                                        NotificationUtils.showToast(WebViewActivity.this,
+                                                getString(R.string.gesture_no_next_page));
+                                    }
                                 }
                                 lastDownTime = 0; // 滑动后清除双击状态
                                 // 关键：不消费 UP（return false）——WebView 需要完整 DOWN→MOVE→UP
@@ -1648,9 +1660,14 @@ public class WebViewActivity extends AppCompatActivity {
             builder.setMessage(getString(R.string.no_https_dialog_msg));
             builder.setIcon(android.R.drawable.ic_dialog_alert);
             builder.setPositiveButton(getString(R.string.no_https_dialog_accept), (dialog, id) -> {
-                webApp.setAllowHttp(true);
-                webApp.setOverrideGlobalSettings(true);
-                DataManager.getInstance().saveWebAppData();
+                // 必须写回列表内的存储实例（ignoreOverride=true 取活对象）——
+                // 上方 webApp 在 override=false 时是合并副本，改副本保存会静默丢失
+                WebApp stored = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true);
+                if (stored != null) {
+                    stored.setAllowHttp(true);
+                    stored.setOverrideGlobalSettings(true);
+                    DataManager.getInstance().saveWebAppData();
+                }
                 view.loadUrl(url, CUSTOM_HEADERS);
             });
             builder.setNegativeButton(getString(android.R.string.cancel), (dialog, id) -> finish());
@@ -2053,7 +2070,7 @@ public class WebViewActivity extends AppCompatActivity {
     /**
      * 加载自定义错误页（M3 靛蓝统一风格，替代系统默认白屏）。
      * 带错误码/描述参数（query 传入，页面显示开发者向信息）。
-     * 语言：跟随 LocaleUtils（zh/en/de）。
+     * 语言：跟随 LocaleUtils（zh/en）。
      * 注意：临时重置 textZoom=100——错误页不应继承用户对原页面的缩放（否则太小/太大）。
      */
     private void loadCustomErrorPage(String code, String desc) {

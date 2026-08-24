@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.AppErrorLogRepository
 import com.cylonid.nativealpha.model.DataManager
@@ -24,7 +25,6 @@ import com.cylonid.nativealpha.ui.MainScreen
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.EntryPointUtils.entryPointReached
 import com.cylonid.nativealpha.util.WebViewLauncher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -92,11 +92,10 @@ class MainActivity : AppCompatActivity() {
      * 异步执行（IO 协程），不阻塞启动；无崩溃或检查失败静默。
      */
     private fun checkAndPromptCrashLog() {
-        CoroutineScope(Dispatchers.IO).launch {
-            val entries = AppErrorLogRepository.getAll(applicationContext)
-            // 近 3 天 CRASH 级记录（常量 APP_ERROR_DAYS）
-            val cutoff = System.currentTimeMillis() - Const.APP_ERROR_DAYS * 24L * 60 * 60 * 1000
-            val recentCrash = entries.any { it.level == AppErrorEntry.LEVEL_CRASH && it.time >= cutoff }
+        lifecycleScope.launch(Dispatchers.IO) {
+            // 近 3 天记录（仓库统一口径 getRecent）
+            val entries = AppErrorLogRepository.getRecent(applicationContext)
+            val recentCrash = entries.any { it.level == AppErrorEntry.LEVEL_CRASH }
             if (recentCrash) {
                 // 同一次崩溃只提示一次：记录最近提示的崩溃时间戳，避免每次启动重复弹
                 val prefs = getSharedPreferences(PREFS_CRASH_PROMPT, MODE_PRIVATE)

@@ -31,6 +31,7 @@ import com.cylonid.nativealpha.util.IconGenerator;
 import com.cylonid.nativealpha.util.LocaleUtils;
 import com.cylonid.nativealpha.util.NotificationUtils;
 import com.cylonid.nativealpha.util.ShortcutIconUtils;
+import com.cylonid.nativealpha.util.UrlUtils;
 import com.cylonid.nativealpha.util.WebAppDataFetcher;
 import com.cylonid.nativealpha.util.WebViewLauncher;
 import com.google.android.material.snackbar.Snackbar;
@@ -70,7 +71,7 @@ public class ShortcutDialogFragment extends DialogFragment  {
 
     private WebApp webapp;
     private String base_url;
-    private Bitmap bitmap;
+    private volatile Bitmap bitmap;  // faviconFetcherThread 写 / UI 线程读——volatile 防可见性问题
     private ImageView uiFavicon;
     private CircularProgressBar uiProgressBar;
     private EditText uiTitle;
@@ -325,16 +326,14 @@ public class ShortcutDialogFragment extends DialogFragment  {
     private void addShortcutToHomeScreen(Bitmap bitmap) {
         Intent intent = WebViewLauncher.createWebViewIntent(webapp, requireActivity());
 
+        // 统一图标链（预览/保存/列表同源）：弹窗 bitmap → resolveIconCached（iconPath→字母，无网络不阻塞 UI）
         IconCompat icon;
         if (bitmap != null) {
             icon = IconCompat.createWithBitmap(bitmap);
         } else {
-            // favicon 拉取失败：动态生成兜底图标（圆角渐变 + 站点名首字母）
-            Bitmap fallback = IconGenerator.generate(
-                    webapp.getTitle(),
-                    Uri.parse(webapp.getBaseUrl()).getHost(),
-                    192, 48);
-            icon = IconCompat.createWithBitmap(fallback);
+            Bitmap resolved = com.cylonid.nativealpha.util.WebAppIconManager.INSTANCE.resolveIconCached(
+                    requireActivity(), webapp);
+            icon = IconCompat.createWithBitmap(resolved);
         }
 
 
@@ -360,7 +359,8 @@ public class ShortcutDialogFragment extends DialogFragment  {
 
         if (ShortcutManagerCompat.isRequestPinShortcutSupported(requireActivity())) {
 
-            ShortcutInfoCompat pinShortcutInfo = new ShortcutInfoCompat.Builder(requireActivity(), final_title)
+            String shortcutId = ShortcutIconUtils.pinnedShortcutId(webapp.getID());
+            ShortcutInfoCompat pinShortcutInfo = new ShortcutInfoCompat.Builder(requireActivity(), shortcutId)
                     .setIcon(icon)
                     .setShortLabel(final_title)
                     .setLongLabel(final_title)
@@ -414,7 +414,7 @@ public class ShortcutDialogFragment extends DialogFragment  {
             webapp.setBaseUrl(url);
             // 表单关系回填：URL 变更 → 名称从新 URL 提取（title 唯一名称，保持一致）
             if (webapp.getTitle() == null || webapp.getTitle().isEmpty()) {
-                String derived = url.replace("http://", "").replace("https://", "").replace("www.", "");
+                String derived = UrlUtils.displayHost(url);
                 webapp.setTitle(derived);
             }
             DataManager.getInstance().saveWebAppData();
@@ -424,6 +424,10 @@ public class ShortcutDialogFragment extends DialogFragment  {
 
     private void applyNewBitmapToDialog() {
         if (bitmap == null) {
+            // 网络失败：预览用本地解析（iconPath→字母，无网络不阻塞 UI）——预览=保存=列表一致
+            Bitmap resolved = com.cylonid.nativealpha.util.WebAppIconManager.INSTANCE.resolveIconCached(
+                    requireActivity(), webapp);
+            uiFavicon.setImageBitmap(resolved);
             prepareFailedUI();
             return;
         }

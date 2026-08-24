@@ -8,6 +8,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.PageErrorEntry
 import com.cylonid.nativealpha.model.PageErrorRepository
@@ -16,13 +17,9 @@ import com.cylonid.nativealpha.ui.WebAppStatsScreen
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.ThemeUtils
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.OutputStreamWriter
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * 统计页（按 WebApp 进入）：KPI/图表/缓存/错误日志/清空。
@@ -63,9 +60,8 @@ class WebAppStatsActivity : AppCompatActivity() {
                     webapp = webapp,
                     onBack = { finish() },
                     onExport = {
-                        val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
                         try {
-                            exportLauncher.launch("WebNative_errors_${webapp.alphanumericBaseUrl}_${sdf.format(Date())}.json")
+                            exportLauncher.launch("WebNative_errors_${webapp.alphanumericBaseUrl}_${com.cylonid.nativealpha.util.DateUtils.compactDate()}.json")
                         } catch (e: Exception) {
                             // 无保存器：静默
                         }
@@ -84,7 +80,7 @@ class WebAppStatsActivity : AppCompatActivity() {
      * 异步执行（IO），完成主线程提示。
      */
     private fun clearCache() {
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 android.webkit.WebStorage.getInstance().deleteAllData()
                 // 清空 cacheDir（WebView HTTP 缓存）
@@ -113,7 +109,7 @@ class WebAppStatsActivity : AppCompatActivity() {
      * 异步执行（IO），完成主线程提示。
      */
     private fun clearStats() {
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true)
                 if (original != null) {
@@ -141,7 +137,7 @@ class WebAppStatsActivity : AppCompatActivity() {
 
     /** 清空该站错误日志（只清日志，不动统计；导出错误日志用） */
     private fun clearErrors() {
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 PageErrorRepository.clearForSite(applicationContext, webappID)
                 snackbarHostState.showSnackbar(getString(R.string.errors_cleared))
@@ -152,7 +148,7 @@ class WebAppStatsActivity : AppCompatActivity() {
     }
 
     /** 导出该站页面错误（DataStore 过滤） */
-    private fun exportPageErrorsToUri(uri: android.net.Uri) {        CoroutineScope(Dispatchers.IO).launch {
+    private fun exportPageErrorsToUri(uri: android.net.Uri) {        lifecycleScope.launch(Dispatchers.IO) {
             val entries = PageErrorRepository.getForSite(applicationContext, webappID)
             if (entries.isEmpty()) {
                 snackbarHostState.showSnackbar(getString(R.string.stats_no_errors_site))

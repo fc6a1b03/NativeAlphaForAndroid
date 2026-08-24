@@ -952,8 +952,8 @@ private fun IconSettingsRow(
         } else {
             val preview = remember(webApp.title, webApp.baseUrl) {
                 runCatching {
-                    val d = java.net.URI(webApp.baseUrl).host
-                    com.cylonid.nativealpha.util.IconGenerator.generate(webApp.title, d, 80, 20)
+                    // 与列表/快捷同源（resolveIconCached：iconPath→字母，无网络——组合期 UI 线程安全）
+                    com.cylonid.nativealpha.util.WebAppIconManager.resolveIconCached(context, webApp)
                 }.getOrNull()
             }
             preview?.let {

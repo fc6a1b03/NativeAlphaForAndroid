@@ -10,7 +10,10 @@ Guidance for AI coding agents working on **WebNative** (fork of NativeAlphaForAn
 - Kotlin 风格：命名/导入（禁 `.*`）/注释/格式化按 Google Kotlin Style Guide
 - 资源名 `snake_case`；字符串全部 `R.string` 外部化（en+zh 双语）；禁硬编码
 - Compose：stringResource 在组合期预取；设备状态栏统一走 `ThemeUtils.applySystemBarColors`
-- 统一源：Cookie 隔离走 `CookieSessionManager`、头像走 `WebAppIconManager`（不重复存储逻辑）
+- 统一源：Cookie 隔离走 `CookieSessionManager`、头像走 `WebAppIconManager`（不重复存储逻辑）。
+  图标能力只在该类实现，调用方只编排：UI 线程 `resolveIconCached`（无网络）、IO 线程
+  `resolveIcon`/`loadFavicon`（含网络+持久化）、临时拉取 `fetchFavicon`（不持久化——
+  禁止用临时 WebApp 调 loadFavicon，会落 webapp_-1 孤儿文件）
 - 提交前 `./gradlew testDebugUnitTest lintDebug` 必须全绿；新增功能配单测
 
 ## Project Overview
@@ -113,7 +116,7 @@ output, long documents, code blocks).
 ## Release & Deployment
 
 - Versioning: bump `versionCode`/`versionName` in `app/build.gradle`
-  `defaultConfig`; update README and `doc/REFACTOR_PLAN.md` if changed.
+  `defaultConfig`; update README and `doc/KOTLIN_MIGRATION.md` if changed.
 - Distribution: GitHub Releases only (CI on tag), no Play/F-Droid.
 - Privacy stance: minimal permissions (INTERNET, location, camera, audio);
   cleartext traffic enabled for user-added non-HTTPS sites; Safe Browsing

@@ -68,4 +68,23 @@ class WebAppIconManagerTest {
         val webApp = WebApp("https://example.com", 996)
         assertNull("无 iconPath 应返回 null", WebAppIconManager.loadIcon(context, webApp))
     }
+
+    @Test
+    fun resolveIconCached_noPath_returnsLetterFallbackWithoutNetwork() {
+        val webApp = WebApp("https://example.com", 995)
+        // iconPath 为 null：应直接返回字母渐变兜底（不发网络、不持久化 iconPath）
+        val bmp = WebAppIconManager.resolveIconCached(context, webApp)
+        assertNotNull("无图标时应返回字母兜底", bmp)
+        assertNull("resolveIconCached 不得触发网络持久化", webApp.iconPath)
+    }
+
+    @Test
+    fun resolveIconCached_withPath_returnsSavedIcon() {
+        val webApp = WebApp("https://example.com", 994)
+        WebAppIconManager.saveIcon(context, webApp, fakeBitmap())
+
+        val bmp = WebAppIconManager.resolveIconCached(context, webApp)
+        assertNotNull("有 iconPath 应返回已存图标", bmp)
+        assertEquals("尺寸应一致", 64, bmp.width)
+    }
 }

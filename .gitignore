@@ -15,3 +15,4 @@ key.properties
 /.kotlin/
 /.idea/
 /doc/*.png
+/doc/KOTLIN_MIGRATION.md

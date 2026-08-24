@@ -11,6 +11,10 @@ import com.cylonid.nativealpha.R
  */
 object ShortcutIconUtils {
 
+    /** 桌面快捷方式稳定 ID 规则（唯一实现处）——pin/更新/重建必须用同一 ID 才能互相找到 */
+    @JvmStatic
+    fun pinnedShortcutId(webappId: Int): String = "webapp_$webappId"
+
     /**
      * 禁用指定 Web App 的桌面快捷方式。
      * 使用 disable 而非 remove：避免部分启动器在 remove 时弹确认框。

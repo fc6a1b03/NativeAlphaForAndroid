@@ -5,12 +5,12 @@ import java.util.Locale
 object LocaleUtils {
 
     /**
-     * 应用语言代码（文件名后缀用：zh / en / de）——错误页等静态资源按此选择。
+     * 应用语言代码（文件名后缀用：zh / en）——错误页等静态资源按此选择。
+     * 应用只发布中/英双语（无 values-de），其他系统语言统一回落 en。
      */
     @JvmStatic
     val fileEnding: String
         get() = when (Locale.getDefault().language) {
-            "de" -> "de"
             "zh" -> "zh"
             else -> "en"
         }

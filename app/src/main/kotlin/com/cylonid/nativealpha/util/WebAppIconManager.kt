@@ -3,26 +3,28 @@ package com.cylonid.nativealpha.util
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import com.cylonid.nativealpha.model.WebApp
 import java.io.File
 import java.io.FileOutputStream
 
 /**
- * WebApp 头像唯一管理入口（统一数据源）。
+ * WebApp 头像唯一管理入口（统一数据源 + 图标能力唯一实现处，调用方只编排）。
  *
  * 数据源：WebApp.iconPath 记录 App 文件目录（files/icons/webapp_N.png）里
  * 的头像文件路径；null = 用字母渐变图标（IconGenerator）。
  *
- * 唯一逻辑：
- * - saveIcon(webApp, bitmap)  → 存文件 + 更新 webApp.iconPath（唯一写入点）
- * - loadIcon(webApp)          → 按 iconPath 读 bitmap（唯一读取点）
- * - deleteIcon(webApp)        → 删文件 + iconPath=null（唯一清除点）
+ * 能力分层：
+ * - saveIcon(webApp, bitmap)   → 存文件 + 更新 webApp.iconPath（唯一写入点）
+ * - loadIcon(webApp)           → 按 iconPath 读 bitmap（唯一读取点）
+ * - deleteIcon(webApp)         → 删文件 + iconPath=null（唯一清除点）
+ * - fetchFavicon(baseUrl)      → 纯拉取（候选源+HTML 解析，不持久化；IO 线程）
+ * - loadFavicon(webApp)        → 缓存 + fetchFavicon + 持久化 iconPath（IO 线程）
+ * - resolveIcon(webApp)        → iconPath→favicon→字母（含网络，IO 线程）
+ * - resolveIconCached(webApp)  → iconPath→字母（无网络，UI 线程安全）
  *
- * 调用方：AddWebApp（创建时选图/回填）、WebAppSettings（设置页换图/回填/重置）、
- * MainScreen（列表图标——有 iconPath 用头像，否则 IconGenerator）。
- *
- * 注意：**不重复存储**——Setuptab 创建的系统快捷方式图标由 ShortcutManager
- * 持有，App 内统一只通过 iconPath 引用（不做第二份拷贝）。
+ * 注意：**不重复存储**——系统快捷方式图标由 ShortcutManager 持有，
+ * App 内统一只通过 iconPath 引用（不做第二份拷贝）。
  */
 object WebAppIconManager {
 
@@ -43,6 +45,7 @@ object WebAppIconManager {
             webApp.iconPath = file.absolutePath
             true
         } catch (e: Exception) {
+            Log.w(TAG, "saveIcon failed [webapp_${webApp.ID}]: ${e.message}")
             false
         }
     }
@@ -82,6 +85,13 @@ object WebAppIconManager {
     /** favicon 最小边长（px）：过滤 1x1 占位符等异常图 */
     private const val MIN_FAVICON_PX = 16
 
+    /** 日志 TAG（图标链路排查用：logcat -s IconMgr） */
+    private const val TAG = "IconMgr"
+
+    /** 字母兜底图标尺寸（px）/ 圆角（px） */
+    private const val LETTER_ICON_PX = 112
+    private const val LETTER_ICON_RADIUS_PX = 28
+
     /** favicon 网络超时（ms） */
     private const val FAVICON_TIMEOUT_MS = 4000
 
@@ -90,31 +100,45 @@ object WebAppIconManager {
         File(context.cacheDir, "favicons").apply { if (!exists()) mkdirs() }
 
     /**
-     * 加载/拉取网站 favicon（列表图标用）：优先缓存；无则拉站点根 /favicon.ico
-     * （站点直连，多数站可达；Kimi/百度等）失败 fallback Google s2。
+     * 加载/拉取网站 favicon（列表图标用）：优先缓存；无则 [fetchFavicon] 拉取。
      * 网络在调用方协程/线程处理（本方法同步执行，需 IO 上下文）。
      * 一旦拉取成功：**持久化到 iconPath（filesDir 永久存储）+ 缓存**——
      * 列表图标稳定显示（不再依赖 cacheDir 易被系统清理，重启不丢）。
      * 失败返回 null（调用方 fallback 字母图标）。
      */
     fun loadFavicon(context: Context, webApp: WebApp): Bitmap? {
-        val domain = try { java.net.URI(webApp.baseUrl).host } catch (e: Exception) { null }
-            ?: return null
+        val domain = UrlUtils.hostOf(webApp.baseUrl) ?: return null
         val cacheFile = File(faviconDir(context), "$domain.png")
         // 缓存命中直接读（成功后 persistent；失败标记不存图片，每次重试防新图标）
         if (cacheFile.exists()) {
             val cached = try { BitmapFactory.decodeFile(cacheFile.absolutePath) } catch (e: Exception) { null }
-            if (cached != null) return cached
+            if (cached != null) {
+                Log.d(TAG, "cache hit [$domain]")
+                return cached
+            }
             // 缓存文件损坏：删掉重拉
             cacheFile.delete()
         }
-        // 拉取候选（多源冗余，国内/代理环境至少一个可达）：
-        // 1. 站点根 /favicon.ico（本地直连，最快）
-        // 2. Google s2（境外站兜底，代理环境可达）
-        // 3. icon.horse（第三方聚合服务，冗余）
-        // 4. DuckDuckGo icons（第三方聚合服务，冗余）
+        val bmp = fetchFavicon(webApp.baseUrl) ?: return null
+        return persistFavicon(context, webApp, cacheFile, bmp)
+    }
+
+    /**
+     * 纯拉取 favicon（**不读缓存、不持久化**——能力唯一实现处）。候选源按序：
+     * 1. 站点根 /favicon.ico（本地直连，最快）
+     * 2. Google s2（境外站兜底，代理环境可达）
+     * 3. icon.horse（第三方聚合服务，冗余）
+     * 4. DuckDuckGo icons（第三方聚合服务，冗余）
+     * 5. HTML <link rel=icon> 解析（IP/自托管站唯一来源——第三方服务不收录 IP，
+     *    站点根 /favicon.ico 也常不存在；与创建流程同源 WebAppDataFetcher）
+     *
+     * 临时场景（创建向导预览等 WebApp 未持久化时）用本方法——切勿用临时 WebApp
+     * 调 [loadFavicon]（saveIcon 会落 webapp_-1 孤儿文件）。须 IO 线程调用。
+     */
+    fun fetchFavicon(baseUrl: String): Bitmap? {
+        val domain = UrlUtils.hostOf(baseUrl) ?: return null
         val candidates = listOf(
-            hostFor(webApp.baseUrl),
+            hostFor(baseUrl),
             "https://www.google.com/s2/favicons?domain=$domain&sz=112",
             "https://icon.horse/icon/$domain",
             "https://icons.duckduckgo.com/ip3/$domain.ico"
@@ -132,21 +156,42 @@ object WebAppIconManager {
                     if (bmp == null) {
                         bmp = WebAppDataFetcher.decodeIco(bytes)
                     }
-                    // 合法性校验：像素过小的异常图（如 1x1 占位）跳过
-                    if (bmp != null && bmp.width >= MIN_FAVICON_PX && bmp.height >= MIN_FAVICON_PX) {
-                        // 写缓存（cacheDir）+ 持久化 iconPath（filesDir 永久）
-                        FileOutputStream(cacheFile).use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 90, out) }
-                        saveIcon(context, webApp, bmp)
-                        // 持久化 iconPath 到 DataManager（防重启丢失）
-                        com.cylonid.nativealpha.model.DataManager.getInstance().saveWebAppData()
+                    if (isUsableFavicon(bmp)) {
+                        Log.d(TAG, "favicon ok [$domain] <- $url")
                         return bmp
                     }
+                    Log.d(TAG, "candidate unusable [$url] (too small/undecodable)")
+                } else {
+                    Log.d(TAG, "candidate http ${conn.responseCode} [$url]")
                 }
             } catch (e: Exception) {
-                // 尝试下一个候选
+                Log.d(TAG, "candidate fail [$url]: ${e.javaClass.simpleName} ${e.message}")
             }
         }
+        try {
+            val meta = WebAppDataFetcher.fetch(baseUrl)
+            val bmp = WebAppDataFetcher.loadBitmap(meta.faviconUrl)
+            if (isUsableFavicon(bmp)) {
+                Log.d(TAG, "favicon ok [$domain] <- html parse")
+                return bmp
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "html parse fail [$domain]: ${e.javaClass.simpleName}")
+        }
+        Log.d(TAG, "favicon MISS [$domain] all sources failed")
         return null
+    }
+
+    /** favicon 合法性：像素过小的异常图（如 1x1 占位）不可用 */
+    private fun isUsableFavicon(bmp: Bitmap?): Boolean =
+        bmp != null && bmp.width >= MIN_FAVICON_PX && bmp.height >= MIN_FAVICON_PX
+
+    /** favicon 落盘：写缓存（cacheDir）+ 持久化 iconPath（filesDir 永久）+ 保存数据（防重启丢失） */
+    private fun persistFavicon(context: Context, webApp: WebApp, cacheFile: File, bmp: Bitmap): Bitmap {
+        FileOutputStream(cacheFile).use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 90, out) }
+        saveIcon(context, webApp, bmp)
+        com.cylonid.nativealpha.model.DataManager.getInstance().saveWebAppData()
+        return bmp
     }
 
     /**
@@ -155,17 +200,33 @@ object WebAppIconManager {
      * 2. 无 → 网站 favicon（loadFavicon：直连多候选 + 成功后持久化 iconPath）
      * 3. 仍无 → 字母渐变图标（IconGenerator）
      *
-     * 所有 UI（列表/设置页/添加向导预览/快捷方式 fallback）统一调用本方法，
-     * 避免各处在各自 fallback 逻辑（此前 4 处 IconGenerator.generate 冗余）。
-     * 注：网络拉取在调用方协程执行；本方法同步（失败返回字母图标，不发网络）。
+     * 列表等 IO 上下文统一调用本方法（**含网络，禁止 UI 线程调用**——
+     * 候选源超时累计可达 16s，UI 线程请用 [resolveIconCached]）。
      */
     fun resolveIcon(context: Context, webApp: WebApp): Bitmap {
         loadIcon(context, webApp)?.let { return it }
         // 网络拉取（调用方负责 IO 线程）——成功持久化 iconPath
         loadFavicon(context, webApp)?.let { return it }
         // 字母渐变兜底
-        val d = try { java.net.URI(webApp.baseUrl).host } catch (e: Exception) { null }
-        return IconGenerator.generate(webApp.title, d, 112, 28)
+        return resolveIconCached(context, webApp)
+    }
+
+    /**
+     * 本地图标解析（**无网络，UI 线程安全**）：
+     * 1. iconPath 有值 → 持久化头像/网站图标
+     * 2. 无 → 字母渐变图标（IconGenerator）
+     *
+     * UI 线程调用点（快捷方式创建/更新、设置页/弹窗预览）统一用本方法；
+     * favicon 网络补拉只走 [resolveIcon]（IO 线程）。
+     */
+    fun resolveIconCached(context: Context, webApp: WebApp): Bitmap {
+        loadIcon(context, webApp)?.let { return it }
+        return IconGenerator.generate(
+            webApp.title,
+            UrlUtils.hostOf(webApp.baseUrl),
+            LETTER_ICON_PX,
+            LETTER_ICON_RADIUS_PX
+        )
     }
 
     /** 删除头像（重置为字母图标时调用；iconPath 清空） */

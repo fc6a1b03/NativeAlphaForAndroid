@@ -221,6 +221,8 @@
     <string name="app_errors_export_success">错误日志已导出</string>
     <string name="app_errors_export_failed">错误日志导出失败</string>
     <string name="app_errors_none">近 3 天无错误日志</string>
+    <string name="gesture_no_prev_page">没有上一页了</string>
+    <string name="gesture_no_next_page">没有下一页了</string>
 
 <string name="stats_title">统计 · %1$s</string>
     <string name="stat_launches">打开次数</string>

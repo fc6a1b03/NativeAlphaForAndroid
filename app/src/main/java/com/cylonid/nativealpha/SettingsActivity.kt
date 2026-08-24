@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
+import androidx.lifecycle.lifecycleScope
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.AppErrorLogRepository
 import com.cylonid.nativealpha.model.DataManager
@@ -23,13 +24,9 @@ import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.MdRenderer
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.google.android.material.snackbar.Snackbar
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.OutputStreamWriter
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * 全局设置页：Compose 实现（分区块卡片：通用 / 备份）。
@@ -183,7 +180,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun autoCheckUpdateOnceADay() {
         try {
             val prefs = getSharedPreferences("update_check", MODE_PRIVATE)
-            val today = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+            val today = com.cylonid.nativealpha.util.DateUtils.compactDate()
             val lastCheck = prefs.getString("last_check_date", "")
             if (lastCheck == today) return // 今天已检查
             prefs.edit().putString("last_check_date", today).apply()
@@ -194,33 +191,46 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * 导出应用错误日志（近 3 天）：SAF 创建文件 → 读 DataStore → 过滤 → 写 JSON。
+     * 导出应用错误日志（近 3 天）：先查后导——无日志直接提示，不弹文件选择器（不执行导出）；
+     * 有日志 → SAF 创建文件 → 写 JSON。导出只读不清除（3 天窗口完整保留，每次导出内容一致）。
      * 三态：成功 / 失败 / 近 3 天无日志（不创建空文件）。
      */
     private fun exportAppErrors() {
-        val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
-        // CreateDocument 注册器已指定 application/json，launch 传文件名即可
-        try {
-            exportAppErrorsLauncher.launch("WebNative_app_errors_" + sdf.format(Date()) + ".json")
-        } catch (e: Exception) {
-            NotificationUtils.showInfoSnackbar(
-                this,
-                getString(R.string.no_filemanager),
-                Snackbar.LENGTH_LONG
-            )
+        lifecycleScope.launch(Dispatchers.IO) {
+            val recent = AppErrorLogRepository.getRecent(applicationContext)
+            if (recent.isEmpty()) {
+                // 无日志：不执行导出（不弹 SAF 选择器、不创建空文件），仅提示
+                runOnUiThread {
+                    NotificationUtils.showInfoSnackbar(
+                        this@SettingsActivity,
+                        getString(R.string.app_errors_none),
+                        Snackbar.LENGTH_LONG
+                    )
+                }
+                return@launch
+            }
+            runOnUiThread {
+                // CreateDocument 注册器已指定 application/json，launch 传文件名即可
+                try {
+                    exportAppErrorsLauncher.launch("WebNative_app_errors_" + com.cylonid.nativealpha.util.DateUtils.compactDate() + ".json")
+                } catch (e: Exception) {
+                    NotificationUtils.showInfoSnackbar(
+                        this@SettingsActivity,
+                        getString(R.string.no_filemanager),
+                        Snackbar.LENGTH_LONG
+                    )
+                }
+            }
         }
     }
 
-    /** 写错误日志到所选 URI（异步：读 DataStore 不阻塞主线程） */
+    /** 写错误日志到所选 URI（异步：读 DataStore 不阻塞主线程；只读不清除） */
     private fun exportAppErrorsToUri(uri: android.net.Uri) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val entries = AppErrorLogRepository.getAll(applicationContext)
-            // 过滤近 3 天（常量 APP_ERROR_DAYS=3）
-            val cutoff = System.currentTimeMillis() - Const.APP_ERROR_DAYS * 24L * 60 * 60 * 1000
-            val recent = entries.filter { it.time >= cutoff }
+        lifecycleScope.launch(Dispatchers.IO) {
+            val recent = AppErrorLogRepository.getRecent(applicationContext)
             runOnUiThread {
                 if (recent.isEmpty()) {
-                    // 无日志：不创建空文件，提示
+                    // 兜底：选择文件后窗口内仍无日志（理论不发生）——不写空内容
                     NotificationUtils.showInfoSnackbar(
                         this@SettingsActivity,
                         getString(R.string.app_errors_none),
@@ -258,9 +268,8 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun export() {
-        val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
         try {
-            exportBackupLauncher.launch("WebNative_" + sdf.format(Date()) + ".json")
+            exportBackupLauncher.launch("WebNative_" + com.cylonid.nativealpha.util.DateUtils.compactTimestamp() + ".json")
         } catch (e: ActivityNotFoundException) {
             NotificationUtils.showInfoSnackbar(
                 this,
