@@ -315,14 +315,15 @@ class DataManager private constructor() {
 
                 // 备份内容：版本 + 导出时间 + Web Apps + 全局设置
                 val backup = TreeMap<String, Any>()
-                backup["version"] = BACKUP_FORMAT_VERSION
+                backup[BACKUP_KEY_VERSION] = BACKUP_FORMAT_VERSION
                 backup["exportedAt"] = System.currentTimeMillis()
-                backup["websites"] = websites
-                backup["settings"] = _settings
+                backup[BACKUP_KEY_WEBSITES] = websites
+                backup[BACKUP_KEY_SETTINGS] = _settings
 
                 val json = GSON.toJson(backup)
                 val checksum = sha256Hex(json)
-                val payload = "{\"checksum\":\"" + checksum + "\",\"data\":" + json + "}"
+                val payload = "{\"" + BACKUP_KEY_CHECKSUM + "\":\"" + checksum +
+                    "\",\"" + BACKUP_KEY_DATA + "\":" + json + "}"
 
                 stream.write(payload.toByteArray(StandardCharsets.UTF_8))
                 result = true
@@ -345,11 +346,11 @@ class DataManager private constructor() {
 
                 // 解析外层 {checksum, data}
                 val root = JsonParser.parseString(payload).asJsonObject
-                if (!root.has("checksum") || !root.has("data")) {
+                if (!root.has(BACKUP_KEY_CHECKSUM) || !root.has(BACKUP_KEY_DATA)) {
                     return false // 非本应用备份格式
                 }
-                val checksum = root.get("checksum").asString
-                val data = root.get("data").toString()
+                val checksum = root.get(BACKUP_KEY_CHECKSUM).asString
+                val data = root.get(BACKUP_KEY_DATA).toString()
 
                 // 校验和验证（防篡改/损坏）
                 val newChecksum = sha256Hex(data)
@@ -361,12 +362,13 @@ class DataManager private constructor() {
 
                 // 解析数据体
                 val dataObj = JsonParser.parseString(data).asJsonObject
-                if (!dataObj.has("version") || !dataObj.has("websites") ||
-                    !dataObj.has("settings")
+                if (!dataObj.has(BACKUP_KEY_VERSION) ||
+                    !dataObj.has(BACKUP_KEY_WEBSITES) ||
+                    !dataObj.has(BACKUP_KEY_SETTINGS)
                 ) {
                     return false // 数据体不完整
                 }
-                val version = dataObj.get("version").asInt
+                val version = dataObj.get(BACKUP_KEY_VERSION).asInt
                 if (version != BACKUP_FORMAT_VERSION) {
                     throw InvalidChecksumException(
                         "Unsupported backup format version: " + version
@@ -374,11 +376,11 @@ class DataManager private constructor() {
                 }
 
                 val loadedWebsites = GSON.fromJson<ArrayList<WebApp>>(
-                    dataObj.get("websites"),
+                    dataObj.get(BACKUP_KEY_WEBSITES),
                     TypeToken.getParameterized(ArrayList::class.java, WebApp::class.java).type
                 )
                 val loadedSettings = GSON.fromJson<GlobalSettings>(
-                    dataObj.get("settings"), GlobalSettings::class.java
+                    dataObj.get(BACKUP_KEY_SETTINGS), GlobalSettings::class.java
                 )
 
                 if (loadedWebsites != null) {
@@ -461,6 +463,13 @@ class DataManager private constructor() {
 
         /** 备份格式版本（D15：版本化 JSON，不兼容旧版） */
         private const val BACKUP_FORMAT_VERSION = 2
+
+        // 备份 JSON 键（导出/导入两侧共用——内联字符串一旦写读不一致即数据丢失）
+        private const val BACKUP_KEY_CHECKSUM = "checksum"
+        private const val BACKUP_KEY_DATA = "data"
+        private const val BACKUP_KEY_VERSION = "version"
+        private const val BACKUP_KEY_WEBSITES = "websites"
+        private const val BACKUP_KEY_SETTINGS = "settings"
 
         /** 共享 Gson 实例（线程安全）——避免每次读写都新建（saveWebAppData 为热路径） */
         private val GSON = Gson()
