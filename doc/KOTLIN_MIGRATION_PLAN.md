@@ -10,7 +10,9 @@
 > **第二刀已完成（2026-08-24）**：DataManager.java(459行) → DataManager.kt(502行)，
 > 80 调用点零改动（唯一例外：SettingsActivity.kt 一处 getActiveWebsitesCount()
 > 属性化）。新增 DataManagerGsonContractTest（4 测试：Gson 字段名锁 + 合并语义锁）。
-> 剩余 Java：1 文件 2365 行（仅 WebViewActivity）。第三刀完成（2026-08-24）：
+> **剩余 Java：0——四刀全部完成（2026-08-24），项目 100% Kotlin**。
+> 第四刀：WebViewActivity 2365 行整体机械翻译（2543 行 Kotlin），Compose 弹窗
+> /DataBinding 全退役，viewBinding buildFeature 关闭。第三刀完成（2026-08-24）：
 > ShortcutDialogFragment 441 行 → Compose 弹窗 ShortcutRecreateDialog（复用
 > WebAppDataFetcher/pin 逻辑），删 shortcut_dialog.xml + CircularProgressBar 依赖
 > + markInactive 死代码；同刀修复 P1（删除不落库——真机验证 2 Apps 不复活）。
