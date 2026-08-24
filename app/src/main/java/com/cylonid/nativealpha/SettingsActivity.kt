@@ -75,7 +75,7 @@ class SettingsActivity : AppCompatActivity() {
             // 成功提示用 Toast：页面即将 finish，Snackbar 无法显示
             Toast.makeText(
                 this,
-                getString(R.string.import_success, DataManager.getInstance().getActiveWebsitesCount()),
+                getString(R.string.import_success, DataManager.getInstance().activeWebsitesCount),
                 Toast.LENGTH_LONG
             ).show()
             val i = Intent(this, MainActivity::class.java)
