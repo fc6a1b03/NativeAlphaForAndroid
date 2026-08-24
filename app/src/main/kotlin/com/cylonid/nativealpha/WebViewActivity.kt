@@ -324,36 +324,39 @@ class WebViewActivity : AppCompatActivity() {
     }
     @SuppressLint("ClickableViewAccessibility")
     private fun setupWebView() {
+        // 局部非空快照：webapp 由 handleIntent 的非空分支保证、wv 下方刚赋值——
+        // 快照后整函数不再依赖可空字段（消除 onNewIntent 极端时序下的竞态窗口）
+        val app = webapp ?: return
+        val webview = findViewById<WebView>(R.id.webview).also { wv = it }
+
         setContentView(R.layout.full_webview)
 
-        if (webapp!!.isKeepAwake) {
+        if (app.isKeepAwake) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
 
-        val url = webapp!!.baseUrl
+        val url = app.baseUrl
 
         progressBar = findViewById(R.id.progressBar)
         loadingAnimal = findViewById(R.id.loadingAnimal)
         loadingBg = findViewById(R.id.loadingBg)
 
-        wv = findViewById(R.id.webview)
-
         // 移除 WebView 字段名注入的 UA 尾巴（找不到字段时静默跳过，避免 NPE）
         val fieldName = WebViewActivity::class.java.declaredFields
             .firstOrNull { it.type == WebView::class.java }?.name ?: ""
         if (fieldName.isNotEmpty()) {
-            val uaString = wv!!.settings.userAgentString.replace("; " + fieldName, "")
-            wv!!.settings.userAgentString = uaString
+            val uaString = webview.settings.userAgentString.replace("; " + fieldName, "")
+            webview.settings.userAgentString = uaString
         }
-        if (webapp!!.isUseCustomUserAgent) {
-            val customUa = webapp!!.userAgent
+        if (app.isUseCustomUserAgent) {
+            val customUa = app.userAgent
             if (!customUa.isNullOrEmpty()) {
-                wv!!.settings.userAgentString = customUa
+                webview.settings.userAgentString = customUa
                     .replace("\u0000", "").replace("\n", "").replace("\r", "")
             }
         }
 
-        if (webapp!!.isShowFullscreen) {
+        if (app.isShowFullscreen) {
             this.hideSystemBars()
         } else if (DataManager.getInstance().settings.alwaysShowSoftwareButtons) {
             this.showSystemBars()
@@ -364,7 +367,7 @@ class WebViewActivity : AppCompatActivity() {
         // 全屏沉浸模式保持铺满（用户显式选择）。
         // insets 挂根布局而非 WebView：WebView 的 insets 分发可能被父容器消费，
         // 且三键导航/手势条切换时根布局 insets 更可靠。
-        if (!webapp!!.isShowFullscreen) {
+        if (!app.isShowFullscreen) {
             val root = findViewById<View>(R.id.webviewActivity)
             ViewCompat.setOnApplyWindowInsetsListener(root) { v, windowInsets ->
                 val bars = windowInsets.getInsets(
@@ -378,92 +381,92 @@ class WebViewActivity : AppCompatActivity() {
                 windowInsets
             }
         }
-        wv!!.webViewClient = CustomBrowser()
+        webview.webViewClient = CustomBrowser()
         // ===== 安全加固（WebApp 设置项，默认全开） =====
         // 恶意网站防护：默认关（AGENTS.md 既有设计：用户可添加非 HTTPS 站点，按需开启）
-        wv!!.settings.safeBrowsingEnabled = webapp!!.isSafeBrowsing
+        webview.settings.safeBrowsingEnabled = app.isSafeBrowsing
         // 禁用文件访问：防止恶意站点读取本地文件
-        wv!!.settings.allowFileAccess = !webapp!!.isFileAccessDisabled
+        webview.settings.allowFileAccess = !app.isFileAccessDisabled
         // 禁用内容提供器访问：防止站点访问系统 content:// 资源
-        wv!!.settings.allowContentAccess = !webapp!!.isContentAccessDisabled
+        webview.settings.allowContentAccess = !app.isContentAccessDisabled
         // 混合内容拦截：HTTPS 页面禁止加载 HTTP 子资源
-        wv!!.settings.mixedContentMode = if (webapp!!.isMixedContentBlocked)
+        webview.settings.mixedContentMode = if (app.isMixedContentBlocked)
             WebSettings.MIXED_CONTENT_NEVER_ALLOW
         else
             WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         // JS 弹窗限制：禁止页面自动 window.open（用户手势触发的弹窗仍可用）
-        wv!!.settings.javaScriptCanOpenWindowsAutomatically = !webapp!!.isJsPopupsRestricted
-        wv!!.settings.domStorageEnabled = true
-        wv!!.settings.databaseEnabled = true
-        wv!!.settings.blockNetworkLoads = false
+        webview.settings.javaScriptCanOpenWindowsAutomatically = !app.isJsPopupsRestricted
+        webview.settings.domStorageEnabled = true
+        webview.settings.databaseEnabled = true
+        webview.settings.blockNetworkLoads = false
 
         // ===== 禁用浏览器自带滚动条（网页内容本身的自定义滚动条不受影响） =====
-        wv!!.isVerticalScrollBarEnabled = false
-        wv!!.isHorizontalScrollBarEnabled = false
-        wv!!.overScrollMode = View.OVER_SCROLL_NEVER
+        webview.isVerticalScrollBarEnabled = false
+        webview.isHorizontalScrollBarEnabled = false
+        webview.overScrollMode = View.OVER_SCROLL_NEVER
         // 隐藏滚动条占位（WebView 默认 overlay 模式，但仍显式关闭占位）
-        wv!!.scrollBarStyle = View.SCROLLBARS_OUTSIDE_OVERLAY
+        webview.scrollBarStyle = View.SCROLLBARS_OUTSIDE_OVERLAY
 
         // ===== PWA 高频文本流渲染优化（流式输出/长文档滚动场景） =====
         // 渲染优先级拉满（文本流/长文档滚动核心）
-        wv!!.settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
+        webview.settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
         // 硬件加速强制（避免软件层合成拖慢流式更新）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            wv!!.setLayerType(View.LAYER_TYPE_NONE, null)
+            webview.setLayerType(View.LAYER_TYPE_NONE, null)
         }
         // 文字缩放（用户可调：50~200%，默认 100）
-        wv!!.settings.textZoom = webapp!!.textZoom
+        webview.settings.textZoom = app.textZoom
         // 页面缩放（用户可调：50~200%，默认 100）：onPageFinished 里 zoomBy 应用
         // 预栅格化：减少滚动时白块/抖动（流式长文本滚动流畅）
         if (WebViewFeature.isFeatureSupported(WebViewFeature.OFF_SCREEN_PRERASTER)) {
-            WebSettingsCompat.setOffscreenPreRaster(wv!!.settings, true)
+            WebSettingsCompat.setOffscreenPreRaster(webview.settings, true)
         }
         // 缓存策略：默认模式，流式页面不强制离线/不缓存
-        wv!!.settings.cacheMode = WebSettings.LOAD_DEFAULT
+        webview.settings.cacheMode = WebSettings.LOAD_DEFAULT
         // 布局算法：NORMAL 对文本流最稳（SINGLE_COLUMN 会触发整页重排，流式更新开销大）
-        wv!!.settings.layoutAlgorithm = WebSettings.LayoutAlgorithm.NORMAL
+        webview.settings.layoutAlgorithm = WebSettings.LayoutAlgorithm.NORMAL
         // 编码：UTF-8 显式声明（中文流式文本解析正确，避免编码重排）
-        wv!!.settings.defaultTextEncodingName = "UTF-8"
+        webview.settings.defaultTextEncodingName = "UTF-8"
         // 关闭边缘高亮减少合成开销
-        wv!!.overScrollMode = View.OVER_SCROLL_NEVER
+        webview.overScrollMode = View.OVER_SCROLL_NEVER
         // 滚动条优化（长文本流式滚动）
-        wv!!.scrollBarStyle = WebView.SCROLLBARS_OUTSIDE_OVERLAY
-        wv!!.isScrollbarFadingEnabled = true
+        webview.scrollBarStyle = WebView.SCROLLBARS_OUTSIDE_OVERLAY
+        webview.isScrollbarFadingEnabled = true
         // ===== PWA 渲染优化结束 =====
 
         this.setDarkModeIfNeeded()
 
-        wv!!.settings.javaScriptEnabled = webapp!!.isAllowJs
+        webview.settings.javaScriptEnabled = app.isAllowJs
 
-        CookieManager.getInstance().setAcceptCookie(webapp!!.isAllowCookies)
+        CookieManager.getInstance().setAcceptCookie(app.isAllowCookies)
         CookieManager.getInstance()
-            .setAcceptThirdPartyCookies(wv, webapp!!.isAllowThirdPartyCookies)
+            .setAcceptThirdPartyCookies(wv, app.isAllowThirdPartyCookies)
 
-        if (webapp!!.isBlockImages) {
-            wv!!.settings.blockNetworkImage = true
+        if (app.isBlockImages) {
+            webview.settings.blockNetworkImage = true
         }
 
-        if (webapp!!.isRequestDesktop) {
-            wv!!.settings.userAgentString = Const.DESKTOP_USER_AGENT
-            wv!!.settings.useWideViewPort = true
-            wv!!.settings.loadWithOverviewMode = true
+        if (app.isRequestDesktop) {
+            webview.settings.userAgentString = Const.DESKTOP_USER_AGENT
+            webview.settings.useWideViewPort = true
+            webview.settings.loadWithOverviewMode = true
 
-            wv!!.settings.setSupportZoom(true)
-            wv!!.settings.builtInZoomControls = true
-            wv!!.settings.displayZoomControls = false
+            webview.settings.setSupportZoom(true)
+            webview.settings.builtInZoomControls = true
+            webview.settings.displayZoomControls = false
 
-            wv!!.scrollBarStyle = WebView.SCROLLBARS_OUTSIDE_OVERLAY
-            wv!!.isScrollbarFadingEnabled = false
+            webview.scrollBarStyle = WebView.SCROLLBARS_OUTSIDE_OVERLAY
+            webview.isScrollbarFadingEnabled = false
         }
-        if (webapp!!.isEnableZooming) {
-            wv!!.settings.setSupportZoom(true)
-            wv!!.settings.builtInZoomControls = true
+        if (app.isEnableZooming) {
+            webview.settings.setSupportZoom(true)
+            webview.settings.builtInZoomControls = true
         }
 
-        customHeaders = initCustomHeaders(webapp!!.isSendSavedataRequest)
-        loadURL(wv!!, url)
-        wv!!.webChromeClient = CustomWebChromeClient()
-        wv!!.setDownloadListener { dlUrl, userAgent, contentDisposition, mimeType, _ ->
+        customHeaders = initCustomHeaders(app.isSendSavedataRequest)
+        loadURL(webview, url)
+        webview.webChromeClient = CustomWebChromeClient()
+        webview.setDownloadListener { dlUrl, userAgent, contentDisposition, mimeType, _ ->
             if (mimeType == "application/pdf") {
                 val i = Intent(Intent.ACTION_VIEW)
                 i.data = Uri.parse(dlUrl)
