@@ -346,8 +346,9 @@ class WebViewActivity : AppCompatActivity() {
             wv!!.settings.userAgentString = uaString
         }
         if (webapp!!.isUseCustomUserAgent) {
-            if (!webapp!!.userAgent.isNullOrEmpty()) {
-                wv!!.settings.userAgentString = webapp!!.userAgent!!
+            val customUa = webapp!!.userAgent
+            if (!customUa.isNullOrEmpty()) {
+                wv!!.settings.userAgentString = customUa
                     .replace("\u0000", "").replace("\n", "").replace("\r", "")
             }
         }
