@@ -30,6 +30,7 @@ import android.text.style.StyleSpan
 import android.util.Log
 import android.util.TypedValue
 import android.view.ActionMode
+import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.MenuItem
@@ -725,6 +726,13 @@ class WebViewActivity : AppCompatActivity() {
             if (webapp == null || webapp.isRequestDesktop) {
                 return@setOnTouchListener false
             }
+            // 鼠标/触控笔源不参与触摸手势：双击/长按/多指语义均针对手指设计，
+            // 鼠标滚轮(hover+scroll 走 onGenericMotionEvent)与左键快连曾误判双击弹菜单
+            if (event.getSource() and InputDevice.SOURCE_CLASS_POINTER != 0
+                && event.isFromSource(InputDevice.SOURCE_MOUSE)
+            ) {
+                return@setOnTouchListener false
+            }
 
             when (event.action and MotionEvent.ACTION_MASK) {
                 MotionEvent.ACTION_DOWN -> {
@@ -830,6 +838,12 @@ class WebViewActivity : AppCompatActivity() {
                 }
 
                 MotionEvent.ACTION_UP -> {
+                    // 抬起即取消长按：单击(快速 DOWN→UP)后 600ms 定时器不得再触发——
+                    // 否则单击图片必然在抬起后误弹「保存/下载」（用户实测反馈的 bug）。
+                    // 只清长按不清双击状态：双击=UP 后短窗内再 DOWN，UP 本身是双击的
+                    // 正常组成部分，清掉会让双击检测永久失效（实测踩坑）
+                    longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
+                    longPressRunnable = null
                     handleActionUp(mode, event, startX, startY, stopX, stopY)
                 }
 
