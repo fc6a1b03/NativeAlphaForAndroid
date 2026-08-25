@@ -4,9 +4,13 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
+import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.WebApp
 import java.io.File
 import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URI
+import java.net.URL
 
 /**
  * WebApp 头像唯一管理入口（统一数据源 + 图标能力唯一实现处，调用方只编排）。
@@ -62,7 +66,7 @@ object WebAppIconManager {
                     // 文件损坏：清理防污染（下次 resolveIcon 重新拉）
                     f.delete()
                     webApp.iconPath = null
-                    com.cylonid.nativealpha.model.DataManager.getInstance().saveWebAppData()
+                    DataManager.getInstance().saveWebAppData()
                     return null
                 }
                 bmp
@@ -74,7 +78,7 @@ object WebAppIconManager {
 
     /** 站点根 favicon.ico URL（从 baseUrl 提取协议+host+端口——IP:port 站如 Kimi Code 需保留端口） */
     private fun hostFor(baseUrl: String): String = try {
-        java.net.URI(baseUrl).let { uri ->
+        URI(baseUrl).let { uri ->
             val port = if (uri.port > 0) ":${uri.port}" else ""
             "${uri.scheme}://${uri.host}$port/favicon.ico"
         }
@@ -145,7 +149,7 @@ object WebAppIconManager {
         )
         for (url in candidates) {
             try {
-                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                val conn = URL(url).openConnection() as HttpURLConnection
                 conn.connectTimeout = FAVICON_TIMEOUT_MS
                 conn.readTimeout = FAVICON_TIMEOUT_MS
                 conn.setRequestProperty("User-Agent", "WebNative-Favicon")
@@ -190,7 +194,7 @@ object WebAppIconManager {
     private fun persistFavicon(context: Context, webApp: WebApp, cacheFile: File, bmp: Bitmap): Bitmap {
         FileOutputStream(cacheFile).use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 90, out) }
         saveIcon(context, webApp, bmp)
-        com.cylonid.nativealpha.model.DataManager.getInstance().saveWebAppData()
+        DataManager.getInstance().saveWebAppData()
         return bmp
     }
 

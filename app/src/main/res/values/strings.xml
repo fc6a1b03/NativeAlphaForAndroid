@@ -162,6 +162,8 @@
     <string name="sync_global_settings">Sync with global settings</string>
     <string name="synced_global_settings">Synced with global settings</string>
     <string name="app_subtitle">%1$d Apps</string>
+    <string name="update_notification_title">WebNative Update</string>
+    <string name="update_notification_desc">Downloading new version; tap to install when done</string>
 
     <!-- 设置项说明（description） -->
     <string name="desc_clear_cache">Clear cached data when leaving the app to save storage.</string>

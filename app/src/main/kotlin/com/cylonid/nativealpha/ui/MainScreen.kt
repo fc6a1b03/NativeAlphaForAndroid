@@ -64,6 +64,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.util.WebAppIconManager
+import android.graphics.Bitmap
 
 /**
  * WebNative 主界面（Compose）。
@@ -299,10 +301,10 @@ private fun WebAppCard(
             // 统一图标（能力全在 WebAppIconManager，此处只编排）：
             // IO 线程 resolveIcon（iconPath→favicon→字母）；失败 5s 重试一次（以 iconPath 判成功）；
             // title 作 key——改名后字母图标跟随新名称重组
-            val iconBitmap = produceState<android.graphics.Bitmap?>(null, webApp.baseUrl, webApp.iconPath, webApp.title) {
+            val iconBitmap = produceState<Bitmap?>(null, webApp.baseUrl, webApp.iconPath, webApp.title) {
                 repeat(2) { attempt ->
                     value = withContext(Dispatchers.IO) {
-                        com.cylonid.nativealpha.util.WebAppIconManager.resolveIcon(context, webApp)
+                        WebAppIconManager.resolveIcon(context, webApp)
                     }
                     // 真图标就绪或已重试过 → 同步桌面快捷方式（同 ID 可更新——桌面跟随列表）
                     if (webApp.iconPath != null || attempt == 1) {
@@ -314,7 +316,7 @@ private fun WebAppCard(
             }.value
             // 异步空窗兜底：同一能力（resolveIconCached——iconPath→字母，无网络）
             val finalIcon = iconBitmap ?: remember(webApp.title, webApp.baseUrl) {
-                com.cylonid.nativealpha.util.WebAppIconManager.resolveIconCached(context, webApp)
+                WebAppIconManager.resolveIconCached(context, webApp)
             }
             Image(
                 bitmap = finalIcon.asImageBitmap(),

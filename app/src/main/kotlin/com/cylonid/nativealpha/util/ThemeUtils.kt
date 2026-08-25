@@ -1,7 +1,9 @@
 package com.cylonid.nativealpha.util
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.util.Log
+import android.view.View
 import androidx.appcompat.app.AppCompatDelegate
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.DataManager
@@ -51,7 +53,7 @@ object ThemeUtils {
      */
     @JvmStatic
     @SuppressLint("ResourceType") // 动态 attr 数组（statusBarColor 等系统属性），Lint 静态分析误报 styleable 期望
-    fun applySystemBarColors(activity: android.app.Activity) {
+    fun applySystemBarColors(activity: Activity) {
         try {
             val attrs = intArrayOf(
                 android.R.attr.statusBarColor,
@@ -72,14 +74,14 @@ object ThemeUtils {
             // 图标亮暗（浅色主题=深色图标，深色主题=浅色图标）
             var flags = window.decorView.systemUiVisibility
             flags = if (lightStatus) {
-                flags or android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
             } else {
-                flags and android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
+                flags and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
             }
             flags = if (lightNav) {
-                flags or android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+                flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
             } else {
-                flags and android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv()
+                flags and View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv()
             }
             window.decorView.systemUiVisibility = flags
             Log.d("ThemeUtils", "applySystemBarColors status=$statusColor nav=$navColor lightStatus=$lightStatus lightNav=$lightNav")

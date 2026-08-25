@@ -166,6 +166,8 @@
     <string name="sync_global_settings">同步全局设置</string>
     <string name="synced_global_settings">已同步全局设置</string>
     <string name="app_subtitle">%1$d 个应用</string>
+    <string name="update_notification_title">WebNative 更新</string>
+    <string name="update_notification_desc">正在下载新版本，完成后点击安装</string>
 
     <!-- 设置项说明（description） -->
     <string name="desc_clear_cache">离开应用时清除缓存数据，节省存储空间。</string>

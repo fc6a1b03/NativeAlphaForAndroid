@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
+import android.util.LruCache
 
 /**
  * 动态图标生成器：favicon 拉取失败时的优雅兜底。
@@ -36,7 +37,7 @@ object IconGenerator {
      * key = "siteName|domain|sizePx"，value = 生成后的 Bitmap。
      * 容量按 4MB 估算（约 30 个 112px ARGB 位图），超限自动淘汰最久未用。
      */
-    private val bitmapCache = object : android.util.LruCache<String, Bitmap>(4 * 1024 * 1024) {
+    private val bitmapCache = object : LruCache<String, Bitmap>(4 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int =
             value.byteCount  // 实际字节数（更精确的容量控制）
     }

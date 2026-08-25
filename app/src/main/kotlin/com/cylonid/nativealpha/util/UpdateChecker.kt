@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.webkit.MimeTypeMap
+import com.cylonid.nativealpha.R
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -141,8 +142,8 @@ object UpdateChecker {
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val request = DownloadManager.Request(Uri.parse(downloadUrl))
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            request.setTitle("WebNative 更新")
-            request.setDescription("正在下载新版本，完成后点击安装")
+            request.setTitle(context.getString(R.string.update_notification_title))
+            request.setDescription(context.getString(R.string.update_notification_desc))
             // 下载到公共下载目录（长留，安装后删除）
             request.setDestinationInExternalPublicDir(
                 Environment.DIRECTORY_DOWNLOADS,

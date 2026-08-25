@@ -1,7 +1,10 @@
 package com.cylonid.nativealpha.ui
 
 import android.app.Activity
+import android.content.pm.ShortcutManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -34,12 +37,18 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.ShortcutIconUtils
+import com.cylonid.nativealpha.util.UrlUtils
 import com.cylonid.nativealpha.util.WebAppDataFetcher
 import com.cylonid.nativealpha.util.WebAppIconManager
+import com.cylonid.nativealpha.util.WebViewLauncher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -89,7 +98,7 @@ fun ShortcutRecreateDialog(
                 resolvedUrl = newUrl
                 webapp.baseUrl = newUrl
                 if (webapp.title.isNullOrBlank()) {
-                    webapp.title = com.cylonid.nativealpha.util.UrlUtils.displayHost(newUrl)
+                    webapp.title = UrlUtils.displayHost(newUrl)
                 }
                 DataManager.getInstance().saveWebAppData()
             }
@@ -105,7 +114,7 @@ fun ShortcutRecreateDialog(
         uri ?: return@rememberLauncherForActivityResult
         try {
             val source = context.contentResolver.openInputStream(uri)
-            customBitmap = source?.use { android.graphics.BitmapFactory.decodeStream(it) }
+            customBitmap = source?.use { BitmapFactory.decodeStream(it) }
         } catch (_: Exception) {
             customBitmap = null
         }
@@ -120,7 +129,7 @@ fun ShortcutRecreateDialog(
             stringResource(R.string.icon_fetch_failed_line2) +
             stringResource(R.string.icon_fetch_failed_line3)
         LaunchedEffect(fetchFailed) {
-            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -185,25 +194,25 @@ private fun pinShortcut(activity: Activity, webapp: WebApp, fetched: Bitmap?, ti
     }
     DataManager.getInstance().saveWebAppData()
 
-    val intent = com.cylonid.nativealpha.util.WebViewLauncher.createWebViewIntent(webapp, activity)
+    val intent = WebViewLauncher.createWebViewIntent(webapp, activity)
         ?: return
     val bmp = fetched ?: WebAppIconManager.resolveIconCached(activity, webapp)
-    val icon = androidx.core.graphics.drawable.IconCompat.createWithBitmap(bmp)
+    val icon = IconCompat.createWithBitmap(bmp)
     val shortcutId = ShortcutIconUtils.pinnedShortcutId(webapp.ID)
-    val info = androidx.core.content.pm.ShortcutInfoCompat.Builder(activity, shortcutId)
+    val info = ShortcutInfoCompat.Builder(activity, shortcutId)
         .setIcon(icon)
         .setShortLabel(title)
         .setLongLabel(title)
         .setIntent(intent)
         .build()
 
-    val scManager = activity.getSystemService(android.content.pm.ShortcutManager::class.java)
+    val scManager = activity.getSystemService(ShortcutManager::class.java)
     if (scManager == null || scManager.pinnedShortcuts.none { it.id == shortcutId }) {
-        androidx.core.content.pm.ShortcutManagerCompat.requestPinShortcut(activity, info, null)
+        ShortcutManagerCompat.requestPinShortcut(activity, info, null)
     } else {
-        com.cylonid.nativealpha.util.NotificationUtils.showToast(
+        NotificationUtils.showToast(
             activity, activity.getString(R.string.shortcut_already_exists),
-            android.widget.Toast.LENGTH_SHORT
+            Toast.LENGTH_SHORT
         )
     }
 }

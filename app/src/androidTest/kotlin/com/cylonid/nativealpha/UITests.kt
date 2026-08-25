@@ -7,6 +7,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.ui.MainScreen
+import com.cylonid.nativealpha.util.AppMaterialTheme
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,8 +29,8 @@ class UITests {
     private fun launchMainScreen(vararg urls: String) {
         val apps = urls.map { WebApp(it, it.hashCode()) }
         composeRule.setContent {
-            com.cylonid.nativealpha.util.AppMaterialTheme {
-                com.cylonid.nativealpha.ui.MainScreen(
+            AppMaterialTheme {
+                MainScreen(
                     webApps = apps,
                     onAddClick = {}, onOpenWebApp = {}, onOpenSettings = {},
                     onOpenStats = {}, onDeleteWebApp = {}, onCopyUrl = {}, onGlobalSettingsClick = {}
@@ -69,8 +71,8 @@ class UITests {
         val filtered = apps.filter { it.title.contains("github")
         }
         composeRule.setContent {
-            com.cylonid.nativealpha.util.AppMaterialTheme {
-                com.cylonid.nativealpha.ui.MainScreen(
+            AppMaterialTheme {
+                MainScreen(
                     webApps = filtered,
                     onAddClick = {}, onOpenWebApp = {}, onOpenSettings = {},
                     onOpenStats = {}, onDeleteWebApp = {}, onCopyUrl = {}, onGlobalSettingsClick = {}

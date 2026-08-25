@@ -1,6 +1,7 @@
 package com.cylonid.nativealpha.util
 
 import android.content.Context
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -38,7 +39,7 @@ object AppStorage {
     /**
      * 异步读取 String 值（Flow，损坏自动恢复为空串）。
      */
-    fun stringFlow(context: Context, key: androidx.datastore.preferences.core.Preferences.Key<String>): Flow<String> =
+    fun stringFlow(context: Context, key: Preferences.Key<String>): Flow<String> =
         context.dataStore.data
             .catch { e ->
                 // 读损坏/IO 异常：恢复为空（不崩溃），下次写入自动重建
@@ -49,13 +50,13 @@ object AppStorage {
     /**
      * 同步读取 String 值（协程内调用，阻塞当前协程但非主线程）。
      */
-    suspend fun readString(context: Context, key: androidx.datastore.preferences.core.Preferences.Key<String>): String =
+    suspend fun readString(context: Context, key: Preferences.Key<String>): String =
         stringFlow(context, key).first()
 
     /**
      * 异步写入 String 值（事务性 updateData，原子读改写）。
      */
-    suspend fun writeString(context: Context, key: androidx.datastore.preferences.core.Preferences.Key<String>, value: String) {
+    suspend fun writeString(context: Context, key: Preferences.Key<String>, value: String) {
         context.dataStore.edit { prefs ->
             prefs[key] = value
         }

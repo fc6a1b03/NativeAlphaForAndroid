@@ -1,8 +1,10 @@
 package com.cylonid.nativealpha
 
 import android.os.Bundle
+import android.net.Uri
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import android.webkit.WebStorage
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.getValue
@@ -16,6 +18,7 @@ import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.ui.WebAppStatsScreen
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.Const
+import com.cylonid.nativealpha.util.DateUtils
 import com.cylonid.nativealpha.util.ThemeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,7 +64,7 @@ class WebAppStatsActivity : AppCompatActivity() {
                     onBack = { finish() },
                     onExport = {
                         try {
-                            exportLauncher.launch("WebNative_errors_${webapp.alphanumericBaseUrl}_${com.cylonid.nativealpha.util.DateUtils.compactDate()}.json")
+                            exportLauncher.launch("WebNative_errors_${webapp.alphanumericBaseUrl}_${DateUtils.compactDate()}.json")
                         } catch (e: Exception) {
                             // 无保存器：静默
                         }
@@ -82,7 +85,7 @@ class WebAppStatsActivity : AppCompatActivity() {
     private fun clearCache() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                android.webkit.WebStorage.getInstance().deleteAllData()
+                WebStorage.getInstance().deleteAllData()
                 // 清空 cacheDir（WebView HTTP 缓存）
                 val cacheDir = cacheDir
                 cacheDir.listFiles()?.forEach { file ->
@@ -148,7 +151,7 @@ class WebAppStatsActivity : AppCompatActivity() {
     }
 
     /** 导出该站页面错误（DataStore 过滤） */
-    private fun exportPageErrorsToUri(uri: android.net.Uri) {        lifecycleScope.launch(Dispatchers.IO) {
+    private fun exportPageErrorsToUri(uri: Uri) {        lifecycleScope.launch(Dispatchers.IO) {
             val entries = PageErrorRepository.getForSite(applicationContext, webappID)
             if (entries.isEmpty()) {
                 snackbarHostState.showSnackbar(getString(R.string.stats_no_errors_site))

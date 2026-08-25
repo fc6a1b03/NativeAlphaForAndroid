@@ -54,7 +54,7 @@ object WebViewLauncher {
             intent.action = Intent.ACTION_VIEW
             // 单实例复用：CLEAR_TOP 复用现有 WebViewActivity（onNewIntent 重载），
             // 避免 finish+新建时序问题（实测 start 后 finish 会干掉新实例）
-            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             c.startActivity(intent)
         } catch (e: Exception) {
             e.printStackTrace()

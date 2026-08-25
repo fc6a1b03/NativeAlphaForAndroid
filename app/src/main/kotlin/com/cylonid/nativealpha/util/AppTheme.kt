@@ -1,5 +1,7 @@
 package com.cylonid.nativealpha.util
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -90,14 +92,14 @@ private val DarkIndigo = darkColorScheme(
 
 /** 当前 UI 模式对应的 Compose ColorScheme */
 @Composable
-fun appColorScheme(): androidx.compose.material3.ColorScheme {
+fun appColorScheme(): ColorScheme {
     DataManager.getInstance().loadAppData()
     return when (DataManager.getInstance().settings.themeId) {
         2 -> DarkIndigo
         1 -> LightIndigo
         else -> {
             // 跟随系统：读当前系统夜间模式
-            val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val isDark = isSystemInDarkTheme()
             if (isDark) DarkIndigo else LightIndigo
         }
     }

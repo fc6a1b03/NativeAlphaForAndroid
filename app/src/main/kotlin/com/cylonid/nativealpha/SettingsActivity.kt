@@ -2,10 +2,14 @@ package com.cylonid.nativealpha
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.text.method.ScrollingMovementMethod
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.webkit.CookieManager
 import android.webkit.WebStorage
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +21,7 @@ import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.AppErrorLogRepository
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.util.AppMaterialTheme
+import com.cylonid.nativealpha.util.DateUtils
 import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.util.UpdateChecker
 import com.cylonid.nativealpha.ui.GlobalSettingsScreen
@@ -140,8 +145,8 @@ class SettingsActivity : AppCompatActivity() {
             if (hasUpdate) {
                 // 更新弹窗：md 渲染 release notes（GitHub 内容为 Markdown）+ 下载/取消
                 // Markwon 渲染：标题用版本号提示，正文 md 转 Spanned 显示（支持 #/**/列表）
-                val contentView = android.widget.TextView(this).apply {
-                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+                val contentView = TextView(this).apply {
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                     setPadding(
                         (24 * resources.displayMetrics.density).toInt(),
                         (8 * resources.displayMetrics.density).toInt(),
@@ -149,7 +154,7 @@ class SettingsActivity : AppCompatActivity() {
                         0
                     )
                     text = MdRenderer.render(this@SettingsActivity, notes)
-                    movementMethod = android.text.method.ScrollingMovementMethod()
+                    movementMethod = ScrollingMovementMethod()
                 }
                 AlertDialog.Builder(this)
                     .setTitle(getString(R.string.update_available_msg, latestTag))
@@ -183,7 +188,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun autoCheckUpdateOnceADay() {
         try {
             val prefs = getSharedPreferences("update_check", MODE_PRIVATE)
-            val today = com.cylonid.nativealpha.util.DateUtils.compactDate()
+            val today = DateUtils.compactDate()
             val lastCheck = prefs.getString("last_check_date", "")
             if (lastCheck == today) return // 今天已检查
             prefs.edit().putString("last_check_date", today).apply()
@@ -219,7 +224,7 @@ class SettingsActivity : AppCompatActivity() {
                 runOnUiThread {
                     // CreateDocument 注册器已指定 application/json，launch 传文件名即可
                     try {
-                        exportAppErrorsLauncher.launch("WebNative_app_errors_" + com.cylonid.nativealpha.util.DateUtils.compactDate() + ".json")
+                        exportAppErrorsLauncher.launch("WebNative_app_errors_" + DateUtils.compactDate() + ".json")
                     } catch (e: Exception) {
                         NotificationUtils.showInfoSnackbar(
                             this@SettingsActivity,
@@ -235,7 +240,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /** 写错误日志到所选 URI（异步：读 DataStore 不阻塞主线程；只读不清除） */
-    private fun exportAppErrorsToUri(uri: android.net.Uri) {
+    private fun exportAppErrorsToUri(uri: Uri) {
         lifecycleScope.launch(Dispatchers.IO) {
             val recent = AppErrorLogRepository.getRecent(applicationContext)
             runOnUiThread {
@@ -279,7 +284,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun export() {
         try {
-            exportBackupLauncher.launch("WebNative_" + com.cylonid.nativealpha.util.DateUtils.compactTimestamp() + ".json")
+            exportBackupLauncher.launch("WebNative_" + DateUtils.compactTimestamp() + ".json")
         } catch (e: ActivityNotFoundException) {
             NotificationUtils.showInfoSnackbar(
                 this,

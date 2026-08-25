@@ -2,6 +2,8 @@ package com.cylonid.nativealpha.util
 
 import android.app.Application
 import android.content.Context
+import android.os.Process
+import android.util.Log
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.AppErrorLogRepository
 
@@ -42,7 +44,7 @@ class App : Application() {
             Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
                 try {
                     // 写应用错误日志（同步兜底，尽力而为）
-                    val stack = throwable?.let { android.util.Log.getStackTraceString(it) } ?: "unknown"
+                    val stack = throwable?.let { Log.getStackTraceString(it) } ?: "unknown"
                     val entry = AppErrorEntry(
                         System.currentTimeMillis(),
                         AppErrorEntry.LEVEL_CRASH,
@@ -65,7 +67,7 @@ class App : Application() {
                 if (defaultHandler != null) {
                     defaultHandler.uncaughtException(thread, throwable)
                 } else {
-                    android.os.Process.killProcess(android.os.Process.myPid())
+                    Process.killProcess(Process.myPid())
                 }
             }
         } catch (ignored: Exception) {

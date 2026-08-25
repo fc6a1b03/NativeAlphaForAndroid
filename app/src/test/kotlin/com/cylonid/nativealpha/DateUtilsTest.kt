@@ -2,9 +2,14 @@ package com.cylonid.nativealpha
 import com.cylonid.nativealpha.util.DateUtils
 
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Locale
 import org.junit.Test
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 
 class DateUtilsTest {
 

@@ -1,10 +1,30 @@
 package com.cylonid.nativealpha.ui
 
+import android.app.TimePickerDialog
+import android.content.Context
+import android.graphics.ImageDecoder
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -17,8 +37,33 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.neverEqualPolicy
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,8 +73,7 @@ import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.DateUtils
-import android.app.TimePickerDialog
-import android.widget.Toast
+import com.cylonid.nativealpha.util.WebAppIconManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import java.util.Calendar
@@ -599,7 +643,7 @@ private fun SettingsTimeRow(
 
 /** 显示时间选择器 */
 private fun showTimePicker(
-    context: android.content.Context,
+    context: Context,
     current: String,
     onResult: (String) -> Unit,
 ) {
@@ -867,17 +911,17 @@ private fun ShortcutAddRow(
             Button(
                 onClick = {
                     val combo = buildCombo() ?: run {
-                        android.widget.Toast.makeText(context, msgNeedModifier, android.widget.Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, msgNeedModifier, Toast.LENGTH_SHORT).show()
                         return@Button
                     }
                     if (existing.contains(combo)) {
-                        android.widget.Toast.makeText(context, msgExist, android.widget.Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, msgExist, Toast.LENGTH_SHORT).show()
                     } else if (existing.size >= MAX_KEY_SHORTCUTS) {
-                        android.widget.Toast.makeText(context, msgMaxReached, android.widget.Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, msgMaxReached, Toast.LENGTH_SHORT).show()
                     } else {
                         onAdd(combo)
                         ctrl = false; shift = false; alt = false
-                        android.widget.Toast.makeText(context, String.format(msgBoundTemplate, combo), android.widget.Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, String.format(msgBoundTemplate, combo), Toast.LENGTH_SHORT).show()
                     }
                 },
                 enabled = ctrl || shift || alt
@@ -912,23 +956,23 @@ private fun IconSettingsRow(
     var showDialog by remember { mutableStateOf(false) }
     // 当前头像（iconPath 有值显示，无值显示字母图标预览）
     val currentIcon = remember(webApp.iconPath) {
-        com.cylonid.nativealpha.util.WebAppIconManager.loadIcon(context, webApp)
+        WebAppIconManager.loadIcon(context, webApp)
     }
 
     // 相册选图：ImageDecoder 解码 → WebAppIconManager 保存 → 回调 iconPath
     val msgPickFailed = stringResource(R.string.icon_pick_failed)
-    val pickImage = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    val pickImage = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
             try {
-                val bmp = android.graphics.ImageDecoder.decodeBitmap(
-                    android.graphics.ImageDecoder.createSource(context.contentResolver, uri)
+                val bmp = ImageDecoder.decodeBitmap(
+                    ImageDecoder.createSource(context.contentResolver, uri)
                 )
-                val ok = com.cylonid.nativealpha.util.WebAppIconManager.saveIcon(context, webApp, bmp)
+                val ok = WebAppIconManager.saveIcon(context, webApp, bmp)
                 if (ok) onIconSaved(webApp.iconPath)
             } catch (e: Exception) {
-                android.widget.Toast.makeText(context, msgPickFailed, android.widget.Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, msgPickFailed, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -953,7 +997,7 @@ private fun IconSettingsRow(
             val preview = remember(webApp.title, webApp.baseUrl) {
                 runCatching {
                     // 与列表/快捷同源（resolveIconCached：iconPath→字母，无网络——组合期 UI 线程安全）
-                    com.cylonid.nativealpha.util.WebAppIconManager.resolveIconCached(context, webApp)
+                    WebAppIconManager.resolveIconCached(context, webApp)
                 }.getOrNull()
             }
             preview?.let {
@@ -1000,7 +1044,7 @@ private fun IconSettingsRow(
                     TextButton(onClick = {
                         showDialog = false
                         // 重置为字母图标：删除文件 + iconPath=null
-                        com.cylonid.nativealpha.util.WebAppIconManager.deleteIcon(context, webApp)
+                        WebAppIconManager.deleteIcon(context, webApp)
                         onIconSaved(null)
                     }) {
                         Text(stringResource(R.string.app_icon_reset))

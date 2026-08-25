@@ -1,6 +1,8 @@
 package com.cylonid.nativealpha
 
 import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import com.cylonid.nativealpha.util.WebAppDataFetcher
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +14,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.ByteArrayOutputStream
+import java.util.Base64
 
 /**
  * WebAppDataFetcher 图标解析测试：
@@ -26,15 +29,15 @@ class WebAppDataFetcherTest {
         val res = Resources.getSystem()
         val id = res.getIdentifier("webnative", "mipmap", "com.cylonid.nativealpha")
         if (id != 0) {
-            val bmp = android.graphics.BitmapFactory.decodeResource(res, id)
+            val bmp = BitmapFactory.decodeResource(res, id)
             if (bmp != null) {
                 val out = ByteArrayOutputStream()
-                bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
                 return out.toByteArray()
             }
         }
         // 兜底：1x1 已知合法 PNG（base64）
-        return java.util.Base64.getDecoder().decode(
+        return Base64.getDecoder().decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         )
     }

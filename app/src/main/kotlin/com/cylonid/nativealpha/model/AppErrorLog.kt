@@ -1,5 +1,8 @@
 package com.cylonid.nativealpha.model
 
+import android.content.Context
+import com.cylonid.nativealpha.util.AppStorage
+import com.cylonid.nativealpha.util.Const
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.util.Collections
@@ -54,21 +57,21 @@ data class AppErrorEntry(
  *  保留策略：仅保留近 [com.cylonid.nativealpha.util.Const.APP_ERROR_DAYS] 天
  *  （超龄在写入时清理——唯一清理触发）+ 条数上限丢最旧；导出只读不清除。 */
 object AppErrorLogRepository {
-    private const val MAX_ENTRIES = com.cylonid.nativealpha.util.Const.ERROR_LOG_LIMIT  // 上限（条），超出丢最旧
+    private const val MAX_ENTRIES = Const.ERROR_LOG_LIMIT  // 上限（条），超出丢最旧
 
     /** 保留窗口起点（epoch ms）——清理/过滤统一口径（能力唯一实现处） */
     private fun retentionCutoff(): Long =
-        System.currentTimeMillis() - com.cylonid.nativealpha.util.Const.APP_ERROR_DAYS * 24L * 60 * 60 * 1000
+        System.currentTimeMillis() - Const.APP_ERROR_DAYS * 24L * 60 * 60 * 1000
 
     /** 追加一条错误日志（异步，协程内调用）；写入时清理超龄（>3 天）记录 */
     suspend fun append(
-        context: android.content.Context,
+        context: Context,
         entry: AppErrorEntry
     ) {
         try {
-            val current = com.cylonid.nativealpha.util.AppStorage.readString(
+            val current = AppStorage.readString(
                 context,
-                com.cylonid.nativealpha.util.AppStorage.KEY_APP_ERRORS
+                AppStorage.KEY_APP_ERRORS
             )
             val list = AppErrorEntry.fromJson(current).toMutableList()
             list.add(entry)
@@ -81,9 +84,9 @@ object AppErrorLogRepository {
                 val overflow = list.size - MAX_ENTRIES
                 list.subList(0, overflow).clear()
             }
-            com.cylonid.nativealpha.util.AppStorage.writeString(
+            AppStorage.writeString(
                 context,
-                com.cylonid.nativealpha.util.AppStorage.KEY_APP_ERRORS,
+                AppStorage.KEY_APP_ERRORS,
                 AppErrorEntry.toJson(list)
             )
         } catch (e: Exception) {
@@ -92,11 +95,11 @@ object AppErrorLogRepository {
     }
 
     /** 读取全部（异步，协程内调用） */
-    suspend fun getAll(context: android.content.Context): List<AppErrorEntry> {
+    suspend fun getAll(context: Context): List<AppErrorEntry> {
         return try {
-            val json = com.cylonid.nativealpha.util.AppStorage.readString(
+            val json = AppStorage.readString(
                 context,
-                com.cylonid.nativealpha.util.AppStorage.KEY_APP_ERRORS
+                AppStorage.KEY_APP_ERRORS
             )
             AppErrorEntry.fromJson(json)
         } catch (e: Exception) {
@@ -105,7 +108,7 @@ object AppErrorLogRepository {
     }
 
     /** 读取近 3 天日志（导出/崩溃提示统一口径；只读不清除——每次导出都是完整 3 天窗口） */
-    suspend fun getRecent(context: android.content.Context): List<AppErrorEntry> {
+    suspend fun getRecent(context: Context): List<AppErrorEntry> {
         val cutoff = retentionCutoff()
         return getAll(context).filter { it.time >= cutoff }
     }
@@ -113,7 +116,7 @@ object AppErrorLogRepository {
     /**
      * 同步追加（崩溃兜底专用：Java 未捕获异常处理器调用，runBlocking 确保写入完成）。
      */
-    fun appendSync(context: android.content.Context, entry: AppErrorEntry) {
+    fun appendSync(context: Context, entry: AppErrorEntry) {
         try {
             kotlinx.coroutines.runBlocking {
                 append(context, entry)

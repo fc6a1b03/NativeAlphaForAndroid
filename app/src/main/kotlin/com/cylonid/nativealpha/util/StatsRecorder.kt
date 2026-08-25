@@ -1,6 +1,7 @@
 package com.cylonid.nativealpha.util
 
 import android.content.Context
+import android.util.Log
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.PageErrorRepository
 import com.cylonid.nativealpha.model.WebApp
@@ -50,7 +51,7 @@ object StatsRecorder {
                     task.run()
                 } catch (e: Exception) {
                     // 埋点任务异常：静默（不影响主功能）
-                    android.util.Log.w("StatsRecorder", "tracking task failed", e)
+                    Log.w("StatsRecorder", "tracking task failed", e)
                 }
             }
         } catch (e: RejectedExecutionException) {
@@ -67,7 +68,7 @@ object StatsRecorder {
                 block()
             } catch (e: Exception) {
                 // 埋点异常静默
-                android.util.Log.w("StatsRecorder", "suspend tracking failed", e)
+                Log.w("StatsRecorder", "suspend tracking failed", e)
             }
         }
     }

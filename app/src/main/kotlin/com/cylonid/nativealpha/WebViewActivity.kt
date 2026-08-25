@@ -14,6 +14,8 @@ import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.AnimationDrawable
 import android.net.Uri
 import android.net.http.SslError
 import android.os.Build
@@ -36,7 +38,10 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
+import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
+import android.window.OnBackInvokedDispatcher
 import android.webkit.GeolocationPermissions
 import android.webkit.HttpAuthHandler
 import android.webkit.PermissionRequest
@@ -51,7 +56,9 @@ import android.webkit.WebSettings
 import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.Toast
@@ -193,7 +200,7 @@ class WebViewActivity : AppCompatActivity() {
     var webappTabIndex = 0
     private var wv: WebView? = null
     private var progressBar: ProgressBar? = null
-    private var loadingAnimal: android.widget.ImageView? = null
+    private var loadingAnimal: ImageView? = null
     private var loadingBg: View? = null
 
     /** 加载页动物动画最长显示时间（ms）：站点自带 loader/慢加载站点不长期盖住 */
@@ -252,7 +259,7 @@ class WebViewActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= 33) {
             try {
                 onBackInvokedDispatcher.registerOnBackInvokedCallback(
-                    android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT
                 ) { onBackPressed() }
             } catch (ignored: Exception) {
                 // 注册失败退回系统默认（老路径仍可用）
@@ -559,7 +566,7 @@ class WebViewActivity : AppCompatActivity() {
     private fun hideSoftKeyboard() {
         try {
             val imm = getSystemService(INPUT_METHOD_SERVICE) as
-                android.view.inputmethod.InputMethodManager
+                InputMethodManager
             imm.hideSoftInputFromWindow(wv!!.windowToken, 0)
         } catch (ignored: Exception) {
             // 收起失败不影响小菜单弹出
@@ -1027,7 +1034,7 @@ class WebViewActivity : AppCompatActivity() {
             if (loadingAnimal!!.visibility != View.VISIBLE) {
                 loadingAnimal!!.visibility = View.VISIBLE
             }
-            val anim = loadingAnimal!!.drawable as? android.graphics.drawable.AnimationDrawable
+            val anim = loadingAnimal!!.drawable as? AnimationDrawable
             if (anim != null && !anim.isRunning) {
                 anim.start()
             }
@@ -1043,7 +1050,7 @@ class WebViewActivity : AppCompatActivity() {
                 loadingBg!!.visibility = View.GONE
             }
             if (loadingAnimal == null) return
-            val anim = loadingAnimal!!.drawable as? android.graphics.drawable.AnimationDrawable
+            val anim = loadingAnimal!!.drawable as? AnimationDrawable
             if (anim != null && anim.isRunning) {
                 anim.stop()
             }
@@ -1467,7 +1474,7 @@ class WebViewActivity : AppCompatActivity() {
         )
 
         spanStringWebAppTitle.setSpan(
-            StyleSpan(android.graphics.Typeface.BOLD), 0, spanStringWebAppTitle.length, 0
+            StyleSpan(Typeface.BOLD), 0, spanStringWebAppTitle.length, 0
         )
         mPopupMenu!!.menu.getItem(0).title = spanStringWebAppTitle
 
@@ -1981,9 +1988,9 @@ class WebViewActivity : AppCompatActivity() {
             .setTitle(getString(R.string.http_auth_title))
             .setMessage(getString(R.string.enter_http_auth_credentials, realm, host))
             .setPositiveButton(getString(R.string.ok)) { _, _ ->
-                val username = view.findViewById<android.widget.EditText>(R.id.username)
+                val username = view.findViewById<EditText>(R.id.username)
                     .text.toString()
-                val password = view.findViewById<android.widget.EditText>(R.id.password)
+                val password = view.findViewById<EditText>(R.id.password)
                     .text.toString()
                 handler.proceed(username, password)
             }
@@ -1997,11 +2004,11 @@ class WebViewActivity : AppCompatActivity() {
         private var mOriginalOrientation = 0
         private var mOriginalSystemUiVisibility = 0
 
-        override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
+        override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
             // 统计埋点：页面 JS 错误（未捕获异常/语法错误走 console.error 上报）
             if (consoleMessage != null
                 && consoleMessage.messageLevel() ==
-                android.webkit.ConsoleMessage.MessageLevel.ERROR
+                ConsoleMessage.MessageLevel.ERROR
             ) {
                 StatsRecorder.recordPageError(
                     webappID, ErrorType.JS.name,
