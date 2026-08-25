@@ -297,4 +297,5 @@
 
     <string name="isolated_session">Isolated session</string>
     <string name="isolated_session_hint">Isolated login session — keeps this app cookies separate from others (like browser tabs).</string>
+    <string name="session_switch_failed">Session switch failed</string>
 </resources>

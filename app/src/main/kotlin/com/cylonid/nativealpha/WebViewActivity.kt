@@ -83,6 +83,7 @@ import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.CookieSessionManager
 import com.cylonid.nativealpha.util.DateUtils
+import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.util.EntryPointUtils
 import com.cylonid.nativealpha.util.LocaleUtils
 import com.cylonid.nativealpha.util.NotificationUtils
@@ -1205,8 +1206,16 @@ class WebViewActivity : AppCompatActivity() {
         wv!!.setInitialScale(zoom)
     }
 
-    /** 菜单动作处理 */
+    /** 菜单动作处理（异常进错误日志——实机排查唯一入口是导出日志） */
     private fun handleMenuAction(action: String) {
+        try {
+            handleMenuActionInner(action)
+        } catch (e: Exception) {
+            ErrorReporter.report(this, "MenuAction", "menu action failed: $action", e)
+        }
+    }
+
+    private fun handleMenuActionInner(action: String) {
         when (action) {
             "back" -> onBackPressed()
             "forward" -> if (wv != null && wv!!.canGoForward()) wv!!.goForward()
@@ -1276,17 +1285,24 @@ class WebViewActivity : AppCompatActivity() {
     private fun showSessionSwitchDialog() {
         if (webapp == null) return
         val count = maxOf(1, webapp!!.sessionTabCount)
-        // 二级会话菜单（简约）：列表切换 + "新增"；多会话才显示"删除"
+        // 二级会话菜单（简约）：列表切换 + "新增"；多会话才显示"删除"。
+        // 禁用 setMessage：AlertDialog 的 message 与 items 互斥——message 存在时
+        // 列表行不渲染（用户实测「看不到会话行只见按钮」的根因）；
+        // 会话行文案已含「（当前）」标记，提示语并入 title 行
         val items = Array(count) { i ->
             "会话 " + (i + 1) + (if (i == webappTabIndex) "（当前）" else "")
         }
         val b = AlertDialog.Builder(this)
             .setTitle(getString(R.string.menu_session))
-            .setMessage(getString(R.string.session_isolated_hint))
             .setItems(items) { _, which ->
                 if (which != webappTabIndex) {
-                    CookieSessionManager.saveSnapshot(this, webappID, webappTabIndex)
-                    WebViewLauncher.startWebViewById(webappID, which, this)
+                    ErrorReporter.runCatchingReport(
+                        this, "SessionSwitch",
+                        getString(R.string.session_switch_failed)
+                    ) {
+                        CookieSessionManager.saveSnapshot(this, webappID, webappTabIndex)
+                        WebViewLauncher.startWebViewById(webappID, which, this)
+                    }
                 }
             }
             .setPositiveButton(R.string.session_add) { _, _ -> addNewSessionTab() }

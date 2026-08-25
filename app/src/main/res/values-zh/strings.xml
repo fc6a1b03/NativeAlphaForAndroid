@@ -301,4 +301,5 @@
 
     <string name="isolated_session">登录态隔离</string>
     <string name="isolated_session_hint">独立登录会话——该应用的 Cookie 与其他应用隔离（类似浏览器多页签）。</string>
+    <string name="session_switch_failed">切换会话失败</string>
 </resources>

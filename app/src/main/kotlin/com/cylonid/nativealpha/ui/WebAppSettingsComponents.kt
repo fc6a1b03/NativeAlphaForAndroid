@@ -138,6 +138,9 @@ internal fun WebAppSettingsSwitchRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                // 整行可点切换（标准设置页交互）：行任意位置点击等效拨动开关——
+                // 开关本体 48dp 命中区小，仅开关区可点易被误判「开关失效」
+                .clickable(enabled = enabled) { onCheckedChange(!checked) }
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

@@ -9,6 +9,12 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -39,15 +45,27 @@ internal fun BasicInfoSection(
     val msgSynced = stringResource(R.string.synced_global_settings)
     WebAppSettingsSectionTitle(stringResource(R.string.label))
     WebAppSettingsCard {
-        // 名称（WebApp 本身的显示名称：主界面/快捷方式显示的就是它）
+        // 名称（WebApp 本身的显示名称：主界面/快捷方式显示的就是它）。
+        // 输入实时镜像本地 state；失焦时空值回退旧名——原 ifBlank 在每次
+        // onValueChange 强行保持旧值，删空后 value 与 IME 缓冲撕裂导致输入锁死
+        var nameInput by remember(modified.ID) { mutableStateOf(modified.title) }
         OutlinedTextField(
-            value = modified.title,
-            // title 唯一名称：清空保持原值（title 必填）；正常输入写 title
-            onValueChange = { newName -> update { title = newName.ifBlank { this.title } } },
+            value = nameInput,
+            // 非空实时回写（保存兜底：不点别处直接保存也不丢输入）；
+            // 空值只留本地（失焦时回退旧名）
+            onValueChange = { nameInput = it; if (it.isNotBlank()) update { title = it } },
             label = { Text(stringResource(R.string.label)) },
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
+                // 失焦回写：非空提交到 modified；空值回退旧名（title 必填）
+                .onFocusChanged { focus ->
+                    if (!focus.isFocused) {
+                        val trimmed = nameInput.trim()
+                        if (trimmed.isEmpty()) nameInput = modified.title
+                        else update { title = trimmed }
+                    }
+                }
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         )
         // URL
