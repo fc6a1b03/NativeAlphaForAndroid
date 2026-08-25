@@ -607,6 +607,10 @@ class WebViewActivity : AppCompatActivity() {
         // 自实现不用 GestureDetector：其内部状态机对注入事件/快速连点
         // 识别不稳定，自实现时间戳+坐标判定简单可靠。
         var lastDownTime = 0L
+        // 上一次 ACTION_UP 的时刻：真实手指双击的 UP→DOWN 间隔 ≥30ms（人手极限）；
+        // 滚轮/自动化注入的合成流 UP→DOWN 仅 1-2ms（实测 0x5002 触屏源），
+        // 间隔 <20ms 判为合成事件，不参与双击判定
+        var lastUpTime = 0L
         var lastDownX = -1f
         var lastDownY = -1f
 
@@ -760,7 +764,10 @@ class WebViewActivity : AppCompatActivity() {
                     val now = System.currentTimeMillis()
                     val x = event.getX(0)
                     val y = event.getY(0)
-                    if (now - lastDownTime < 250
+                    // 合成流过滤：UP 后 <20ms 的 DOWN 是滚轮/注入产生的连续轻扫
+                    // （真实手指双击的 UP→DOWN 间隔 ≥30ms 人手极限）
+                    val isSynthetic = now - lastUpTime in 1 until 20
+                    if (!isSynthetic && now - lastDownTime < 250
                         && kotlin.math.abs(x - lastDownX) < 40
                         && kotlin.math.abs(y - lastDownY) < 40
                     ) {
@@ -768,7 +775,7 @@ class WebViewActivity : AppCompatActivity() {
                         // 双击：弹小菜单（输入框双击也走菜单——交互一致性）
                         checkBlankAndShowMenu(x, y)
                     } else {
-                        lastDownTime = now
+                        lastDownTime = if (isSynthetic) 0 else now
                         lastDownX = x
                         lastDownY = y
                         // 单击：完全交还 WebView（键盘自然弹，无任何拦截——
@@ -860,6 +867,7 @@ class WebViewActivity : AppCompatActivity() {
                     // 否则单击图片必然在抬起后误弹「保存/下载」（用户实测反馈的 bug）。
                     // 只清长按不清双击状态：双击=UP 后短窗内再 DOWN，UP 本身是双击的
                     // 正常组成部分，清掉会让双击检测永久失效（实测踩坑）
+                    lastUpTime = System.currentTimeMillis()
                     longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
                     longPressRunnable = null
                     handleActionUp(mode, event, startX, startY, stopX, stopY)
