@@ -81,7 +81,9 @@ class WebAppSettingsActivity : AppCompatActivity() {
         }
         val i = Intent(this, MainActivity::class.java)
         i.putExtra(Const.INTENT_WEBAPP_CHANGED, true)
-        finish()
+        // 先启动 MainActivity 再 finish 自己：singleTask 下复用已有实例，
+        // 确保 onNewIntent/onResume 被触发；finish 在前可能导致 Intent 丢失或生命周期异常
         startActivity(i)
+        finish()
     }
 }

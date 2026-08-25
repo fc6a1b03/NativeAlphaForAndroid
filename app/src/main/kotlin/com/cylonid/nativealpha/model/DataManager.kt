@@ -135,8 +135,12 @@ class DataManager private constructor() {
             "App.getAppContext() null before loading sharedpref"
         )
 
-        appdata = App.getAppContext()
-            .getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE)
+        // force 重读时复用已有 SharedPreferences 实例：apply() 已把新值写入内存，
+        // 重新 getSharedPreferences 会从磁盘读，可能读到 apply 尚未落盘的旧数据。
+        if (appdata == null) {
+            appdata = App.getAppContext()
+                .getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE)
+        }
         // Webapp data（D14：不做旧版兼容，直接默认 Gson 反序列化）
         if (appdata!!.contains(SHARED_PREF_WEBAPP_DATA)) {
             val json = appdata!!.getString(SHARED_PREF_WEBAPP_DATA, "")

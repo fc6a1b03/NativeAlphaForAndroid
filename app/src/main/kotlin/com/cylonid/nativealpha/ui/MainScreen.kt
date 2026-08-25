@@ -86,7 +86,9 @@ fun MainScreen(
 ) {
     // 搜索过滤：名称/URL 模糊匹配
     var searchQuery by remember { mutableStateOf("") }
-    val filteredApps = remember(webApps, searchQuery) {
+    // key 必须感知 WebApp 内容变化：WebApp.equals() 只比较 baseUrl/ID，
+    // 标题/URL 改了 remember 会误判列表未变，导致卡片不刷新
+    val filteredApps = remember(webApps.map { Triple(it.ID, it.title, it.baseUrl) }, searchQuery) {
         if (searchQuery.isBlank()) webApps
         else webApps.filter { app ->
             val name = (app.title ?: "").lowercase()
