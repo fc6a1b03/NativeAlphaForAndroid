@@ -146,6 +146,24 @@ class WebViewActivity : AppCompatActivity() {
                 "if(!e)return 'blank';" +
                 "var tag=e.tagName?e.tagName.toLowerCase():'';" +
                 "if(tag==='html'||tag==='body')return 'blank';" +
+                // 交互元素检测：双击落在按钮/链接/输入等可操作元素上时交还网页，
+                // 只有真空白才弹小菜单（用户需求：菜单只属于无功能空白区）
+                "var it=e;" +
+                "while(it&&it!==document.body){" +
+                "var t2=it.tagName?it.tagName.toLowerCase():'';" +
+                "if(t2==='button'||t2==='a'||t2==='input'||t2==='select'||t2==='textarea'" +
+                "||t2==='option'||t2==='label'||t2==='form'||t2==='details'||t2==='summary'" +
+                "||t2==='audio'||t2==='embed'||t2==='object')return 'interactive';" +
+                "var role=it.getAttribute?it.getAttribute('role'):'';" +
+                "if(role==='button'||role==='link'||role==='tab'||role==='checkbox'" +
+                "||role==='radio'||role==='switch'||role==='menuitem'||role==='slider'" +
+                "||role==='combobox'||role==='listbox'||role==='option'||role==='textbox'" +
+                "||role==='searchbox')return 'interactive';" +
+                "if(it.isContentEditable)return 'interactive';" +
+                "var tb=it.getAttribute?it.getAttribute('tabindex'):null;" +
+                "if(tb&&tb!=='-1')return 'interactive';" +
+                "it=it.parentElement;" +
+                "}" +
                 "var te=e;" +
                 "while(te&&te!==document.body){" +
                 "var tt=te.tagName?te.tagName.toLowerCase():'';" +
