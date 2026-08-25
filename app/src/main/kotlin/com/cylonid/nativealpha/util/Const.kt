@@ -16,12 +16,8 @@ object Const {
     const val NO_CONTAINER = -1
 
     const val PERMISSION_RC_LOCATION = 123
-    const val PERMISSION_RC_STORAGE = 132
     const val PERMISSION_CAMERA = 100
     const val PERMISSION_AUDIO = 101
-
-    const val CODE_OPEN_FILE = 512
-    const val CODE_WRITE_FILE = 4096
 
     // ===== 应用错误日志 =====
     /** 应用错误日志保留窗口（天）：超龄清理 + 导出/崩溃提示过滤统一口径 */

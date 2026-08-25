@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -136,7 +137,7 @@ private fun ShortcutAddRow(
     // 预取 Toast 文案（回调内不能查资源——Lint LocalContextGetResourceValueCall）
     val msgNeedModifier = stringResource(R.string.shortcut_need_modifier)
     val msgExist = stringResource(R.string.shortcut_exist)
-    val msgMaxReached = stringResource(R.string.shortcut_max_reached, MAX_KEY_SHORTCUTS)
+    val msgMaxReached = pluralStringResource(R.plurals.shortcut_max_reached, MAX_KEY_SHORTCUTS, MAX_KEY_SHORTCUTS)
     val msgBoundTemplate = stringResource(R.string.shortcut_bound)
     fun buildCombo(): String? {
         val parts = buildList {

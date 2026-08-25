@@ -65,7 +65,7 @@ fun ShortcutRecreateDialog(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    var title by remember { mutableStateOf(webapp.title ?: "") }
+    var title by remember { mutableStateOf(webapp.title) }
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var customBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var fetching by remember { mutableStateOf(true) }
@@ -77,34 +77,35 @@ fun ShortcutRecreateDialog(
         val result = withTimeoutOrNull(FETCH_TIMEOUT_MS) {
             withContext(Dispatchers.IO) { WebAppDataFetcher.fetch(webapp.baseUrl) }
         }
-        val favicon = result?.faviconUrl?.let { url ->
+        if (result == null) {
+            fetching = false
+            fetchFailed = true
+            return@LaunchedEffect
+        }
+        val favicon = result.faviconUrl?.let { url ->
             withTimeoutOrNull(FETCH_TIMEOUT_MS) {
                 withContext(Dispatchers.IO) { WebAppDataFetcher.loadBitmap(url) }
             }
         }
         fetching = false
-        if (result == null && favicon == null) {
-            fetchFailed = true
-        } else {
-            // 标题过滤挑战页脏文案（对齐原 setShortcutTitle 语义）
-            val fetchedTitle = result?.title
-            if (!fetchedTitle.isNullOrBlank() &&
-                !WebAppDataFetcher.isChallengeTitle(fetchedTitle)
-            ) {
-                title = fetchedTitle
-            }
-            // 新 baseUrl 回填（PWA manifest start_url；对齐原 applyNewBaseUrl）
-            result?.newBaseUrl?.let { newUrl ->
-                resolvedUrl = newUrl
-                webapp.baseUrl = newUrl
-                if (webapp.title.isNullOrBlank()) {
-                    webapp.title = UrlUtils.displayHost(newUrl)
-                }
-                DataManager.getInstance().saveWebAppData()
-            }
-            bitmap = favicon
-            if (favicon == null) fetchFailed = true
+        // 标题过滤挑战页脏文案（对齐原 setShortcutTitle 语义）
+        val fetchedTitle = result.title
+        if (!fetchedTitle.isNullOrBlank() &&
+            !WebAppDataFetcher.isChallengeTitle(fetchedTitle)
+        ) {
+            title = fetchedTitle
         }
+        // 新 baseUrl 回填（PWA manifest start_url；对齐原 applyNewBaseUrl）
+        result.newBaseUrl?.let { newUrl ->
+            resolvedUrl = newUrl
+            webapp.baseUrl = newUrl
+            if (webapp.title.isBlank()) {
+                webapp.title = UrlUtils.displayHost(newUrl)
+            }
+            DataManager.getInstance().saveWebAppData()
+        }
+        bitmap = favicon
+        if (favicon == null) fetchFailed = true
     }
 
     // 相册选图（对齐原 onActivityResult 语义：自定义图标直接预览）
@@ -125,7 +126,7 @@ fun ShortcutRecreateDialog(
 
     // 失败提示（一次性 Toast，对齐原 showFailedMessage）
     if (fetchFailed) {
-        val msg = stringResource(R.string.icon_fetch_failed_line1, webapp.title ?: "") +
+        val msg = stringResource(R.string.icon_fetch_failed_line1, webapp.title) +
             stringResource(R.string.icon_fetch_failed_line2) +
             stringResource(R.string.icon_fetch_failed_line3)
         LaunchedEffect(fetchFailed) {
@@ -172,7 +173,7 @@ fun ShortcutRecreateDialog(
                     if (confirmed) return@TextButton
                     confirmed = true
                     val activity = context as? Activity ?: return@TextButton
-                    pinShortcut(activity, webapp, customBitmap ?: bitmap, title.ifBlank { webapp.title ?: "Unknown" })
+                    pinShortcut(activity, webapp, customBitmap ?: bitmap, title.ifBlank { webapp.title })
                     onDismiss()
                 }
             ) { Text(stringResource(android.R.string.ok)) }

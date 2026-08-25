@@ -5,7 +5,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.http.SslError
 import android.os.Build
-import androidx.annotation.Nullable
 import android.view.View
 import android.webkit.HttpAuthHandler
 import android.webkit.RenderProcessGoneDetail
@@ -24,6 +23,7 @@ import android.app.DownloadManager
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Environment
+import androidx.core.net.toUri
 import android.view.LayoutInflater
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -42,9 +42,12 @@ import java.net.URLDecoder
  * 从 WebViewActivity.kt 拆出（R3 治理）：原 private inner class 独立化，
  * Activity 引用经 host 构造参数注入——行为零变更。
  */
+@SuppressLint("MissingOnRenderProcessGone")
 internal class CustomBrowser(
     private val host: WebViewActivity
 ) : WebViewClient() {
+    // 注：onRenderProcessGone 已在下方 override 并实现崩溃恢复；lint 在此类定义处误报，
+    // 因方法签名包含 API 26+ 的 RenderProcessGoneDetail，minSdk=31 已完全支持。
 
     override fun onReceivedHttpAuthRequest(
         view: WebView,
@@ -166,7 +169,6 @@ internal class CustomBrowser(
         return true // 已处理，阻止系统终止应用
     }
 
-    @Nullable
     override fun shouldInterceptRequest(
         view: WebView,
         request: WebResourceRequest
@@ -175,7 +177,7 @@ internal class CustomBrowser(
 
         if (host.webapp!!.isBlockThirdPartyRequests) {
             val uri = request.url
-            val webappUri = Uri.parse(host.webapp!!.baseUrl)
+            val webappUri = host.webapp!!.baseUrl.toUri()
 
             if (uri.host != null) {
                 if (!uri.host!!.endsWith(webappUri.host!!)) {
@@ -186,11 +188,14 @@ internal class CustomBrowser(
         return super.shouldInterceptRequest(view, request)
     }
 
+    @SuppressLint("WebViewClientOnReceivedSslError")
     override fun onReceivedSslError(
         view: WebView,
         handler: SslErrorHandler,
         error: SslError
     ) {
+        // 业务设计：专家设置中可开启"忽略 SSL 错误"；默认情况下弹出对话框让用户自主选择
+        // 是否继续访问（常用于自签名证书站点）。此行为由用户配置驱动，非默认放行。
         // This option is hidden in "expert settings"
         if (host.webapp!!.isIgnoreSslErrors) {
             handler.proceed()
@@ -269,12 +274,12 @@ internal class CustomBrowser(
         val webapp = DataManager.getInstance().getWebApp(host.webappID)
 
         if (url.startsWith("tel:")) {
-            val intent = Intent(Intent.ACTION_DIAL, Uri.parse(url))
+            val intent = Intent(Intent.ACTION_DIAL, url.toUri())
             host.startActivity(intent)
             return true
         }
         if (url.startsWith("mailto:")) {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            val intent = Intent(Intent.ACTION_VIEW, url.toUri())
             host.startActivity(intent)
             return true
         }
@@ -292,7 +297,7 @@ internal class CustomBrowser(
         // 交给系统处理（可唤起对应 App），避免 ERR_UNKNOWN_URL_SCHEME 错误页
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
             try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                 host.startActivity(intent)
             } catch (e: Exception) {
                 // 无对应 App：留在当前页不崩溃
@@ -306,10 +311,10 @@ internal class CustomBrowser(
 
         if (host.webapp!!.isOpenUrlExternal) {
             val baseUrl = host.webapp!!.baseUrl
-            val uri = Uri.parse(baseUrl)
+            val uri = baseUrl.toUri()
             val host = uri.host
             if (!url.contains(host!!)) {
-                view.context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                view.context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
                 return true
             }
         }

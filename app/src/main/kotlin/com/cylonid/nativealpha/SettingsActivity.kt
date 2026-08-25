@@ -16,6 +16,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
+import androidx.core.content.edit
 import androidx.lifecycle.lifecycleScope
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.AppErrorLogRepository
@@ -80,7 +81,11 @@ class SettingsActivity : AppCompatActivity() {
             // 成功提示用 Toast：页面即将 finish，Snackbar 无法显示
             Toast.makeText(
                 this,
-                getString(R.string.import_success, DataManager.getInstance().activeWebsitesCount),
+                resources.getQuantityString(
+                    R.plurals.import_success,
+                    DataManager.getInstance().activeWebsitesCount,
+                    DataManager.getInstance().activeWebsitesCount
+                ),
                 Toast.LENGTH_LONG
             ).show()
             val i = Intent(this, MainActivity::class.java)
@@ -191,7 +196,7 @@ class SettingsActivity : AppCompatActivity() {
             val today = DateUtils.compactDate()
             val lastCheck = prefs.getString("last_check_date", "")
             if (lastCheck == today) return // 今天已检查
-            prefs.edit().putString("last_check_date", today).apply()
+            prefs.edit { putString("last_check_date", today) }
             checkUpdate()
         } catch (e: Exception) {
             // 静默

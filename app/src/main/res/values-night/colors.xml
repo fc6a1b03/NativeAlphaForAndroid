@@ -45,5 +45,4 @@
     <color name="md_theme_surfaceContainer">#1F1F25</color>
     <color name="md_theme_surfaceContainerHigh">#292930</color>
     <color name="md_theme_surfaceContainerHighest">#34343B</color>
-    <color name="webnative_progress_track">#33C1BFFF</color>
 </resources>

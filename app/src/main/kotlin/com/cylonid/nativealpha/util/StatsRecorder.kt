@@ -98,8 +98,8 @@ object StatsRecorder {
                 w.statLoadTimeCount++
                 if (loadMs > w.statMaxLoadTime) w.statMaxLoadTime = loadMs
                 w.statLastUsedAt = System.currentTimeMillis()
-                // 耗时明细（最近 20 次，超出丢最旧——分布图数据源；Gson 旧数据可能 null → 兜底）
-                val times = (w.statLoadTimes ?: mutableListOf()) + loadMs
+                // 耗时明细（最近 20 次，超出丢最旧——分布图数据源）
+                val times = w.statLoadTimes + loadMs
                 w.statLoadTimes = times.takeLast(STAT_LOAD_TIMES_LIMIT).toMutableList()
             }
         }
@@ -128,7 +128,7 @@ object StatsRecorder {
     fun recordShortcutSent(webappId: Int, shortcut: String) {
         record {
             updateStats(webappId) { w ->
-                val counts = (w.keyShortcutSendCounts ?: mutableMapOf()).toMutableMap()
+                val counts = w.keyShortcutSendCounts.toMutableMap()
                 counts[shortcut] = (counts[shortcut] ?: 0) + 1
                 w.keyShortcutSendCounts = counts
             }

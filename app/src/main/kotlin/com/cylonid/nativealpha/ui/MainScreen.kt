@@ -91,8 +91,8 @@ fun MainScreen(
     val filteredApps = remember(webApps.map { Triple(it.ID, it.title, it.baseUrl) }, searchQuery) {
         if (searchQuery.isBlank()) webApps
         else webApps.filter { app ->
-            val name = (app.title ?: "").lowercase()
-            val url = (app.baseUrl ?: "").lowercase()
+            val name = app.title.lowercase()
+            val url = app.baseUrl.lowercase()
             name.contains(searchQuery.lowercase()) || url.contains(searchQuery.lowercase())
         }
     }

@@ -176,10 +176,10 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         statLastError = other.statLastError
         statFirstLoadedAt = other.statFirstLoadedAt
         statLastUsedAt = other.statLastUsedAt
-        // 深拷贝防共享引用（Gson 旧数据可能 null）
-        statLoadTimes = (other.statLoadTimes ?: mutableListOf()).toMutableList()
-        keyShortcuts = (other.keyShortcuts ?: mutableListOf()).toMutableList()
-        keyShortcutSendCounts = (other.keyShortcutSendCounts ?: mutableMapOf()).toMutableMap()
+        // 深拷贝防共享引用（当前类型非空，Gson 旧数据兼容已在 getter 归一化）
+        statLoadTimes = other.statLoadTimes.toMutableList()
+        keyShortcuts = other.keyShortcuts.toMutableList()
+        keyShortcutSendCounts = other.keyShortcutSendCounts.toMutableMap()
     }
 
     private fun initDefaultSettings() {

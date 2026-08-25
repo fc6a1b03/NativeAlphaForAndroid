@@ -57,6 +57,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -123,7 +124,7 @@ class AddWebAppActivity : AppCompatActivity() {
 private fun AddWebAppScreen(
     onBack: () -> Unit,
 ) {
-    var step by remember { mutableStateOf(1) }
+    var step by remember { mutableIntStateOf(1) }
     var urlText by remember { mutableStateOf("") }
     var nameText by remember { mutableStateOf("") }
     var urlError by remember { mutableStateOf<String?>(null) }

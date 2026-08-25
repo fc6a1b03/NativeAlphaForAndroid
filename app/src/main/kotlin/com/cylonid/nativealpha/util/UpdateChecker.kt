@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
+import androidx.core.net.toUri
 import android.webkit.MimeTypeMap
 import com.cylonid.nativealpha.R
 import org.json.JSONObject
@@ -140,7 +141,7 @@ object UpdateChecker {
     fun download(context: Context, downloadUrl: String): Boolean {
         return try {
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            val request = DownloadManager.Request(Uri.parse(downloadUrl))
+            val request = DownloadManager.Request(downloadUrl.toUri())
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             request.setTitle(context.getString(R.string.update_notification_title))
             request.setDescription(context.getString(R.string.update_notification_desc))

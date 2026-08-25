@@ -247,7 +247,7 @@ object WebAppDataFetcher {
             // 网络失败：返回已收集的部分数据（可能全空）
         }
 
-        val faviconUrl = if (foundIcons.isNotEmpty()) foundIcons.lastEntry().value else null
+        val faviconUrl = foundIcons.lastEntry()?.value
         return Result(
             faviconUrl = faviconUrl,
             // 拦截页标题不可信（挑战/安全页文案）——统一置空，调用方走域名兜底

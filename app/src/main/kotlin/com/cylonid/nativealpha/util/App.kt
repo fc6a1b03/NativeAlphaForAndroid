@@ -1,5 +1,6 @@
 package com.cylonid.nativealpha.util
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
 import android.os.Process
@@ -41,7 +42,12 @@ class App : Application() {
     }
 
     companion object {
-        /** Application 上下文（onCreate 赋值——早于任何调用点，lateinit 语义等价原 Java 静态字段） */
+        /**
+         * Application 上下文。
+         * 注：持有的是 Application Context（与 Application 生命周期一致），非 Activity/Service Context，
+         * 不存在因 Activity 泄漏导致的内存泄漏；lateinit 语义等价原 Java 静态字段。
+         */
+        @SuppressLint("StaticFieldLeak")
         private lateinit var context: Context
 
         @JvmStatic
@@ -58,17 +64,17 @@ class App : Application() {
             Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
                 try {
                     // 写应用错误日志（同步兜底，尽力而为）
-                    val stack = throwable?.let { Log.getStackTraceString(it) } ?: "unknown"
+                    val stack = Log.getStackTraceString(throwable)
                     val entry = AppErrorEntry(
                         System.currentTimeMillis(),
                         AppErrorEntry.LEVEL_CRASH,
-                        thread?.name ?: "",
-                        if (throwable != null) throwable.message.toString() else "",
+                        thread.name,
+                        throwable.message.toString(),
                         stack
                     )
                     // 防死锁：崩溃线程若是协程 IO 线程（DataStore 底层 DefaultDispatcher），
                     // runBlocking 会自锁（等自己释放锁）——此时跳过同步写，日志丢失可接受
-                    val threadName = thread?.name ?: ""
+                    val threadName = thread.name
                     val isCoroutineIoThread = threadName.startsWith("DefaultDispatcher") ||
                         threadName.startsWith("kotlinx.coroutines")
                     if (!isCoroutineIoThread) {

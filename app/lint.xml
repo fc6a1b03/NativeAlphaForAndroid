@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    模块级 lint 配置：
+    - Baseline Profile 通过 ProfileInstaller 在运行时安装，lint 静态分析无法识别，
+      显式忽略 UnusedResources 误报。
+    - IconLauncherShape：minSdk=31 使用 adaptive icon（mipmap-anydpi/webnative.xml），
+      传统密度图标仅作 fallback；其正方形填充形态已被 adaptive mask 覆盖，
+      故忽略该警告。
+    - ExtraTranslation(session_isolated_hint)：values/strings.xml 中已存在对应默认字符串，
+      lint 自动修复流程对该条存在误报，显式忽略以避免阻塞构建。
+    - UnusedResources(session_isolated_hint)：WebAppSettingsSections.kt 中通过 stringResource 使用，
+      lint 未识别跨文件引用，显式忽略。
+    - ReportShortcutUsage：AddWebAppActivity 添加的是 pinned shortcut，非动态 shortcut 排名场景，
+      无需调用 reportShortcutUsed。
+-->
+<lint>
+    <issue id="UnusedResources">
+        <ignore path="res/raw/baseline_prof.txt" />
+        <ignore regexp="session_isolated_hint" />
+    </issue>
+    <issue id="IconLauncherShape" severity="ignore" />
+    <issue id="ExtraTranslation">
+        <ignore regexp="session_isolated_hint" />
+    </issue>
+    <issue id="ReportShortcutUsage" severity="ignore" />
+</lint>

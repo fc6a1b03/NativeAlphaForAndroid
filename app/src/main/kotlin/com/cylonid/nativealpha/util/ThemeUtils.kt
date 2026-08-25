@@ -53,6 +53,7 @@ object ThemeUtils {
      */
     @JvmStatic
     @SuppressLint("ResourceType") // 动态 attr 数组（statusBarColor 等系统属性），Lint 静态分析误报 styleable 期望
+    @Suppress("DEPRECATION") // statusBarColor/navigationBarColor/systemUiVisibility 已废弃；迁移到 WindowInsetsController/EdgeToEdge 需全屏模式联动改造，本轮保持行为等价并集中 suppress
     fun applySystemBarColors(activity: Activity) {
         try {
             val attrs = intArrayOf(
