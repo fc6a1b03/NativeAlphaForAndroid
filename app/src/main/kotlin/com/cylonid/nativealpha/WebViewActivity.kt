@@ -217,6 +217,28 @@ class WebViewActivity : AppCompatActivity() {
 
     var webappID = -1
     var webappTabIndex = 0
+
+    /** WebView 字段名（UA 尾巴清理用）：反射结果进程内缓存——类字段布局不变，
+     * 每次打开 WebApp 都遍历 declaredFields 是纯浪费（启动热路径） */
+    private val uaFieldName: String by lazy {
+        try {
+            WebViewActivity::class.java.declaredFields
+                .firstOrNull { it.type == WebView::class.java }?.name ?: ""
+        } catch (ignored: Exception) {
+            ""
+        }
+    }
+
+    /** WebView 特性探测缓存：内核能力进程生命周期内不变，避免每次打开重复探测 */
+    private val featForceDark: Boolean by lazy {
+        WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)
+    }
+    private val featForceDarkStrategy: Boolean by lazy {
+        WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK_STRATEGY)
+    }
+    private val featAlgorithmicDarkening: Boolean by lazy {
+        WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)
+    }
     private var wv: WebView? = null
     private var progressBar: ProgressBar? = null
     private var loadingAnimal: ImageView? = null
@@ -305,8 +327,16 @@ class WebViewActivity : AppCompatActivity() {
         // 重置错误页重试目标（新应用加载，避免残留旧地址）
         retryUrl = ""
         webapp = DataManager.getInstance().getWebApp(webappID)
-        // 登录态隔离：开启隔离的 WebApp 恢复自己的 Cookie 会话（异步，多标签按 tabIndex）
-        CookieSessionManager.restoreSnapshot(this, webappID, webappTabIndex)
+        // 登录态隔离：开启隔离的 WebApp 恢复自己的 Cookie 会话（异步，多标签按 tabIndex）。
+        // onRestored 后才装配 WebView/loadUrl——cookie 就绪先于页面首批请求，
+        // 消除「清空后未恢复」窗口期的登录态偶发丢失（loadUrl 与恢复的时序竞争）
+        CookieSessionManager.restoreSnapshot(this, webappID, webappTabIndex) {
+            proceedSetup()
+        }
+    }
+
+    /** cookie 恢复放行后的装配（原 handleIntent 尾段抽出） */
+    private fun proceedSetup() {
         if (webapp == null) {
             // Toast is shown in getWebApp method
             finish()
@@ -368,9 +398,9 @@ class WebViewActivity : AppCompatActivity() {
         // 必须在 setContentView 之后 findViewById——视图未建立时返回 null（886b145 回归修复）
         val webview = findViewById<WebView>(R.id.webview).also { wv = it }
 
-        // 移除 WebView 字段名注入的 UA 尾巴（找不到字段时静默跳过，避免 NPE）
-        val fieldName = WebViewActivity::class.java.declaredFields
-            .firstOrNull { it.type == WebView::class.java }?.name ?: ""
+        // 移除 WebView 字段名注入的 UA 尾巴（找不到字段时静默跳过，避免 NPE）；
+        // 反射结果进程内缓存（uaFieldName lazy）
+        val fieldName = uaFieldName
         if (fieldName.isNotEmpty()) {
             val uaString = webview.settings.userAgentString.replace("; " + fieldName, "")
             webview.settings.userAgentString = uaString
@@ -977,12 +1007,10 @@ class WebViewActivity : AppCompatActivity() {
             || (!webapp!!.isUseTimespanDarkMode && webapp!!.isForceDarkMode)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val isForceDarkSupported =
-                WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)
-            val isForceDarkStrategySupported =
-                WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK_STRATEGY)
-            val isAlgorithmicDarkeningSupported =
-                WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)
+            // 特性探测缓存（featXxx lazy）：内核能力进程内不变
+            val isForceDarkSupported = featForceDark
+            val isForceDarkStrategySupported = featForceDarkStrategy
+            val isAlgorithmicDarkeningSupported = featAlgorithmicDarkening
 
             if (needsForcedDarkMode) {
                 wv!!.setBackgroundColor(Color.BLACK)

@@ -8,6 +8,7 @@ import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 登录态隔离（Cookie 会话管理）。
@@ -61,29 +62,43 @@ object CookieSessionManager {
      * 恢复指定 WebApp + Tab 的 Cookie 快照（异步），并清除其他隔离站的 Cookie。
      * 调用时机：开启隔离的 WebApp 打开时。
      * @param tabIndex 多标签会话隔离：恢复对应标签的独立 Cookie
+     * @param onRestored 恢复完成回调（主线程）：调用方应在 cookie 就绪后再
+     * loadUrl——否则页面首批请求带着「清空后未恢复」的 Cookie 发出，
+     * 登录态偶发丢失的根因（loadUrl 与本异步恢复的时序竞争）
      */
-    fun restoreSnapshot(context: Context, webappId: Int, tabIndex: Int = 0) {
+    fun restoreSnapshot(
+        context: Context,
+        webappId: Int,
+        tabIndex: Int = 0,
+        onRestored: (() -> Unit)? = null
+    ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val webapp = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappId, true) ?: return@launch
-                if (!webapp.isIsolatedSession) return@launch
-                val snapshots = loadSnapshots(context)
-                val snapshot = snapshots.snapshots[snapshotKey(webappId, tabIndex)] ?: return@launch
-                // 清除全部 Cookie（防串站），再恢复目标站
-                CookieManager.getInstance().removeAllCookies(null)
-                CookieManager.getInstance().flush()
-                // 恢复快照（按域名 setCookie——快照是单域名，直接 set）
-                val host = hostOf(webapp.baseUrl)
-                snapshot.split(";").forEach { cookie ->
-                    val c = cookie.trim()
-                    if (c.isNotEmpty()) {
-                        CookieManager.getInstance().setCookie("https://" + host, c)
+                val webapp = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappId, true)
+                if (webapp == null || !webapp.isIsolatedSession) {
+                    // 无站点/未开隔离：无需恢复
+                } else {
+                    val snapshots = loadSnapshots(context)
+                    val snapshot = snapshots.snapshots[snapshotKey(webappId, tabIndex)]
+                    // 清除全部 Cookie（防串站），再恢复目标站（无快照则只清）
+                    CookieManager.getInstance().removeAllCookies(null)
+                    CookieManager.getInstance().flush()
+                    snapshot?.let { snap ->
+                        val host = hostOf(webapp.baseUrl)
+                        snap.split(";").forEach { cookie ->
+                            val c = cookie.trim()
+                            if (c.isNotEmpty()) {
+                                CookieManager.getInstance().setCookie("https://" + host, c)
+                            }
+                        }
+                        CookieManager.getInstance().flush()
                     }
                 }
-                CookieManager.getInstance().flush()
             } catch (e: Exception) {
-                // 恢复失败静默（保持全局 Cookie）
+                // 恢复失败静默（保持全局 Cookie）——仍放行页面加载
             }
+            // 所有路径（含异常）都放行：页面加载不被 cookie 恢复失败卡死
+            onRestored?.let { cb -> withContext(Dispatchers.Main) { cb() } }
         }
     }
 

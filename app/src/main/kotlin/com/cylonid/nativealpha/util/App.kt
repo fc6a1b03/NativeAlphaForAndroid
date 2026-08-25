@@ -6,6 +6,7 @@ import android.os.Process
 import android.util.Log
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.AppErrorLogRepository
+import com.cylonid.nativealpha.model.DataManager
 
 class App : Application() {
 
@@ -19,6 +20,19 @@ class App : Application() {
         // 进程启动即应用 UI 模式（themeId 持久化在 SharedPreferences，
         // 此时加载最可靠——早于任何 Activity 的 setTheme）
         ThemeUtils.applyUiMode()
+
+        // 启动预热（异步/分段加载）：后台线程提前触发 DataManager 的
+        // SP 磁盘 IO + Gson 解析——主线程首次 loadAppData() 时数据已就绪
+        // （dataLoaded 短路），冷启动主线程少等一段磁盘。
+        // 线程安全：SP 并发读安全；websites 引用在后台解析完成后才整体
+        // 发布，主线程随后的 dataLoaded=false 路径直接命中，不读半成品。
+        Thread {
+            try {
+                DataManager.getInstance().loadAppData()
+            } catch (ignored: Exception) {
+                // 预热失败不影响主流程（主线程首次调用会重试）
+            }
+        }.start()
 
         // WebView 预热已移除：后台线程 new WebView() 在部分 WebView 版本
         // （TrichromeWebViewGoogle 6432 等）会破坏内核状态，导致后续 inflate

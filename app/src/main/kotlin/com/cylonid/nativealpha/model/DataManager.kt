@@ -34,7 +34,10 @@ class DataManager private constructor() {
     private var maxAssignedId = -1
     private var appdata: SharedPreferences? = null
 
-    /** 是否已从 SharedPreferences 加载过数据（幂等优化：启动路径多次调用不再重复 Gson 解析） */
+    /** 是否已从 SharedPreferences 加载过数据（幂等优化：启动路径多次调用不再重复 Gson 解析）。
+     * @Volatile：App.onCreate 后台预热线程与主线程首次 loadAppData 并发触发时，
+     * 保证可见性——两侧幂等（重复解析结果一致），最坏代价是多解析一次，无双检锁必要 */
+    @Volatile
     private var dataLoaded = false
 
     private var _settings = GlobalSettings()
