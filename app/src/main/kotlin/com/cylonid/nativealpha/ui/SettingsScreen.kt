@@ -44,7 +44,7 @@ fun GlobalSettingsScreen(
     onExport: () -> Unit = {},
     onImport: () -> Unit = {},
     onExportAppErrors: () -> Unit = {},
-    onCheckUpdate: () -> Unit = {},
+    onCheckUpdate: (onDone: () -> Unit) -> Unit = { _ -> },
     onGlobalWebApp: () -> Unit = {},
 ) {
     val settings = DataManager.getInstance().settings
@@ -64,6 +64,10 @@ fun GlobalSettingsScreen(
         )
     }
     var langExpanded by remember { mutableStateOf(false) }
+
+    // 检查更新 loading：请求期间行内转圈+禁点（UpdateChecker.checking 防逻辑重复，
+    // 此处状态驱动 UI——用户能看见"正在检查"而不是点了没反应）
+    var updateChecking by remember { mutableStateOf(false) }
 
     // UI 模式（跟随系统 / 浅色 / 深色）
     val uiModes = context.resources.getStringArray(R.array.ui_modes)
@@ -288,9 +292,23 @@ fun GlobalSettingsScreen(
                 HorizontalDivider()
                 SettingsActionRow(
                     icon = { Icon(Icons.Default.SystemUpdate, contentDescription = null) },
-                    title = stringResource(R.string.check_update),
+                    title = if (updateChecking) stringResource(R.string.update_checking)
+                            else stringResource(R.string.check_update),
                     subtitle = stringResource(R.string.desc_check_update),
-                    onClick = onCheckUpdate
+                    enabled = !updateChecking,
+                    trailing = {
+                        if (updateChecking) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    },
+                    onClick = {
+                        if (updateChecking) return@SettingsActionRow
+                        updateChecking = true
+                        onCheckUpdate { updateChecking = false }
+                    }
                 )
             }
 
@@ -328,12 +346,14 @@ private fun SettingsActionRow(
     icon: @Composable () -> Unit,
     title: String,
     subtitle: String? = null,
+    enabled: Boolean = true,
+    trailing: @Composable () -> Unit = {},
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -360,6 +380,7 @@ private fun SettingsActionRow(
                 )
             }
         }
+        trailing()
     }
 }
 

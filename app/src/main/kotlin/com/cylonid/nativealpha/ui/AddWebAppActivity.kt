@@ -128,6 +128,8 @@ private fun AddWebAppScreen(
     var fetchedFavicon by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var customIcon by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var fetchFailed by remember { mutableStateOf(false) }
+    // 保存防抖：坏站 favicon 补拉可达 20s+，期间连点会重复创建条目（重复条目即此 bug 产物）
+    var isSaving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
@@ -239,6 +241,8 @@ private fun AddWebAppScreen(
     }
 
     fun onFinish() {
+        if (isSaving) return  // 防抖：保存中忽略重复点击（连点会创建重复条目）
+        isSaving = true
         val url = normalizeUrl(urlText)
         val webapp = WebApp(
             url,
@@ -253,33 +257,13 @@ private fun AddWebAppScreen(
             com.cylonid.nativealpha.util.WebAppIconManager.saveIcon(context, webapp, icon)
         }
         DataManager.getInstance().addWebsite(webapp)
-        // 兜底：favicon 直抓失败（如 Cloudflare 挑战站 linux.do）时，
-        // 再用列表同款 loadFavicon（Google s2）拉一次——成功则写回 iconPath 持久化，
-        // 并**补拉完成后才 pin 快捷方式**（pin 是一次性冻结——若先 pin 会永久用字母，
-        // 列表后有图标但快捷方式没有——正是 linux.do 故障根因）
-        if (webapp.iconPath == null) {
-            // 补拉 favicon（后台）→ 完成（UI 线程）pin → 返回主界面。
-            // pin 延后：quick 方式一次性冻结图标——先 pin 会永久字母（linux.do 根因）
-            val contextLocal = context
-            scope.launch {
-                withContext(Dispatchers.IO) {
-                    com.cylonid.nativealpha.util.WebAppIconManager.loadFavicon(contextLocal, webapp)
-                }
-                // 补拉完成（无论成败）→ 有图标用图标；仍无则字母（已尽力）
-                if (coroutineContext.isActive) {
-                    requestPinShortcut(webapp)
-                    // 图标已就绪：更新到（动态同 ID）快捷方式——桌面图标跟随列表
-                    updateShortcutIcon(contextLocal, webapp)
-                    onBack()
-                }
-            }
-        } else {
-            // 图标已就绪（抓取成功/用户选图）——直接 pin + 更新快捷方式图标 + 返回
-            requestPinShortcut(webapp)
-            updateShortcutIcon(context, webapp)
-            // 返回主界面（onResume 触发刷新）
-            onBack()
-        }
+        // 图标未就绪（坏站/超时）：不再阻塞等待 favicon 补拉——立即 pin（字母图标）+
+        // 返回主界面；favicon 由主界面列表 produceState 后台补拉，拉到后自动更新
+        // 桌面快捷方式图标（updateShortcutIcon 同 ID 可刷新）。
+        // 旧行为（等待补拉完成才返回）：坏地址 4 候选源 × 4s 超时 = 16s+ 白等，用户以为卡死。
+        requestPinShortcut(webapp)
+        updateShortcutIcon(context, webapp)
+        onBack()
     }
 
     Scaffold(
@@ -338,6 +322,7 @@ private fun AddWebAppScreen(
                         nameText = nameText,
                         onNameChange = { nameText = it },
                         isFetching = isFetching,
+                        isSaving = isSaving,
                         fetchFailed = fetchFailed,
                         fetchedFavicon = fetchedFavicon,
                         customIcon = customIcon,
@@ -405,6 +390,7 @@ private fun Step2Content(
     nameText: String,
     onNameChange: (String) -> Unit,
     isFetching: Boolean,
+    isSaving: Boolean,
     fetchFailed: Boolean,
     fetchedFavicon: android.graphics.Bitmap?,
     customIcon: android.graphics.Bitmap?,
@@ -510,14 +496,23 @@ private fun Step2Content(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 完成按钮
+        // 完成按钮（保存中禁用+转圈：坏站 favicon 补拉 20s+，防连点重复创建）
         Button(
             onClick = onFinish,
+            enabled = !isSaving,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(Icons.Default.Add, contentDescription = null)
+            if (isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            } else {
+                Icon(Icons.Default.Add, contentDescription = null)
+            }
             Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.add_to_home_screen))
+            Text(stringResource(if (isSaving) R.string.saving else R.string.add_to_home_screen))
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(

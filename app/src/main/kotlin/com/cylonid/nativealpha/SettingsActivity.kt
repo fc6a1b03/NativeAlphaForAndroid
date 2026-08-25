@@ -112,8 +112,10 @@ class SettingsActivity : AppCompatActivity() {
                     },
                     onExport = { export() },
                     onImport = { importBackup() },
-                    onExportAppErrors = { exportAppErrors() },
-                    onCheckUpdate = { checkUpdate() },
+                    onExportAppErrors = {
+                        exportAppErrorsGuarded()
+                    },
+                    onCheckUpdate = { onDone -> checkUpdate(onDone) },
                     onGlobalWebApp = {
                         val intent = Intent(this, WebAppSettingsActivity::class.java)
                         intent.putExtra(
@@ -130,10 +132,11 @@ class SettingsActivity : AppCompatActivity() {
 
     /**
      * 检查版本更新：GitHub API 查最新 Release → 有更新则提示下载（异步后台），
-     * 下载完成后提示安装。
+     * 下载完成后提示安装。onDone：检查结束回调（Compose 侧复位 loading 状态）。
      */
-    private fun checkUpdate() {
+    private fun checkUpdate(onDone: () -> Unit = {}) {
         UpdateChecker.check(this) { hasUpdate, latestTag, downloadUrl, notes ->
+            onDone()
             if (hasUpdate) {
                 // 更新弹窗：md 渲染 release notes（GitHub 内容为 Markdown）+ 下载/取消
                 // Markwon 渲染：标题用版本号提示，正文 md 转 Spanned 显示（支持 #/**/列表）
@@ -194,32 +197,39 @@ class SettingsActivity : AppCompatActivity() {
      * 导出应用错误日志（近 3 天）：先查后导——无日志直接提示，不弹文件选择器（不执行导出）；
      * 有日志 → SAF 创建文件 → 写 JSON。导出只读不清除（3 天窗口完整保留，每次导出内容一致）。
      * 三态：成功 / 失败 / 近 3 天无日志（不创建空文件）。
+     * 查询期间防重入（exitingLogsExporting）：连点只弹一次 SAF 窗口。
      */
-    private fun exportAppErrors() {
+    private val exportingLogs = java.util.concurrent.atomic.AtomicBoolean(false)
+    private fun exportAppErrorsGuarded() {
+        if (!exportingLogs.compareAndSet(false, true)) return
         lifecycleScope.launch(Dispatchers.IO) {
-            val recent = AppErrorLogRepository.getRecent(applicationContext)
-            if (recent.isEmpty()) {
-                // 无日志：不执行导出（不弹 SAF 选择器、不创建空文件），仅提示
+            try {
+                val recent = AppErrorLogRepository.getRecent(applicationContext)
+                if (recent.isEmpty()) {
+                    // 无日志：不执行导出（不弹 SAF 选择器、不创建空文件），仅提示
+                    runOnUiThread {
+                        NotificationUtils.showInfoSnackbar(
+                            this@SettingsActivity,
+                            getString(R.string.app_errors_none),
+                            Snackbar.LENGTH_LONG
+                        )
+                    }
+                    return@launch
+                }
                 runOnUiThread {
-                    NotificationUtils.showInfoSnackbar(
-                        this@SettingsActivity,
-                        getString(R.string.app_errors_none),
-                        Snackbar.LENGTH_LONG
-                    )
+                    // CreateDocument 注册器已指定 application/json，launch 传文件名即可
+                    try {
+                        exportAppErrorsLauncher.launch("WebNative_app_errors_" + com.cylonid.nativealpha.util.DateUtils.compactDate() + ".json")
+                    } catch (e: Exception) {
+                        NotificationUtils.showInfoSnackbar(
+                            this@SettingsActivity,
+                            getString(R.string.no_filemanager),
+                            Snackbar.LENGTH_LONG
+                        )
+                    }
                 }
-                return@launch
-            }
-            runOnUiThread {
-                // CreateDocument 注册器已指定 application/json，launch 传文件名即可
-                try {
-                    exportAppErrorsLauncher.launch("WebNative_app_errors_" + com.cylonid.nativealpha.util.DateUtils.compactDate() + ".json")
-                } catch (e: Exception) {
-                    NotificationUtils.showInfoSnackbar(
-                        this@SettingsActivity,
-                        getString(R.string.no_filemanager),
-                        Snackbar.LENGTH_LONG
-                    )
-                }
+            } finally {
+                exportingLogs.set(false)
             }
         }
     }

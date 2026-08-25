@@ -156,11 +156,17 @@ fun ShortcutRecreateDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                val activity = context as? Activity ?: return@TextButton
-                pinShortcut(activity, webapp, customBitmap ?: bitmap, title.ifBlank { webapp.title ?: "Unknown" })
-                onDismiss()
-            }) { Text(stringResource(android.R.string.ok)) }
+            // 消费型防抖：双击窗口内只执行一次（连点会弹多个系统 pin 确认框）
+            var confirmed by remember { mutableStateOf(false) }
+            TextButton(
+                onClick = {
+                    if (confirmed) return@TextButton
+                    confirmed = true
+                    val activity = context as? Activity ?: return@TextButton
+                    pinShortcut(activity, webapp, customBitmap ?: bitmap, title.ifBlank { webapp.title ?: "Unknown" })
+                    onDismiss()
+                }
+            ) { Text(stringResource(android.R.string.ok)) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
