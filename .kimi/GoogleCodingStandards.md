@@ -137,14 +137,91 @@
 
 ---
 
-## 5. 单测规范
+## 5. Android XML 体系规范（XR1-XR8）
+
+> 适用 `app/src/main/` 下全部 XML：AndroidManifest、layout、menu、values*、xml/、drawable；
+> 与 proguard-rules.pro 的关联约定见 XR8。命名一律 `snake_case` + 语义前缀（XR2 表）。
+
+### XR1. AndroidManifest
+
+- **manifest 禁止再写 `package=` 属性**（AGP 7.3 起废弃）：包名唯一来源是 `app/build.gradle` 的 `namespace`（R 类生成）与 `applicationId`（安装标识）；现存 `package="com.cylonid.nativealpha"` 属存量债，下次触碰 manifest 时顺手删除；debug 构建走 `applicationIdSuffix ".debug"`，两套环境可并存
+- `uses-permission` 逐条声明并按「网络 → 位置 → 相机 → 音频」分组；**权限最小化**——新增权限必须在 AGENTS.md「安全与隐私」节同步登记依据
+- `uses-feature` 凡是站点授权的可选硬件（相机/麦克风/位置）一律 `android:required="false"`，避免无摄像头设备被商店过滤
+- 每个 `<activity>` 必须显式声明 `android:exported`（intent-filter 的写 true，纯内部跳转写 false）；`theme`/`parentActivityName`/`launchMode` 逐项给出，不依赖默认值
+- FileProvider 的 `authorities` 必须用 `${applicationId}.fileprovider` 占位符（debug/正式包名自动区分），禁止硬编码全限定包名
+- meta-data（SafeBrowsing 开关、Samsung DeX keepalive）集中放 application 尾部并注释用途与出处链接
+
+### XR2. 资源目录与命名前缀
+
+| 目录 | 前缀 | 示例（项目既有） |
+|------|------|------------------|
+| `layout/` | `activity_` / `dialog_` / `item_` | `full_webview.xml`（历史名，新布局按前缀）、`dialog_http_auth.xml` |
+| `menu/` | `wv_` / `menu_` | `wv_context_menu.xml` |
+| `drawable/` | `ic_`（矢量图标）/ `animal_`（动画）/ `launch_`（启动）/ `webnative_`（品牌） | `ic_baseline_refresh_24.xml` |
+| `values/colors.xml` | `md_theme_`（M3 语义色） | `md_theme_primary` |
+| `values/themes.xml` | `AppTheme`（项目主题） | `AppTheme.Launcher` |
+| `xml/` | 功能语义名 | `file_paths.xml` |
+
+- values 变体目录规则：`values-night/`（深色）仅放**覆盖差异项**，不复制全量；`values-v31`/`values-night-v31` 仅放 API 31+ 的主题项（如 splashscreen 属性）；`values-zh/` 与 `values/` 的 string key 必须一一对应（缺 key 落英文默认）
+- 一图多分辨率走 `mipmap-anydpi-v26`（自适应图标 XML）+ `mipmap-*dpi`（位图回退），不新建 `drawable-*dpi`
+
+### XR3. 布局 XML（View 体系）
+
+- 本项目 View 体系布局仅两个（`full_webview.xml` 承载 WebView 渲染核心、`dialog_http_auth.xml`）；**新页面一律 Compose**，禁止新增传统布局——WebViewActivity 不 Compose 化是架构决策（AGENTS.md 坑 1）
+- 根布局声明全部命名空间（`xmlns:android` 必需；`xmlns:app`/`xmlns:tools` 仅用到时声明）；`tools:` 只用于设计期属性（`tools:ignore`/`tools:text`）
+- 控件顺序：`android:id` → 尺寸（`layout_width/height`） → 行为属性 → 外观属性 → `tools:` 属性
+- 禁止 `android:text` 硬编码字面量（lint `HardcodedText` 直接打回）——一律 `@string/`；装饰性 `View` 的 `android:text=""` 例外（如 `anchorCenterScreen` 锚点）
+- `android:contentDescription` 必填（纯装饰填 `@null` 并加 `importantForAccessibility="no"`，参照 `loadingAnimal`）
+- `full_webview.xml` 的层级结构（WebView ×2 + ProgressBar + loadingBg + 动画 IV + 锚点 TV）是启动链路一部分——**改动必须评估对首帧的影响**（loadingBg 防深色白屏、动画 visibility=gone 按需显示），禁止「顺手优化」
+- `tools:ignore` 必须附注释说明为什么豁免（如 `MissingConstraints`：FrameLayout 布局无需约束）
+
+### XR4. menu / xml 资源
+
+- menu item 的 `title` 一律 `@string/`；分组用 `<group android:id>` 划分语义区（URL 区/操作区/更多区，参照 `wv_context_menu.xml`）
+- 动态控制的 item 声明默认状态（`android:visible="false"`）由代码按需开启
+- `xml/file_paths.xml` 这类配置型 XML：顶部注释说明用途与调用方（FileProvider 的 external-path→Download/）
+
+### XR5. values 资源（strings/colors/themes）
+
+- **strings**：key 用 `snake_case` 语义名（`shortcut_max_reached`）；带参格式用位置参数 `%1$s`/`1$d`（lint 会校验翻译完整性）；**禁止** `translatable="false"` 逃逸双语（应用名 `app_name` 等品牌词除外）
+- **colors**：只放 M3 语义色板（`md_theme_` 前缀，成对 primary/onPrimary…）；页面级临时色写 `Color(0xFF...)` Compose 常量或补充语义色，禁止无前缀散色值；深浅两套在 `colors.xml` + `values-night/colors.xml` 成对维护
+- **themes**：`AppTheme` 继承 `Theme.Material3.*.NoActionBar`；新属性项先查 M3 是否有语义 slot（colorSurfaceVariant 等）再决定加自定义 attr；Launch 主题（`AppTheme.Launcher`/`AppTheme.WebView`）的 windowBackground 是启动白屏/闪屏的关键，改动需实测冷启动
+- 所有 values XML 修改后跑 `lintDebug`（MissingTranslation 等资源类 lint 会拦截缺翻译）
+
+### XR6. drawable（矢量/动画）
+
+- 图标一律 Material Symbols 24dp 矢量导出（`ic_baseline_*_24` 命名对齐），禁止位图图标（体积+密度适配）
+- 动画：帧动画拆 `animal_walk1-4.xml`（单帧）+ `animal_walk_anim.xml`（animation-list 装配），**单帧与装配分离**是范式
+- 自适应图标三件套：`webnative.xml`（anydpi-v26 前景/背景装配）+ `webnative_icon_bg/fg.xml`（矢量图层）
+
+### XR7. tools 命名空间与 lint 抑制
+
+- `tools:ignore` 仅允许出现在确有豁免理由的节点，且**同文件同理由集中注释一次**（本项目惯例：布局根节点后紧跟注释块）
+- 代码内 `@SuppressLint` 同理——禁止文件级 `@SuppressLint("All")` 兜底
+- 新增 lint 抑制必须在 PR/commit 说明里给依据（lint id + 为什么不修而豁免）
+
+### XR8. R8/ProGuard 关联约定
+
+- 规则文件唯一：`app/proguard-rules.pro`；每条 `-keep`/`-dontwarn` 必须带「为什么」注释（现有范式：Gson 反射/jsoup 缺失类/Compose 运行时/profileinstaller）
+- **红线联动**：`com.cylonid.nativealpha.model.**` 全保留（Gson 反射依赖字段名——模型字段重命名=持久化破坏，AGENTS.md 坑 5）；新增 `@JavascriptInterface` 类必须手工加 keep（WebView JS 按名反射）
+- 调整 keep 规则后必须 `assembleRelease` 实测（debug 不跑 R8，问题只在 release 暴露）
+
+---
+
 
 - Robolectric：`@Config(sdk = [34])`（targetSdk 37 > Robolectric 支持 ≤36）
 - 测试方法名行为描述（`saveIcon_storesFileAndUpdatesPath`）；必须可跑（`testDebugUnitTest`）
 
 ---
 
-## 6. 已验证的坑（项目实践沉淀）
+## 6. 单测规范
+
+- Robolectric：`@Config(sdk = [34])`（targetSdk 37 > Robolectric 支持 ≤36）
+- 测试方法名行为描述（`saveIcon_storesFileAndUpdatesPath`）；必须可跑（`testDebugUnitTest`）
+
+---
+
+## 7. 已验证的坑（项目实践沉淀）
 
 - Kotlin 位或用 `or` 关键字（`|` 有解析歧义——实测）
 - `OutlinedTextFieldDefaults.colors` 参数名随 Material3 版本变化（避免新旧歧义参数）
