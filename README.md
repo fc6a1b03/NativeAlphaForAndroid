@@ -53,8 +53,8 @@
 打 tag 自动触发 GitHub Actions 发版（签名 APK + AAB → GitHub Release）：
 
 ```bash
-git tag -a v2.1.17 -m "v2.1.14"
-git push origin v2.1.14
+git tag -a v2.1.33 -m "v2.1.33"
+git push origin v2.1.33
 ```
 
 首次需在仓库 Settings → Secrets 配置：`KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`。
@@ -88,7 +88,6 @@ A: Android 12（API 31）及以上。
 * [Gson](https://github.com/google/gson) — 数据持久化
 * [JSoup](https://jsoup.org/) — favicon/标题抓取
 * [AboutLibraries](https://github.com/mikepenz/AboutLibraries) — 开源声明
-* [CircularProgressBar](https://github.com/lopspower/CircularProgressBar) — 快捷方式图标加载进度
 
 完整开源库依赖声明见 `app/build.gradle` 与 [gradle/libs.versions.toml](gradle/libs.versions.toml)。
 
