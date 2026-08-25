@@ -87,6 +87,7 @@ import com.cylonid.nativealpha.util.EntryPointUtils
 import com.cylonid.nativealpha.util.LocaleUtils
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.StatsRecorder
+import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.util.Utility
 import com.cylonid.nativealpha.ui.showShortcutMenuOverlay
 import com.cylonid.nativealpha.ui.showWebViewMenuOverlay
@@ -293,6 +294,11 @@ class WebViewActivity : AppCompatActivity() {
     private var mMenuPageZoom = 100
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // 主题前置（规范 R「Activity 规范」）：App.onCreate 已全局 applyUiMode，
+        // 此处再应用保证单测/多进程路径下主题一致；setTheme 必须先于 super
+        // （super 里 AppCompat 锁定主题后不可换）
+        ThemeUtils.applyUiMode()
+        setTheme(ThemeUtils.resolveTheme())
         super.onCreate(savedInstanceState)
         // 虚拟按键/手势返回（Android 13+ OnBackInvokedDispatcher）：
         // Manifest enableOnBackInvokedCallback=true 时 onBackPressed 不再被系统调用，
