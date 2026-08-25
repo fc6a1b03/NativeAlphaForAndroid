@@ -16,13 +16,16 @@ object ShortcutIconUtils {
     fun pinnedShortcutId(webappId: Int): String = "webapp_$webappId"
 
     /**
-     * 禁用指定 Web App 的桌面快捷方式。
-     * 使用 disable 而非 remove：避免部分启动器在 remove 时弹确认框。
+     * 删除/禁用指定 Web App 的桌面快捷方式。
+     * - pinned（pin 到桌面的）：disable 而非 remove——避免部分启动器 remove 弹确认框；
+     *   Android 不允许 app 主动移除 pin 图标，disable 后图标灰化+点击提示已删除
+     * - dynamic（动态注册的）：必须 removeDynamicShortcuts——否则残留可用快捷方式
+     * @return 是否有桌面 pin 图标被禁用（调用方据此提示用户手动移除）
      */
     @JvmStatic
-    fun deleteShortcuts(removableWebAppIds: List<Int>, context: Context) {
-        if (removableWebAppIds.isEmpty()) return
-        val manager = context.getSystemService(ShortcutManager::class.java) ?: return
+    fun deleteShortcuts(removableWebAppIds: List<Int>, context: Context): Boolean {
+        if (removableWebAppIds.isEmpty()) return false
+        val manager = context.getSystemService(ShortcutManager::class.java) ?: return false
         val toDisable = mutableListOf<String>()
         for (info in manager.pinnedShortcuts) {
             val id = info.intent?.getIntExtra(Const.INTENT_WEBAPPID, -1) ?: -1
@@ -33,6 +36,9 @@ object ShortcutIconUtils {
         if (toDisable.isNotEmpty()) {
             manager.disableShortcuts(toDisable, context.getString(R.string.webapp_already_deleted))
         }
+        // 动态快捷方式同步清理（否则应用内长按/搜索仍出现已删 WebApp 的入口）
+        manager.removeDynamicShortcuts(removableWebAppIds.map { pinnedShortcutId(it) })
+        return toDisable.isNotEmpty()
     }
 
     @JvmStatic

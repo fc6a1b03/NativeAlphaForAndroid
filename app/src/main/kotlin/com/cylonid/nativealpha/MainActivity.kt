@@ -155,7 +155,13 @@ class MainActivity : AppCompatActivity() {
         DataManager.getInstance().getWebAppIgnoringGlobalOverride(webApp.ID, true)
             ?.let { target ->
                 target.isActiveEntry = false
-                ShortcutIconUtils.deleteShortcuts(listOf(target.ID), this)
+                val hadPinned = ShortcutIconUtils.deleteShortcuts(listOf(target.ID), this)
+                // 桌面 pin 图标平台不允许 app 强删（已灰化+点击提示）——有 pin 时告知用户手动移除
+                if (hadPinned) {
+                    Toast.makeText(
+                        this, getString(R.string.shortcut_remove_manually), Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         DataManager.getInstance().saveWebAppData()
         // 刷新列表（删除后立即移除条目）
