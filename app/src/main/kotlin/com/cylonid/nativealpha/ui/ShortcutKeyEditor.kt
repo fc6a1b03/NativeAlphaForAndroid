@@ -199,7 +199,7 @@ private fun ShortcutAddRow(
                     }
                 },
                 enabled = ctrl || shift || alt
-            ) { Text("确认绑定") }
+            ) { Text(stringResource(R.string.confirm_bind)) }
         }
     }
 }

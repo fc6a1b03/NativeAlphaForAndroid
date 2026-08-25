@@ -126,8 +126,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 数据可能在设置页被修改，重新加载后刷新 Compose 状态
-        DataManager.getInstance().loadAppData()
+        // 数据可能在设置页/其他页被修改：force 重读 SP（无 force 时
+        // dataLoaded 短路——备份导入/外部修改场景拿不到新数据，列表旧值）
+        DataManager.getInstance().loadAppData(true)
         // 主题即时切换（像微信）：onResume 对比 themeId，变化则 recreate（系统栏/状态栏即时刷新）
         val themeId = DataManager.getInstance().settings.themeId
         if (lastAppliedThemeId != themeId) {

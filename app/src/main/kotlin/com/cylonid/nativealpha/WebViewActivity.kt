@@ -36,6 +36,7 @@ import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
@@ -363,6 +364,7 @@ class WebViewActivity : AppCompatActivity() {
             // 复用实例（onNewIntent）时旧 WebView 还在：先销毁释放，再新建
             if (wv != null) {
                 cancelBlankScreenCheck()
+                (wv!!.parent as? ViewGroup)?.removeView(wv)
                 wv!!.removeAllViews()
                 wv!!.destroy()
                 wv = null
@@ -1290,7 +1292,8 @@ class WebViewActivity : AppCompatActivity() {
         // 列表行不渲染（用户实测「看不到会话行只见按钮」的根因）；
         // 会话行文案已含「（当前）」标记，提示语并入 title 行
         val items = Array(count) { i ->
-            "会话 " + (i + 1) + (if (i == webappTabIndex) "（当前）" else "")
+            if (i == webappTabIndex) getString(R.string.session_item_current, i + 1)
+            else getString(R.string.session_item, i + 1)
         }
         val b = AlertDialog.Builder(this)
             .setTitle(getString(R.string.menu_session))
@@ -1833,6 +1836,7 @@ class WebViewActivity : AppCompatActivity() {
         // 显式销毁 WebView，释放渲染进程与内存（低损耗目标）
         cancelBlankScreenCheck()
         if (wv != null) {
+            (wv!!.parent as? ViewGroup)?.removeView(wv)
             wv!!.removeAllViews()
             wv!!.destroy()
             wv = null

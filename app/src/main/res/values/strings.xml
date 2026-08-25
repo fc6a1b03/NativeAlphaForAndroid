@@ -298,4 +298,15 @@
     <string name="isolated_session">Isolated session</string>
     <string name="isolated_session_hint">Isolated login session — keeps this app cookies separate from others (like browser tabs).</string>
     <string name="session_switch_failed">Session switch failed</string>
+    <string name="session_item">Session %1$d</string>
+    <string name="session_item_current">Session %1$d (current)</string>
+    <string name="confirm_bind">Bind</string>
+    <string name="stats_back">Back</string>
+    <string name="stats_error_log">Error log</string>
+    <string name="stats_clear">Clear</string>
+    <string name="stats_export">Export</string>
+    <string name="stats_top_n_of">Top %1$d of %2$d</string>
+    <string name="stats_count_n">%1$d entries</string>
+    <string name="stats_total_n_tap_detail">… %1$d entries total, tap a row for details</string>
+    <string name="error_log_exported">Error log exported</string>
 </resources>

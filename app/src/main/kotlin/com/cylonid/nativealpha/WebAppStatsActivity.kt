@@ -163,7 +163,7 @@ class WebAppStatsActivity : AppCompatActivity() {
                         writer.write(PageErrorEntry.toJson(entries))
                     }
                 }
-                snackbarHostState.showSnackbar("错误日志已导出")
+                snackbarHostState.showSnackbar(getString(R.string.error_log_exported))
             } catch (e: Exception) {
                 snackbarHostState.showSnackbar(getString(R.string.export_failed_generic))
             }

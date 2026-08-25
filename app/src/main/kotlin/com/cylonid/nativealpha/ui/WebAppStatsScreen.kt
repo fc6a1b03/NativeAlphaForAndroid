@@ -131,7 +131,7 @@ fun WebAppStatsScreen(
                 title = { Text(stringResource(R.string.stats_title, webapp.title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.stats_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -263,7 +263,7 @@ fun WebAppStatsScreen(
             StatsCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "错误日志",
+                        stringResource(R.string.stats_error_log),
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.weight(1f)
                     )
@@ -273,12 +273,12 @@ fun WebAppStatsScreen(
                             // 确认后清空（防误触）
                             showClearErrorsDialog = true
                         }, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Default.Delete, contentDescription = "清空", modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.stats_clear), modifier = Modifier.size(18.dp))
                         }
                     }
                     // 导出按钮（错误日志只导出不导入）
                     IconButton(onClick = onExport, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Download, contentDescription = "导出", modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Download, contentDescription = stringResource(R.string.stats_export), modifier = Modifier.size(18.dp))
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
@@ -322,7 +322,7 @@ fun WebAppStatsScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
-                                if (entries.size > 10) "前10条/共${entries.size}条" else "${entries.size}条",
+                                if (entries.size > 10) stringResource(R.string.stats_top_n_of, 10, entries.size) else stringResource(R.string.stats_count_n, entries.size),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -342,7 +342,7 @@ fun WebAppStatsScreen(
                             }
                             if (entries.size > 10) {
                                 Text(
-                                    "… 共${entries.size}条，点击行查看详情",
+                                    stringResource(R.string.stats_total_n_tap_detail, entries.size),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(vertical = 4.dp)

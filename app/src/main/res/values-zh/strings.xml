@@ -302,4 +302,15 @@
     <string name="isolated_session">登录态隔离</string>
     <string name="isolated_session_hint">独立登录会话——该应用的 Cookie 与其他应用隔离（类似浏览器多页签）。</string>
     <string name="session_switch_failed">切换会话失败</string>
+    <string name="session_item">会话 %1$d</string>
+    <string name="session_item_current">会话 %1$d（当前）</string>
+    <string name="confirm_bind">确认绑定</string>
+    <string name="stats_back">返回</string>
+    <string name="stats_error_log">错误日志</string>
+    <string name="stats_clear">清空</string>
+    <string name="stats_export">导出</string>
+    <string name="stats_top_n_of">前%1$d条/共%2$d条</string>
+    <string name="stats_count_n">%1$d条</string>
+    <string name="stats_total_n_tap_detail">… 共%1$d条，点击行查看详情</string>
+    <string name="error_log_exported">错误日志已导出</string>
 </resources>
