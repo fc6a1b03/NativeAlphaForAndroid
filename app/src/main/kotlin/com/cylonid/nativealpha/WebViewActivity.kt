@@ -330,13 +330,25 @@ class WebViewActivity : AppCompatActivity() {
         // 登录态隔离：开启隔离的 WebApp 恢复自己的 Cookie 会话（异步，多标签按 tabIndex）。
         // onRestored 后才装配 WebView/loadUrl——cookie 就绪先于页面首批请求，
         // 消除「清空后未恢复」窗口期的登录态偶发丢失（loadUrl 与恢复的时序竞争）
+        currentIntentToken++
+        val token = currentIntentToken
+        pendingSetupToken = token
         CookieSessionManager.restoreSnapshot(this, webappID, webappTabIndex) {
             proceedSetup()
         }
     }
 
-    /** cookie 恢复放行后的装配（原 handleIntent 尾段抽出） */
+    /** 装配令牌：onNewIntent 重入时递增，旧 cookie 回调因 token 不匹配被丢弃 */
+    private var pendingSetupToken = 0
+    private var currentIntentToken = 0
+
+    /** cookie 恢复放行后的装配（原 handleIntent 尾段抽出）。
+     * 防护：回调经主线程派发，IO 延迟期间 Activity 可能已销毁/换站——
+     * isFinishing 或 id 变化时丢弃本次装配（onNewIntent 已触发新一轮） */
     private fun proceedSetup() {
+        if (isFinishing || isDestroyed || currentIntentToken != pendingSetupToken) {
+            return
+        }
         if (webapp == null) {
             // Toast is shown in getWebApp method
             finish()
