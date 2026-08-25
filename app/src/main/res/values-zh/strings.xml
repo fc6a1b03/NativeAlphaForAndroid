@@ -284,7 +284,9 @@
     <string name="update_download">下载</string>
     <string name="update_downloading">正在后台下载…</string>
     <string name="update_download_failed">下载失败</string>
-    <string name="update_latest">已是最新版本</string>
+    <string name="update_latest_with_version">已是最新版本（%1$s）</string>
+    <string name="update_check_failed">检查更新失败，可导出错误日志查看详情。</string>
+    <string name="update_install_permission_denied">需要安装应用权限，请允许来自此来源的应用安装。</string>
     <string name="menu_font_size">字体大小</string>
     <string name="menu_page_zoom">页面缩放</string>
     <string name="shortcut_sent">已发送 %1$s</string>

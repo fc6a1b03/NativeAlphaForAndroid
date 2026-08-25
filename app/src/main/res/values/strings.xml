@@ -283,7 +283,9 @@
     <string name="update_download">Download</string>
     <string name="update_downloading">Downloading in background…</string>
     <string name="update_download_failed">Download failed</string>
-    <string name="update_latest">You are on the latest version</string>
+    <string name="update_latest_with_version">You are on the latest version (%1$s)</string>
+    <string name="update_check_failed">Update check failed. Export error logs for details.</string>
+    <string name="update_install_permission_denied">Install permission required. Allow installing apps from this source to continue.</string>
     <string name="menu_font_size">Font size</string>
     <string name="menu_page_zoom">Page zoom</string>
     <string name="shortcut_sent">Sent %1$s</string>

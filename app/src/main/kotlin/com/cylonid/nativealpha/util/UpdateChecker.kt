@@ -1,21 +1,23 @@
 package com.cylonid.nativealpha.util
 
 import android.app.DownloadManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Environment
 import androidx.core.net.toUri
-import android.webkit.MimeTypeMap
 import com.cylonid.nativealpha.R
-import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Collections
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 /**
  * 版本更新检查器：GitHub API 查最新 Release → 对比当前版本 → 异步下载 APK → 提示安装。
@@ -24,8 +26,8 @@ import kotlinx.coroutines.withContext
  * - 检查：GitHub API（releases/latest）拿 tag + APK 下载 URL（后台 IO 协程，不阻塞 UI）
  * - 下载：DownloadManager（系统下载，后台进行，无需用户等待；完成后长留安装包，
  *   用户安装后自动删除——见 onPause/onDestroy 清理）
- * - 安装：下载完成提示「安装」（Intent.ACTION_VIEW apk，Android 8+ 需 FileProvider）
- * - 版本对比：versionName 语义化比较（如 2.1.13 > 2.1.12）
+ * - 安装：下载完成广播接收器触发 [promptInstall]，使用 FileProvider 生成 content:// URI
+ * - 版本对比：语义化版本比较（如 2.1.13 < 2.1.14；2.1.14-beta < 2.1.14）
  *
  * GitHub 仓库：fc6a1b03/NativeAlphaForAndroid（与项目 URL 一致）
  */
@@ -34,54 +36,161 @@ object UpdateChecker {
     private const val REPO = "fc6a1b03/NativeAlphaForAndroid"
     private const val API_URL = "https://api.github.com/repos/$REPO/releases/latest"
 
-    /** 仓库根 URL（APK 下载拼装） */
-    private const val REPO_URL = "https://github.com/$REPO"
-
     /** 是否检查中（防重复触发） */
     @Volatile
     var checking = false
         private set
 
-    /** 最新下载的 APK 文件（安装后删除） */
-    @Volatile
-    var downloadedApk: File? = null
-        private set
+    /** DownloadManager 下载 ID → 版本 tag 映射（安装广播用） */
+    private val downloadIdToTag = Collections.synchronizedMap(HashMap<Long, String>())
 
-    /** 语义化版本比较：a > b 返回 1，a == b 返回 0，a < b 返回 -1 */
-    fun compareVersions(a: String, b: String): Int {
-        try {
-            val pa = a.trim().removePrefix("v").split(".")
-            val pb = b.trim().removePrefix("v").split(".")
-            for (i in 0 until maxOf(pa.size, pb.size)) {
-                val va = pa.getOrNull(i)?.toIntOrNull() ?: 0
-                val vb = pb.getOrNull(i)?.toIntOrNull() ?: 0
-                if (va > vb) return 1
-                if (va < vb) return -1
+    /** 下载完成广播：DownloadManager 通知后触发安装 */
+    class DownloadCompleteReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
+            val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+            if (id == -1L) return
+            val tag = synchronized(downloadIdToTag) { downloadIdToTag.remove(id) } ?: return
+            // 校验下载真实成功：过滤伪造广播或失败任务
+            if (!isDownloadSuccessful(context, id)) return
+            promptInstall(context, tag)
+        }
+
+        /** 查询 DownloadManager 确认指定 ID 的状态为 STATUS_SUCCESSFUL */
+        private fun isDownloadSuccessful(context: Context, id: Long): Boolean {
+            return try {
+                val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                val query = DownloadManager.Query().setFilterById(id)
+                dm.query(query)?.use { cursor ->
+                    if (!cursor.moveToFirst()) return false
+                    val statusIdx = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                    statusIdx >= 0 && cursor.getInt(statusIdx) == DownloadManager.STATUS_SUCCESSFUL
+                } ?: false
+            } catch (e: Exception) {
+                false
             }
-            return 0
-        } catch (e: Exception) {
-            return 0
         }
     }
 
-    /** 检查最新版本（异步）。回调：onResult(hasUpdate, latestTag, downloadUrl, releaseNotes) */
-    fun check(context: Context, onResult: (Boolean, String, String, String) -> Unit) {
+    /** 更新检查结果 */
+    sealed class Result {
+        /** 有更新 */
+        data class HasUpdate(
+            val tag: String,
+            val downloadUrl: String,
+            val notes: String
+        ) : Result()
+
+        /** 已是最新 */
+        data class NoUpdate(val currentVersion: String) : Result()
+
+        /** 检查失败（网络/解析等） */
+        data class Error(val throwable: Throwable, val displayMessage: String) : Result()
+    }
+
+    /**
+     * 语义化版本比较：a > b 返回 1，a == b 返回 0，a < b 返回 -1。
+     *
+     * 支持 `v2.1.34`、`2.1.34-beta`、`2.1.34-rc1` 等形式。
+     * 数字段相同时，预发布版本（带 `-` 后缀）始终小于正式版本。
+     */
+    fun compareVersions(a: String, b: String): Int {
+        fun parse(version: String): Pair<List<Int>, String?> {
+            val trimmed = version.trim().removePrefix("v")
+            val parts = trimmed.split("-", limit = 2)
+            val numbers = parts[0].split(".").mapNotNull { it.toIntOrNull() }
+            val prerelease = parts.getOrNull(1)
+            return numbers to prerelease
+        }
+
+        val (numbersA, preA) = parse(a)
+        val (numbersB, preB) = parse(b)
+
+        val maxParts = maxOf(numbersA.size, numbersB.size)
+        for (i in 0 until maxParts) {
+            val va = numbersA.getOrNull(i) ?: 0
+            val vb = numbersB.getOrNull(i) ?: 0
+            if (va > vb) return 1
+            if (va < vb) return -1
+        }
+
+        // 数字相同：预发布 < 正式；都有预发布则按字符串比较
+        return when {
+            preA == null && preB == null -> 0
+            preA == null -> 1
+            preB == null -> -1
+            else -> preA.compareTo(preB)
+        }
+    }
+
+    /** 当前应用 versionName */
+    @Suppress("DEPRECATION")
+    fun currentVersionName(context: Context): String {
+        return try {
+            val pm = context.packageManager
+            val pkg = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.getPackageInfo(
+                    context.packageName,
+                    PackageManager.PackageInfoFlags.of(0L)
+                )
+            } else {
+                pm.getPackageInfo(context.packageName, 0)
+            }
+            pkg.versionName ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    /** 检查最新版本（异步）。回调参数为 [Result]。 */
+    fun check(context: Context, onResult: (Result) -> Unit) {
         if (checking) return
         checking = true
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val (latestTag, downloadUrl, notes) = fetchLatestRelease()
                 val current = currentVersionName(context)
-                if (downloadUrl.isEmpty()) {
-                    withContext(Dispatchers.Main) { onResult(false, latestTag, "", notes) }
-                } else {
-                    val hasUpdate = compareVersions(latestTag, current) > 0
-                    withContext(Dispatchers.Main) {
-                        onResult(hasUpdate, latestTag, downloadUrl, notes)
+                when {
+                    latestTag.isEmpty() -> {
+                        withContext(Dispatchers.Main) {
+                            onResult(
+                                Result.Error(
+                                    IllegalStateException("Empty latest tag from GitHub API"),
+                                    context.getString(R.string.update_check_failed)
+                                )
+                            )
+                        }
+                    }
+                    downloadUrl.isEmpty() -> {
+                        withContext(Dispatchers.Main) {
+                            onResult(
+                                Result.Error(
+                                    IllegalStateException("No APK asset found for $latestTag"),
+                                    context.getString(R.string.update_check_failed)
+                                )
+                            )
+                        }
+                    }
+                    compareVersions(latestTag, current) > 0 -> {
+                        withContext(Dispatchers.Main) {
+                            onResult(Result.HasUpdate(latestTag, downloadUrl, notes))
+                        }
+                    }
+                    else -> {
+                        withContext(Dispatchers.Main) {
+                            onResult(Result.NoUpdate(current))
+                        }
                     }
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) { onResult(false, "", "", "") }
+                withContext(Dispatchers.Main) {
+                    onResult(
+                        Result.Error(
+                            e,
+                            context.getString(R.string.update_check_failed)
+                        )
+                    )
+                }
             } finally {
                 checking = false
             }
@@ -89,80 +198,76 @@ object UpdateChecker {
     }
 
     /** 从 GitHub API 拿最新 tag、APK 下载 URL、更新说明（release body） */
-    private suspend fun fetchLatestRelease(): Triple<String, String, String> = withContext(Dispatchers.IO) {
-        try {
-            val conn = URL(API_URL).openConnection() as HttpURLConnection
-            conn.connectTimeout = 8000
-            conn.readTimeout = 8000
-            conn.setRequestProperty("User-Agent", "WebNative-UpdateChecker")
-            val code = conn.responseCode
-            if (code != 200) return@withContext Triple("", "", "")
-            val body = conn.inputStream.bufferedReader().use { it.readText() }
-            val json = JSONObject(body)
-            val tag = json.optString("tag_name", "")
-            // 更新说明（release body，可能含 Markdown；截断防过长）
-            val notes = json.optString("body", "").take(500)
-            // 找 APK 资产（优先 arm64-v8a，其次任意 .apk）
-            val assets = json.optJSONArray("assets")
-            if (assets == null || assets.length() == 0) return@withContext Triple(tag, "", notes)
-            var apkUrl = ""
-            // 从 assets 找 .apk
-            for (i in 0 until assets.length()) {
-                val asset = assets.getJSONObject(i)
-                val name = asset.optString("name", "")
-                if (name.endsWith(".apk")) {
-                    apkUrl = asset.optString("browser_download_url", "")
-                    break
+    private suspend fun fetchLatestRelease(): Triple<String, String, String> =
+        withContext(Dispatchers.IO) {
+            try {
+                val conn = URL(API_URL).openConnection() as HttpURLConnection
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
+                conn.setRequestProperty("User-Agent", "WebNative-UpdateChecker")
+                val code = conn.responseCode
+                if (code != 200) return@withContext Triple("", "", "")
+                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(body)
+                val tag = json.optString("tag_name", "")
+                // 更新说明（release body，可能含 Markdown；截断防过长）
+                val notes = json.optString("body", "").take(500)
+                // 找 APK 资产（优先 arm64-v8a，其次任意 .apk）
+                val assets = json.optJSONArray("assets")
+                if (assets == null || assets.length() == 0) {
+                    return@withContext Triple(tag, "", notes)
                 }
+                var apkUrl = ""
+                // 从 assets 找 .apk
+                for (i in 0 until assets.length()) {
+                    val asset = assets.getJSONObject(i)
+                    val name = asset.optString("name", "")
+                    if (name.endsWith(".apk")) {
+                        apkUrl = asset.optString("browser_download_url", "")
+                        break
+                    }
+                }
+                Triple(tag, apkUrl, notes)
+            } catch (e: Exception) {
+                Triple("", "", "")
             }
-            if (apkUrl.isEmpty()) {
-                // 兜底：GitHub release 下载 URL（AGP 产物名 WebNative-v*.apk）
-                apkUrl = "$REPO_URL/releases/download/${tag}/WebNative-${tag}.apk"
-            }
-            Triple(tag, apkUrl, notes)
-        } catch (e: Exception) {
-            Triple("", "", "")
         }
-    }
 
-    /** 当前应用 versionName */
-    private fun currentVersionName(context: Context): String {
-        return try {
-            val pkg = context.packageManager.getPackageInfo(
-                context.packageName, 0
-            )
-            pkg.versionName ?: ""
-        } catch (e: Exception) {
-            ""
-        }
-    }
-
-    /** 异步下载 APK（DownloadManager 系统下载，后台进行） */
-    fun download(context: Context, downloadUrl: String): Boolean {
+    /**
+     * 异步下载 APK（DownloadManager 系统下载，后台进行）。
+     *
+     * @param tag 版本 tag，用于命名安装包和下载完成后的安装定位
+     * @return 下载任务 ID，-1 表示失败
+     */
+    fun download(context: Context, downloadUrl: String, tag: String): Long {
         return try {
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val request = DownloadManager.Request(downloadUrl.toUri())
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            request.setNotificationVisibility(
+                DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+            )
             request.setTitle(context.getString(R.string.update_notification_title))
             request.setDescription(context.getString(R.string.update_notification_desc))
-            // 下载到公共下载目录（长留，安装后删除）
+            val fileName = apkFileName(tag)
             request.setDestinationInExternalPublicDir(
                 Environment.DIRECTORY_DOWNLOADS,
-                "WebNative-latest.apk"
+                fileName
             )
-            dm.enqueue(request)
-            true
+            val id = dm.enqueue(request)
+            synchronized(downloadIdToTag) { downloadIdToTag[id] = tag }
+            id
         } catch (e: Exception) {
-            false
+            -1L
         }
     }
 
     /** 提示安装：打开下载完成的 APK（FileProvider 兼容） */
-    fun promptInstall(context: Context) {
+    fun promptInstall(context: Context, tag: String) {
         try {
+            val fileName = apkFileName(tag)
             val file = File(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "WebNative-latest.apk"
+                fileName
             )
             if (!file.exists()) return
             val uri = androidx.core.content.FileProvider.getUriForFile(
@@ -179,4 +284,7 @@ object UpdateChecker {
             // 安装失败静默（用户可手动找安装包）
         }
     }
+
+    /** 根据版本 tag 生成 APK 文件名 */
+    private fun apkFileName(tag: String): String = "WebNative-${tag}.apk"
 }

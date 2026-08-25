@@ -219,6 +219,43 @@ class WebViewActivity : AppCompatActivity() {
                 "te=te.parentElement;" +
                 "}" +
                 "return 'null';})()"
+
+        /** 组合键解析结果 */
+        data class ShortcutParseResult(
+            val ctrl: Boolean,
+            val shift: Boolean,
+            val alt: Boolean,
+            val key: String
+        )
+
+        /**
+         * 解析组合键字符串（如 "Ctrl+Shift+S"）。
+         *
+         * 防御性处理：旧数据或异常调用可能传入单独 "+"、空段、未知主键等，
+         * 这里按字面量 "+" 分割——避免把用户输入当正则 compile 导致 crash。
+         * 只有识别到有效主键时才返回结果。
+         */
+        fun parseShortcut(shortcut: String): ShortcutParseResult? {
+            var ctrl = false
+            var shift = false
+            var alt = false
+            var key = ""
+            for (part in shortcut.split("+")) {
+                val p = part.trim()
+                when (p) {
+                    "Ctrl" -> ctrl = true
+                    "Shift" -> shift = true
+                    "Alt" -> alt = true
+                    "" -> {} // 连续 + 或首尾 + 产生的空段，忽略
+                    else -> key = p
+                }
+            }
+            return if (key.isNotEmpty()) {
+                ShortcutParseResult(ctrl, shift, alt, key)
+            } else {
+                null
+            }
+        }
     }
 
     var webappID = -1
@@ -1431,30 +1468,17 @@ class WebViewActivity : AppCompatActivity() {
         if (wv == null || shortcut.isNullOrEmpty()) return
         // 统计：记录发送次数（面板/统计页反馈）
         StatsRecorder.recordShortcutSent(webappID, shortcut)
-        // 解析组合键 → keyCode + metaState
-        var ctrl = false
-        var shift = false
-        var alt = false
-        var key = ""
-        for (part in shortcut.split("+".toRegex())) {
-            val p = part.trim()
-            when (p) {
-                "Ctrl" -> ctrl = true
-                "Shift" -> shift = true
-                "Alt" -> alt = true
-                else -> key = p
-            }
-        }
-        if (key.isEmpty()) return
-        val keyCode = keyCodeOf(key)
+        // 解析组合键 → keyCode + metaState（按字面量 "+" 分割，避免正则 crash）
+        val parsed = parseShortcut(shortcut) ?: return
+        val keyCode = keyCodeOf(parsed.key)
         if (keyCode == KeyEvent.KEYCODE_UNKNOWN) return
-        val metaState = (if (ctrl) KeyEvent.META_CTRL_ON else 0) or
-            (if (shift) KeyEvent.META_SHIFT_ON else 0) or
-            (if (alt) KeyEvent.META_ALT_ON else 0)
+        val metaState = (if (parsed.ctrl) KeyEvent.META_CTRL_ON else 0) or
+            (if (parsed.shift) KeyEvent.META_SHIFT_ON else 0) or
+            (if (parsed.alt) KeyEvent.META_ALT_ON else 0)
 
         // 方案一：JS 合成 KeyboardEvent（主方案——kimi code 源码确认不校验 isTrusted）
         // 带 code 字段（CodeMirror 类编辑器按 e.code 匹配）+ 聚焦输入框（target 正确）
-        injectJsWithFocus(ctrl, shift, alt, key)
+        injectJsWithFocus(parsed.ctrl, parsed.shift, parsed.alt, parsed.key)
         // 方案二：注入真实 KeyEvent（补充——对校验 isTrusted 的站点生效）
         // 保持当前页面焦点（不强行聚焦输入框——兼容多种网页）
         try {

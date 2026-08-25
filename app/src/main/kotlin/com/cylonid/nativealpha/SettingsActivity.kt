@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.text.method.ScrollingMovementMethod
 import android.util.TypedValue
 import android.view.LayoutInflater
@@ -17,18 +18,19 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.AppErrorLogRepository
 import com.cylonid.nativealpha.model.DataManager
-import com.cylonid.nativealpha.util.AppMaterialTheme
-import com.cylonid.nativealpha.util.DateUtils
-import com.cylonid.nativealpha.util.ThemeUtils
-import com.cylonid.nativealpha.util.UpdateChecker
 import com.cylonid.nativealpha.ui.GlobalSettingsScreen
+import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.Const
+import com.cylonid.nativealpha.util.DateUtils
 import com.cylonid.nativealpha.util.MdRenderer
 import com.cylonid.nativealpha.util.NotificationUtils
+import com.cylonid.nativealpha.util.ThemeUtils
+import com.cylonid.nativealpha.util.UpdateChecker
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -101,6 +103,33 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    // Android 8+ 安装未知应用权限申请
+    private val installPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        // 用户从系统设置页返回时 Activity 可能已销毁
+        if (isFinishing || isDestroyed) {
+            pendingDownload = null
+            return@registerForActivityResult
+        }
+        // minSdk=31，canRequestPackageInstalls() 永远可用
+        if (packageManager.canRequestPackageInstalls()) {
+            pendingDownload?.let { (url, tag) ->
+                pendingDownload = null
+                doDownload(url, tag)
+            }
+        } else {
+            NotificationUtils.showInfoSnackbar(
+                this,
+                getString(R.string.update_install_permission_denied),
+                Snackbar.LENGTH_LONG
+            )
+        }
+    }
+
+    /** 申请安装权限时暂存的下载参数（URL to tag） */
+    private var pendingDownload: Pair<String, String>? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeUtils.applyUiMode()
         setTheme(ThemeUtils.resolveTheme())
@@ -142,46 +171,113 @@ class SettingsActivity : AppCompatActivity() {
 
     /**
      * 检查版本更新：GitHub API 查最新 Release → 有更新则提示下载（异步后台），
-     * 下载完成后提示安装。onDone：检查结束回调（Compose 侧复位 loading 状态）。
+     * 下载完成后自动触发安装。onDone：检查结束回调（Compose 侧复位 loading 状态）。
      */
     private fun checkUpdate(onDone: () -> Unit = {}) {
-        UpdateChecker.check(this) { hasUpdate, latestTag, downloadUrl, notes ->
+        UpdateChecker.check(this) { result ->
             onDone()
-            if (hasUpdate) {
-                // 更新弹窗：md 渲染 release notes（GitHub 内容为 Markdown）+ 下载/取消
-                // Markwon 渲染：标题用版本号提示，正文 md 转 Spanned 显示（支持 #/**/列表）
-                val contentView = TextView(this).apply {
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                    setPadding(
-                        (24 * resources.displayMetrics.density).toInt(),
-                        (8 * resources.displayMetrics.density).toInt(),
-                        (24 * resources.displayMetrics.density).toInt(),
-                        0
+            // 异步回调回来时 Activity 可能已销毁，避免操作已销毁窗口崩溃
+            if (isFinishing || isDestroyed) return@check
+            when (result) {
+                is UpdateChecker.Result.HasUpdate -> showUpdateDialog(result)
+                is UpdateChecker.Result.NoUpdate -> {
+                    NotificationUtils.showInfoSnackbar(
+                        this,
+                        getString(R.string.update_latest_with_version, result.currentVersion),
+                        Snackbar.LENGTH_LONG
                     )
-                    text = MdRenderer.render(this@SettingsActivity, notes)
-                    movementMethod = ScrollingMovementMethod()
                 }
-                AlertDialog.Builder(this)
-                    .setTitle(getString(R.string.update_available_msg, latestTag))
-                    .setView(contentView)
-                    .setPositiveButton(getString(R.string.update_download)) { _, _ ->
-                        // 确认下载：DownloadManager 后台下载（不阻塞）
-                        if (UpdateChecker.download(this, downloadUrl)) {
-                            NotificationUtils.showInfoSnackbar(
-                                this, getString(R.string.update_downloading), Snackbar.LENGTH_LONG
-                            )
-                        } else {
-                            NotificationUtils.showInfoSnackbar(
-                                this, getString(R.string.update_download_failed), Snackbar.LENGTH_LONG
-                            )
-                        }
-                    }
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .show()
-            } else {
+                is UpdateChecker.Result.Error -> {
+                    logUpdateCheckError(result.throwable)
+                    NotificationUtils.showInfoSnackbar(
+                        this,
+                        result.displayMessage,
+                        Snackbar.LENGTH_LONG
+                    )
+                }
+            }
+        }
+    }
+
+    /** 显示更新弹窗：md 渲染 release notes + 下载/取消 */
+    private fun showUpdateDialog(result: UpdateChecker.Result.HasUpdate) {
+        if (isFinishing || isDestroyed) return
+        val contentView = TextView(this).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setPadding(
+                (24 * resources.displayMetrics.density).toInt(),
+                (8 * resources.displayMetrics.density).toInt(),
+                (24 * resources.displayMetrics.density).toInt(),
+                0
+            )
+            text = MdRenderer.render(this@SettingsActivity, result.notes)
+            movementMethod = ScrollingMovementMethod()
+        }
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.update_available_msg, result.tag))
+            .setView(contentView)
+            .setPositiveButton(getString(R.string.update_download)) { _, _ ->
+                startDownload(result.downloadUrl, result.tag)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /** 开始下载：先检查安装未知应用权限（minSdk=31，无需版本判断） */
+    private fun startDownload(downloadUrl: String, tag: String) {
+        if (!packageManager.canRequestPackageInstalls()) {
+            pendingDownload = downloadUrl to tag
+            val intent = Intent(
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                ("package:$packageName").toUri()
+            )
+            try {
+                installPermissionLauncher.launch(intent)
+            } catch (e: ActivityNotFoundException) {
+                pendingDownload = null
                 NotificationUtils.showInfoSnackbar(
-                    this, getString(R.string.update_latest), Snackbar.LENGTH_LONG
+                    this,
+                    getString(R.string.update_install_permission_denied),
+                    Snackbar.LENGTH_LONG
                 )
+            }
+            return
+        }
+        doDownload(downloadUrl, tag)
+    }
+
+    /** 真正 enqueue DownloadManager 下载 */
+    private fun doDownload(downloadUrl: String, tag: String) {
+        val id = UpdateChecker.download(this, downloadUrl, tag)
+        if (id != -1L) {
+            NotificationUtils.showInfoSnackbar(
+                this, getString(R.string.update_downloading), Snackbar.LENGTH_LONG
+            )
+        } else {
+            NotificationUtils.showInfoSnackbar(
+                this, getString(R.string.update_download_failed), Snackbar.LENGTH_LONG
+            )
+        }
+    }
+
+    /** 记录更新检查错误到应用错误日志 */
+    private fun logUpdateCheckError(throwable: Throwable) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                AppErrorLogRepository.append(
+                    applicationContext,
+                    AppErrorEntry(
+                        time = System.currentTimeMillis(),
+                        level = AppErrorEntry.LEVEL_ERROR,
+                        tag = "UpdateChecker",
+                        message = "Update check failed: ${throwable.message}",
+                        stackTrace = AppErrorEntry.truncateStackTrace(
+                            throwable.stackTraceToString(), 30
+                        )
+                    )
+                )
+            } catch (_: Exception) {
+                // 日志写入失败静默：不影响主功能
             }
         }
     }
