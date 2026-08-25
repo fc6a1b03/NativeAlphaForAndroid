@@ -327,8 +327,6 @@ class WebViewActivity : AppCompatActivity() {
         // 局部非空快照：webapp 由 handleIntent 的非空分支保证、wv 下方刚赋值——
         // 快照后整函数不再依赖可空字段（消除 onNewIntent 极端时序下的竞态窗口）
         val app = webapp ?: return
-        val webview = findViewById<WebView>(R.id.webview).also { wv = it }
-
         setContentView(R.layout.full_webview)
 
         if (app.isKeepAwake) {
@@ -340,6 +338,9 @@ class WebViewActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBar)
         loadingAnimal = findViewById(R.id.loadingAnimal)
         loadingBg = findViewById(R.id.loadingBg)
+
+        // 必须在 setContentView 之后 findViewById——视图未建立时返回 null（886b145 回归修复）
+        val webview = findViewById<WebView>(R.id.webview).also { wv = it }
 
         // 移除 WebView 字段名注入的 UA 尾巴（找不到字段时静默跳过，避免 NPE）
         val fieldName = WebViewActivity::class.java.declaredFields
