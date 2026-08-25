@@ -2,6 +2,7 @@ package com.cylonid.nativealpha.util
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import org.jsoup.Jsoup
@@ -60,10 +61,33 @@ object WebAppDataFetcher {
         return foundIcons
     }
 
+    /** 日志 TAG（抓取链路排查：logcat -s WebAppDataFetcher） */
+    private const val TAG = "WebAppDataFetcher"
+
+    /**
+     * 挑战/安全拦截页判定（**结构化信号，不依赖标题文案**）：
+     * 1. HTTP 状态 ≥ 400（403/503 挑战页、错误页——其标题无站点名意义）
+     * 2. 响应头 `cf-mitigated: challenge`（Cloudflare 官方挑战标记）
+     * 3. HTML 含 CF 挑战 JS 结构标记（`window._cf_chl_opt` / `challenge-platform` / `turnstile`）
+     *
+     * 命中即视为拦截页：标题不可信（fetch 返回 null），图标链接仍可用（多指向站点自身 favicon）。
+     */
+    private fun isChallengePage(response: org.jsoup.Connection.Response, doc: Document): Boolean {
+        if (response.statusCode() >= 400) return true
+        if (response.header("cf-mitigated").equals("challenge", ignoreCase = true)) return true
+        val html = doc.html()
+        return html.contains("window._cf_chl_opt") ||
+            html.contains("challenge-platform") ||
+            html.contains("turnstile")
+    }
+
     /**
      * 判断标题是否为"挑战页/占位页脏标题"（Cloudflare "Just a moment..."、
      * 安全验证页等）。此类标题不应该被当成站点真实名称回填——抓取失败时
      * 宁可不填（保持用户输入），也不要硬塞英文挑战文案。
+     *
+     * 注：字符串匹配仅服务 ShortcutDialogFragment 遗留抓取（待 Compose 重写消灭）；
+     * 新链路判定走 [isChallengePage]（结构化信号）。
      */
     @JvmStatic
     fun isChallengeTitle(title: String): Boolean {
@@ -91,15 +115,18 @@ object WebAppDataFetcher {
         val foundIcons = buildKnownIconMap(currentUrl)
         var title: String? = null
         var newBaseUrl: String? = null
+        var challenged = false
 
         try {
-            var doc = Jsoup.connect(currentUrl)
+            var response = Jsoup.connect(currentUrl)
                 .ignoreHttpErrors(true)
                 .userAgent(userAgent)
                 .header("Accept-Language", LocaleUtils.acceptLanguage)
                 .followRedirects(true)
                 .timeout(CONNECT_TIMEOUT_MS)
-                .get()
+                .execute()
+            var doc = response.parse()
+            challenged = isChallengePage(response, doc)
 
             // Step 1: META refresh 重定向
             val metaTags = doc.select("meta[http-equiv=refresh]")
@@ -110,8 +137,20 @@ object WebAppDataFetcher {
                 val redirectUrl = if (m.matches()) m.group(1) else null
                 if (redirectUrl != null) {
                     currentUrl = redirectUrl
-                    doc = Jsoup.connect(currentUrl).followRedirects(true).timeout(CONNECT_TIMEOUT_MS).get()
+                    // 重定向请求补齐 UA/语言头（原本缺失——裸请求更容易被拦）
+                    response = Jsoup.connect(currentUrl)
+                        .ignoreHttpErrors(true)
+                        .userAgent(userAgent)
+                        .header("Accept-Language", LocaleUtils.acceptLanguage)
+                        .followRedirects(true)
+                        .timeout(CONNECT_TIMEOUT_MS)
+                        .execute()
+                    doc = response.parse()
+                    challenged = isChallengePage(response, doc)
                 }
+            }
+            if (challenged) {
+                Log.d(TAG, "challenge/security page [$baseUrl] — title skipped")
             }
 
             // Step 2: PWA manifest
@@ -211,7 +250,8 @@ object WebAppDataFetcher {
         val faviconUrl = if (foundIcons.isNotEmpty()) foundIcons.lastEntry().value else null
         return Result(
             faviconUrl = faviconUrl,
-            title = title,
+            // 拦截页标题不可信（挑战/安全页文案）——统一置空，调用方走域名兜底
+            title = if (challenged) null else title,
             newBaseUrl = newBaseUrl
         )
     }

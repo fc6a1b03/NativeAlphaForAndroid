@@ -114,12 +114,6 @@ object CookieSessionManager {
         }
     }
 
-    /** 从 URL 提取 host */
-    private fun hostOf(url: String): String {
-        return try {
-            java.net.URI(url).host ?: ""
-        } catch (e: Exception) {
-            ""
-        }
-    }
+    /** 从 URL 提取 host（失败空串）——统一实现走 UrlUtils.hostOf */
+    private fun hostOf(url: String): String = UrlUtils.hostOf(url) ?: ""
 }

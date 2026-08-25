@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.lifecycleScope
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.AppErrorLogRepository
 import com.cylonid.nativealpha.model.DataManager
@@ -23,8 +24,8 @@ import com.cylonid.nativealpha.ui.AddWebAppActivity
 import com.cylonid.nativealpha.ui.MainScreen
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.EntryPointUtils.entryPointReached
+import com.cylonid.nativealpha.util.ShortcutIconUtils
 import com.cylonid.nativealpha.util.WebViewLauncher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -92,11 +93,10 @@ class MainActivity : AppCompatActivity() {
      * 异步执行（IO 协程），不阻塞启动；无崩溃或检查失败静默。
      */
     private fun checkAndPromptCrashLog() {
-        CoroutineScope(Dispatchers.IO).launch {
-            val entries = AppErrorLogRepository.getAll(applicationContext)
-            // 近 3 天 CRASH 级记录（常量 APP_ERROR_DAYS）
-            val cutoff = System.currentTimeMillis() - Const.APP_ERROR_DAYS * 24L * 60 * 60 * 1000
-            val recentCrash = entries.any { it.level == AppErrorEntry.LEVEL_CRASH && it.time >= cutoff }
+        lifecycleScope.launch(Dispatchers.IO) {
+            // 近 3 天记录（仓库统一口径 getRecent）
+            val entries = AppErrorLogRepository.getRecent(applicationContext)
+            val recentCrash = entries.any { it.level == AppErrorEntry.LEVEL_CRASH }
             if (recentCrash) {
                 // 同一次崩溃只提示一次：记录最近提示的崩溃时间戳，避免每次启动重复弹
                 val prefs = getSharedPreferences(PREFS_CRASH_PROMPT, MODE_PRIVATE)
@@ -150,7 +150,20 @@ class MainActivity : AppCompatActivity() {
 
     /** 删除 WebApp：直接删除，不弹确认（用户要求） */
     private fun deleteWebApp(webApp: WebApp) {
-        DataManager.getInstance().getWebAppIgnoringGlobalOverride(webApp.ID, true)?.markInactive(this)
+        // 深拷贝陷阱（P1 修复 2026-08-24）：跟随全局的站点 getWebApp 返回 merged 深拷贝，
+        // markInactive 改拷贝无效——必须按 ID 取内存原对象置 inactive，并落库防进程重启复活
+        DataManager.getInstance().getWebAppIgnoringGlobalOverride(webApp.ID, true)
+            ?.let { target ->
+                target.isActiveEntry = false
+                val hadPinned = ShortcutIconUtils.deleteShortcuts(listOf(target.ID), this)
+                // 桌面 pin 图标平台不允许 app 强删（已灰化+点击提示）——有 pin 时告知用户手动移除
+                if (hadPinned) {
+                    Toast.makeText(
+                        this, getString(R.string.shortcut_remove_manually), Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        DataManager.getInstance().saveWebAppData()
         // 刷新列表（删除后立即移除条目）
         refreshTrigger++
     }

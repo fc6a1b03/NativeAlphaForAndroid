@@ -60,6 +60,17 @@ class CoreLogicTest {
         assertNull(UrlUtils.hostOf(""))
     }
 
+    @Test
+    fun `displayHost strips protocol and path keeps domain`() {
+        assertEquals("linux.do", UrlUtils.displayHost("https://linux.do/t/topic/2799634"))
+        assertEquals("example.com", UrlUtils.displayHost("https://www.example.com/app?q=1"))
+    }
+
+    @Test
+    fun `displayHost keeps port for ip sites`() {
+        assertEquals("114.132.159.229:15666", UrlUtils.displayHost("http://114.132.159.229:15666/#token=abc"))
+    }
+
     // ---------- WebApp 拷贝（全局/应用主次核心） ----------
 
     @Test

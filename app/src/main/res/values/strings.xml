@@ -17,6 +17,7 @@
     <string name="use_dynamic_icon">Use auto-generated icon</string>
     <string name="fetch_failed_hint">Couldn\'t fetch icon. You can retry or use an auto-generated one.</string>
     <string name="retry">Retry</string>
+    <string name="saving">Saving…</string>
     <string name="icon_will_be_generated">A gradient icon will be generated automatically.</string>
     <string name="add_to_home_screen">Add to home screen</string>
     <string name="open_external_links_in_browser_app">Open external links in browser app</string>
@@ -217,6 +218,8 @@
     <string name="app_errors_export_success">Error logs exported</string>
     <string name="app_errors_export_failed">Failed to export error logs</string>
     <string name="app_errors_none">No error logs in the last 3 days</string>
+    <string name="gesture_no_prev_page">No previous page</string>
+    <string name="gesture_no_next_page">No next page</string>
 
 <string name="stats_title">Statistics · %1$s</string>
     <string name="stat_launches">Launches</string>
@@ -265,6 +268,8 @@
     <string name="errors_cleared">Error logs cleared</string>
     <string name="errors_clear_failed">Failed to clear error logs</string>
     <string name="check_update">Check for updates</string>
+    <string name="update_checking">Checking…</string>
+    <string name="shortcut_remove_manually">Shortcut disabled. Remove its home screen icon manually.</string>
     <string name="desc_check_update">Check GitHub for newer version</string>
     <string name="update_available_msg">New version %1$s is available. Download now?</string>
     <string name="update_download">Download</string>

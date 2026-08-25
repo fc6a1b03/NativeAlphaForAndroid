@@ -50,11 +50,17 @@ data class AppErrorEntry(
     }
 }
 
-/** 应用错误日志仓库：DataStore 唯一读写（异步，不阻塞主线程） */
+/** 应用错误日志仓库：DataStore 唯一读写（异步，不阻塞主线程）。
+ *  保留策略：仅保留近 [com.cylonid.nativealpha.util.Const.APP_ERROR_DAYS] 天
+ *  （超龄在写入时清理——唯一清理触发）+ 条数上限丢最旧；导出只读不清除。 */
 object AppErrorLogRepository {
     private const val MAX_ENTRIES = com.cylonid.nativealpha.util.Const.ERROR_LOG_LIMIT  // 上限（条），超出丢最旧
 
-    /** 追加一条错误日志（异步，协程内调用） */
+    /** 保留窗口起点（epoch ms）——清理/过滤统一口径（能力唯一实现处） */
+    private fun retentionCutoff(): Long =
+        System.currentTimeMillis() - com.cylonid.nativealpha.util.Const.APP_ERROR_DAYS * 24L * 60 * 60 * 1000
+
+    /** 追加一条错误日志（异步，协程内调用）；写入时清理超龄（>3 天）记录 */
     suspend fun append(
         context: android.content.Context,
         entry: AppErrorEntry
@@ -66,6 +72,9 @@ object AppErrorLogRepository {
             )
             val list = AppErrorEntry.fromJson(current).toMutableList()
             list.add(entry)
+            // 超龄清理：仅保留近 3 天（在 add 之后执行，保证任何写入后库内无超龄记录；
+            // 导出不清除——此处是唯一清理点）
+            list.removeAll { it.time < retentionCutoff() }
             // 超上限丢最旧
             if (list.size > MAX_ENTRIES) {
                 Collections.sort(list) { a, b -> a.time.compareTo(b.time) }
@@ -93,6 +102,12 @@ object AppErrorLogRepository {
         } catch (e: Exception) {
             emptyList()
         }
+    }
+
+    /** 读取近 3 天日志（导出/崩溃提示统一口径；只读不清除——每次导出都是完整 3 天窗口） */
+    suspend fun getRecent(context: android.content.Context): List<AppErrorEntry> {
+        val cutoff = retentionCutoff()
+        return getAll(context).filter { it.time >= cutoff }
     }
 
     /**

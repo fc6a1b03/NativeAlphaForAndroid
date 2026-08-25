@@ -74,4 +74,16 @@ object DateUtils {
             "—"
         }
     }
+
+    /** 文件名用紧凑日期（yyyyMMdd）——导出文件名统一格式（唯一实现处） */
+    @JvmStatic
+    @SuppressLint("SimpleDateFormat")
+    fun compactDate(): String =
+        SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(java.util.Date())
+
+    /** 文件名用紧凑时间戳（yyyyMMdd_HHmmss）——备份文件名统一格式（唯一实现处） */
+    @JvmStatic
+    @SuppressLint("SimpleDateFormat")
+    fun compactTimestamp(): String =
+        SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(java.util.Date())
 }

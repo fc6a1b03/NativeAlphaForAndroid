@@ -17,6 +17,7 @@
     <string name="use_dynamic_icon">使用自动生成的图标</string>
     <string name="fetch_failed_hint">无法获取图标。可重试或使用自动生成图标。</string>
     <string name="retry">重试</string>
+    <string name="saving">保存中…</string>
     <string name="icon_will_be_generated">将自动生成渐变图标。</string>
     <string name="add_to_home_screen">添加到主屏幕</string>
     <string name="open_external_links_in_browser_app">在浏览器应用中打开外部链接</string>
@@ -221,6 +222,8 @@
     <string name="app_errors_export_success">错误日志已导出</string>
     <string name="app_errors_export_failed">错误日志导出失败</string>
     <string name="app_errors_none">近 3 天无错误日志</string>
+    <string name="gesture_no_prev_page">没有上一页了</string>
+    <string name="gesture_no_next_page">没有下一页了</string>
 
 <string name="stats_title">统计 · %1$s</string>
     <string name="stat_launches">打开次数</string>
@@ -269,6 +272,8 @@
     <string name="errors_cleared">错误日志已清空</string>
     <string name="errors_clear_failed">清空错误日志失败</string>
     <string name="check_update">检查版本更新</string>
+    <string name="update_checking">正在检查…</string>
+    <string name="shortcut_remove_manually">快捷方式已禁用，请手动移除桌面图标。</string>
     <string name="desc_check_update">检查 GitHub 是否有新版本</string>
     <string name="update_available_msg">新版本 %1$s 可用，是否下载？</string>
     <string name="update_download">下载</string>

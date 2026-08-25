@@ -1,1 +1,0 @@
-WebNative: PWA shell for any website with shortcuts and settings

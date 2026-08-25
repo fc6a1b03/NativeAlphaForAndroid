@@ -64,7 +64,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.WebApp
-import com.cylonid.nativealpha.util.IconGenerator
 
 /**
  * WebNative 主界面（Compose）。
@@ -297,27 +296,25 @@ private fun WebAppCard(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 统一图标（resolveIcon 唯一入口）：iconPath 头像 → favicon（持久化）→ 字母渐变
-            // 异步拉取（网络 IO）+ 失败重试一次；成功即持久化，之后从 iconPath 直接读
-            // 统一图标（resolveIcon 唯一入口——iconPath→favicon→字母，零分支）：
-            // 修复「列表 K 但快捷方式图标」（原 iconPath 分支文件失效直接字母；resolveIcon 会再拉 favicon）
-            val iconBitmap = produceState<android.graphics.Bitmap?>(null, webApp.baseUrl, webApp.iconPath) {
+            // 统一图标（能力全在 WebAppIconManager，此处只编排）：
+            // IO 线程 resolveIcon（iconPath→favicon→字母）；失败 5s 重试一次（以 iconPath 判成功）；
+            // title 作 key——改名后字母图标跟随新名称重组
+            val iconBitmap = produceState<android.graphics.Bitmap?>(null, webApp.baseUrl, webApp.iconPath, webApp.title) {
                 repeat(2) { attempt ->
-                    val bmp = withContext(Dispatchers.IO) {
+                    value = withContext(Dispatchers.IO) {
                         com.cylonid.nativealpha.util.WebAppIconManager.resolveIcon(context, webApp)
                     }
-                    if (bmp != null) {
-                        value = bmp
+                    // 真图标就绪或已重试过 → 同步桌面快捷方式（同 ID 可更新——桌面跟随列表）
+                    if (webApp.iconPath != null || attempt == 1) {
+                        updateShortcutIcon(context, webApp)
                         return@produceState
                     }
-                    if (attempt < 1) delay(5_000L)
+                    delay(5_000L)
                 }
             }.value
-            // 异步拉取未完成时 iconBitmap 为 null——用字母渐变兜住空窗（resolveIcon 内已含字母兜底，
-            // 此处只防异步空窗；成功后图标立即替换）
+            // 异步空窗兜底：同一能力（resolveIconCached——iconPath→字母，无网络）
             val finalIcon = iconBitmap ?: remember(webApp.title, webApp.baseUrl) {
-                val d = runCatching { java.net.URI(webApp.baseUrl).host }.getOrNull()
-                IconGenerator.generate(webApp.title, d, 112, 28)
+                com.cylonid.nativealpha.util.WebAppIconManager.resolveIconCached(context, webApp)
             }
             Image(
                 bitmap = finalIcon.asImageBitmap(),

@@ -15,3 +15,5 @@ key.properties
 /.kotlin/
 /.idea/
 /doc/*.png
+/.kimi-code/
+/.kimi-code/handoff-*.md

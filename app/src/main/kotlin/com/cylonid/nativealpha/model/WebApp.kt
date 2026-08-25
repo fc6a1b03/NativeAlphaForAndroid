@@ -1,10 +1,10 @@
 package com.cylonid.nativealpha.model
 
-import android.app.Activity
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.ShortcutIconUtils
 import com.cylonid.nativealpha.util.Utility
+import com.cylonid.nativealpha.util.UrlUtils
 
 data class WebApp(var baseUrl: String, val ID: Int) {
     var title: String
@@ -95,7 +95,7 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     var keyShortcutSendCounts: MutableMap<String, Int> = mutableMapOf()
 
     init {
-        title = baseUrl.replace("http://", "").replace("https://", "").replace("www.", "")
+        title = UrlUtils.displayHost(baseUrl)
         initDefaultSettings()
     }
 
@@ -195,14 +195,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
             */
     fun applySettingsForNewWebApp() {
         isOverrideGlobalSettings = false
-    }
-
-    fun markInactive(activity: Activity) {
-        isActiveEntry = false
-        ShortcutIconUtils.deleteShortcuts(
-            listOf(ID),
-            activity
-        )
     }
 
 

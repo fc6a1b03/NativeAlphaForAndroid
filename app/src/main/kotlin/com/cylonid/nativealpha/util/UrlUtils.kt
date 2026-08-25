@@ -60,4 +60,19 @@ object UrlUtils {
     fun hostOf(url: String): String? {
         return runCatching { Uri.parse(url).host }.getOrNull()
     }
+
+    /**
+     * 名称兜底：去协议/路径后的 host（保留端口，去 www. 前缀；解析失败退回去协议串）。
+     * 用于标题抓取失败时的默认名称（如 linux.do/t/topic/123 → linux.do）。
+     */
+    @JvmStatic
+    fun displayHost(url: String): String {
+        val uri = runCatching { java.net.URI(url) }.getOrNull()
+        val host = uri?.host
+        if (!host.isNullOrBlank()) {
+            val port = if (uri.port > 0) ":${uri.port}" else ""
+            return host.removePrefix("www.") + port
+        }
+        return url.replace("http://", "").replace("https://", "").replace("www.", "")
+    }
 }

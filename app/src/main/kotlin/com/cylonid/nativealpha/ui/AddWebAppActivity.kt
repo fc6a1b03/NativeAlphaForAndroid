@@ -128,6 +128,8 @@ private fun AddWebAppScreen(
     var fetchedFavicon by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var customIcon by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var fetchFailed by remember { mutableStateOf(false) }
+    // 保存防抖：坏站 favicon 补拉可达 20s+，期间连点会重复创建条目（重复条目即此 bug 产物）
+    var isSaving by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
@@ -186,37 +188,41 @@ private fun AddWebAppScreen(
             }
             // 协程在 Activity 销毁后回来时不更新 UI
             if (!coroutineContext.isActive) return@launch
-            isFetching = false
             if (result.second == null) {
-                fetchFailed = true
-                // 创建即失败（Cloudflare 挑战站 linux.do 等）：立即后台补拉 favicon（与列表同源，
-                // 真机可达——创建时图标直接可用，不依赖"创建完列表才有"的割裂体验）
-                val contextLocal = context
+                // 第一阶段失败（Cloudflare 挑战站等）：保持加载态，后台补拉多源候选
+                // （fetchFavicon 纯拉取不持久化——WebApp 未创建，若用临时 WebApp 调
+                // loadFavicon 会经 saveIcon 落 webapp_-1 孤儿文件）。
+                // 补拉也失败才显示"获取失败"——避免"先闪失败再出图标"的割裂
                 scope.launch {
                     val bmp = withContext(Dispatchers.IO) {
-                        com.cylonid.nativealpha.util.WebAppIconManager.loadFavicon(
-                            contextLocal,
-                            com.cylonid.nativealpha.model.WebApp(url, -1)
-                        )
+                        com.cylonid.nativealpha.util.WebAppIconManager.fetchFavicon(url)
                     }
-                    if (bmp != null && coroutineContext.isActive) {
+                    if (!coroutineContext.isActive) return@launch
+                    if (bmp != null) {
                         fetchedFavicon = bmp
-                        fetchFailed = false
                     }
+                    fetchFailed = bmp == null
+                    isFetching = false
                 }
             } else {
                 fetchedFavicon = result.second
+                isFetching = false
             }
-            // 标题回填：仅当抓到真实站点标题（过滤 Cloudflare 挑战页等脏值）才回填，
-            // 取不到就不动用户输入（保持 nameText 原值/空，不强行填默认文本）
+            // 标题回填：fetch 已结构化识别挑战/安全拦截页（返回 null 标题），
+            // 此处仅防空——取不到就不动用户输入（保持 nameText 原值/空）
             val cleanTitle = result.first.title
                 ?.let { it.trim() }
-                ?.takeIf { it.isNotEmpty() && !WebAppDataFetcher.isChallengeTitle(it) }
+                ?.takeIf { it.isNotEmpty() }
             if (cleanTitle != null) {
                 fetchedTitle = cleanTitle
                 nameText = cleanTitle
             } else {
                 fetchedTitle = null
+                // 标题取不到（拦截页/网络失败）：名称框兜底填域名（可改）——
+                // 仅在用户未输入时填，不覆盖已输入内容
+                if (nameText.isBlank()) {
+                    nameText = com.cylonid.nativealpha.util.UrlUtils.displayHost(url)
+                }
             }
         }
     }
@@ -235,6 +241,8 @@ private fun AddWebAppScreen(
     }
 
     fun onFinish() {
+        if (isSaving) return  // 防抖：保存中忽略重复点击（连点会创建重复条目）
+        isSaving = true
         val url = normalizeUrl(urlText)
         val webapp = WebApp(
             url,
@@ -249,30 +257,13 @@ private fun AddWebAppScreen(
             com.cylonid.nativealpha.util.WebAppIconManager.saveIcon(context, webapp, icon)
         }
         DataManager.getInstance().addWebsite(webapp)
-        // 兜底：favicon 直抓失败（如 Cloudflare 挑战站 linux.do）时，
-        // 再用列表同款 loadFavicon（Google s2）拉一次——成功则写回 iconPath 持久化，
-        // 并**补拉完成后才 pin 快捷方式**（pin 是一次性冻结——若先 pin 会永久用字母，
-        // 列表后有图标但快捷方式没有——正是 linux.do 故障根因）
-        if (webapp.iconPath == null) {
-            // 补拉 favicon（后台）→ 完成（UI 线程）pin → 返回主界面。
-            // pin 延后：quick 方式一次性冻结图标——先 pin 会永久字母（linux.do 根因）
-            val contextLocal = context
-            scope.launch {
-                withContext(Dispatchers.IO) {
-                    com.cylonid.nativealpha.util.WebAppIconManager.loadFavicon(contextLocal, webapp)
-                }
-                // 补拉完成（无论成败）→ 有图标用图标；仍无则字母（已尽力）
-                if (coroutineContext.isActive) {
-                    requestPinShortcut(webapp)
-                    onBack()
-                }
-            }
-        } else {
-            // 图标已就绪（抓取成功/用户选图）——直接 pin + 返回
-            requestPinShortcut(webapp)
-            // 返回主界面（onResume 触发刷新）
-            onBack()
-        }
+        // 图标未就绪（坏站/超时）：不再阻塞等待 favicon 补拉——立即 pin（字母图标）+
+        // 返回主界面；favicon 由主界面列表 produceState 后台补拉，拉到后自动更新
+        // 桌面快捷方式图标（updateShortcutIcon 同 ID 可刷新）。
+        // 旧行为（等待补拉完成才返回）：坏地址 4 候选源 × 4s 超时 = 16s+ 白等，用户以为卡死。
+        requestPinShortcut(webapp)
+        updateShortcutIcon(context, webapp)
+        onBack()
     }
 
     Scaffold(
@@ -331,6 +322,7 @@ private fun AddWebAppScreen(
                         nameText = nameText,
                         onNameChange = { nameText = it },
                         isFetching = isFetching,
+                        isSaving = isSaving,
                         fetchFailed = fetchFailed,
                         fetchedFavicon = fetchedFavicon,
                         customIcon = customIcon,
@@ -398,6 +390,7 @@ private fun Step2Content(
     nameText: String,
     onNameChange: (String) -> Unit,
     isFetching: Boolean,
+    isSaving: Boolean,
     fetchFailed: Boolean,
     fetchedFavicon: android.graphics.Bitmap?,
     customIcon: android.graphics.Bitmap?,
@@ -503,14 +496,23 @@ private fun Step2Content(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 完成按钮
+        // 完成按钮（保存中禁用+转圈：坏站 favicon 补拉 20s+，防连点重复创建）
         Button(
             onClick = onFinish,
+            enabled = !isSaving,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(Icons.Default.Add, contentDescription = null)
+            if (isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            } else {
+                Icon(Icons.Default.Add, contentDescription = null)
+            }
             Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.add_to_home_screen))
+            Text(stringResource(if (isSaving) R.string.saving else R.string.add_to_home_screen))
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
@@ -535,35 +537,55 @@ private fun IconPreview(bmp: android.graphics.Bitmap) {
 }
 
 /** 创建桌面快捷方式（复用 ShortcutDialogFragment 的 pin 逻辑）。
- *  图标与列表同源：resolveIcon（iconPath→favicon→字母渐变）——桌面快捷方式=列表图标。
- *  网络拉取异步：先 pin（临时用当前 iconPath/字母），后台拉 favicon 成功后更新（不阻塞创建）。 */
+ *  图标与列表同源：resolveIconCached（iconPath→字母渐变，**无网络**——本方法在 UI 线程调用）。
+ *  favicon 补拉已在 onFinish 后台完成（成功则 iconPath 已持久化），此处不重复拉网。 */
 private fun requestPinShortcut(webapp: WebApp) {
     val context = App.getAppContext()
     val intent = WebViewLauncher.createWebViewIntent(webapp, context) ?: return
 
-    // 图标：优先已持久化 iconPath；无则字母（favicon 后台拉取后 resolveIcon 立即更新）
-    val icon = if (webapp.iconPath != null) {
-        val bmp = com.cylonid.nativealpha.util.WebAppIconManager.loadIcon(context, webapp)
-        if (bmp != null) IconCompat.createWithBitmap(bmp)
-        else IconCompat.createWithBitmap(
-            com.cylonid.nativealpha.util.WebAppIconManager.resolveIcon(context, webapp)
-        )
-    } else {
-        IconCompat.createWithBitmap(
-            com.cylonid.nativealpha.util.WebAppIconManager.resolveIcon(context, webapp)
-        )
-    }
+    val icon = IconCompat.createWithBitmap(
+        com.cylonid.nativealpha.util.WebAppIconManager.resolveIconCached(context, webapp)
+    )
 
     val title = webapp.title
     val safeTitle = if (title.isNullOrBlank()) "Unknown" else title
 
+    val shortId = com.cylonid.nativealpha.util.ShortcutIconUtils.pinnedShortcutId(webapp.ID)  // 稳定 ID（title 会变——快捷方式 id 不变，可后续更新）
+    val pinInfo = ShortcutInfoCompat.Builder(context, shortId)
+        .setIcon(icon)
+        .setShortLabel(safeTitle)
+        .setLongLabel(safeTitle)
+        .setIntent(intent)
+        .build()
+    // 1) 注册 Dynamic Shortcut（同 ID）——可随时 updateShortcuts 更新图标（桌面图标跟随列表）
+    // 2) requestPinShortcut 弹系统确认（固定到桌面）
+    // 注：先 dynamic 后 pin——Launcher 识别同 ID 关联，后续 updateShortcuts 能刷新已 pin 的
+    try {
+        ShortcutManagerCompat.addDynamicShortcuts(context, listOf(pinInfo))
+    } catch (e: Exception) {
+        // 动态注册失败不阻塞 pin（部分旧 Launcher 不支持）
+    }
     if (ShortcutManagerCompat.isRequestPinShortcutSupported(context)) {
-        val pinInfo = ShortcutInfoCompat.Builder(context, safeTitle)
-            .setIcon(icon)
+        ShortcutManagerCompat.requestPinShortcut(context, pinInfo, null)
+    }
+}
+
+/** 更新已注册快捷方式的图标（图标就绪时调用——桌面跟随列表图标）。
+ *  resolveIconCached 无网络（UI 线程安全）；此时 favicon 补拉已完成，iconPath 要么持久化要么用字母。 */
+fun updateShortcutIcon(context: android.content.Context, webapp: WebApp) {
+    try {
+        val bmp = com.cylonid.nativealpha.util.WebAppIconManager.resolveIconCached(context, webapp)
+        val intent = WebViewLauncher.createWebViewIntent(webapp, context) ?: return
+        val title = webapp.title
+        val safeTitle = if (title.isNullOrBlank()) "Unknown" else title
+        val info = ShortcutInfoCompat.Builder(context, com.cylonid.nativealpha.util.ShortcutIconUtils.pinnedShortcutId(webapp.ID))
+            .setIcon(IconCompat.createWithBitmap(bmp))
             .setShortLabel(safeTitle)
             .setLongLabel(safeTitle)
             .setIntent(intent)
             .build()
-        ShortcutManagerCompat.requestPinShortcut(context, pinInfo, null)
+        ShortcutManagerCompat.updateShortcuts(context, listOf(info))
+    } catch (e: Exception) {
+        // 更新失败静默（下次列表刷新再试）
     }
 }

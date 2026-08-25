@@ -1,4 +1,3 @@
-
 # WebNative
 
 ![OS](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white&style=plastic)
@@ -28,14 +27,14 @@
 
 ## Tech Stack
 
-| 组件 | 版本 |
-|---|---|
-| Kotlin | 2.3.20（built-in Kotlin） |
-| Compose | Material 3 + BOM 2026.06.01 |
-| AGP | 9.3.1 |
-| Gradle | 9.7.0 |
-| minSdk / targetSdk | 31 / 37 |
-| 持久化 | DataStore（错误日志/统计）+ Gson + SharedPreferences（WebApp 列表/设置） |
+| 组件               | 版本                                                                     |
+|--------------------|--------------------------------------------------------------------------|
+| Kotlin             | 2.3.20（built-in Kotlin）                                                |
+| Compose            | Material 3 + BOM 2026.06.01                                              |
+| AGP                | 9.3.1                                                                    |
+| Gradle             | 9.7.0                                                                    |
+| minSdk / targetSdk | 31 / 37                                                                  |
+| 持久化             | DataStore（错误日志/统计）+ Gson + SharedPreferences（WebApp 列表/设置） |
 
 ## Build
 
@@ -54,8 +53,8 @@
 打 tag 自动触发 GitHub Actions 发版（签名 APK + AAB → GitHub Release）：
 
 ```bash
-git tag -a v2.1.17 -m "v2.1.14"
-git push origin v2.1.14
+git tag -a v2.1.33 -m "v2.1.33"
+git push origin v2.1.33
 ```
 
 首次需在仓库 Settings → Secrets 配置：`KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`。
@@ -89,18 +88,17 @@ A: Android 12（API 31）及以上。
 * [Gson](https://github.com/google/gson) — 数据持久化
 * [JSoup](https://jsoup.org/) — favicon/标题抓取
 * [AboutLibraries](https://github.com/mikepenz/AboutLibraries) — 开源声明
-* [CircularProgressBar](https://github.com/lopspower/CircularProgressBar) — 快捷方式图标加载进度
 
 完整开源库依赖声明见 `app/build.gradle` 与 [gradle/libs.versions.toml](gradle/libs.versions.toml)。
 
 ## Screenshots
 
-| 主界面 | 添加向导 · 第一步 | 添加向导 · 第二步 |
-|:---:|:---:|:---:|
+|              主界面               |              添加向导 · 第一步               |              添加向导 · 第二步               |
+|:---------------------------------:|:--------------------------------------------:|:--------------------------------------------:|
 | ![Main](doc/screenshots/main.png) | ![Add Step 1](doc/screenshots/add_step1.png) | ![Add Step 2](doc/screenshots/add_step2.png) |
 
-| Web App 设置 | 全局设置 | 浏览页面 |
-|:---:|:---:|:---:|
+|                       Web App 设置                       |                        全局设置                         |                浏览页面                 |
+|:--------------------------------------------------------:|:-------------------------------------------------------:|:---------------------------------------:|
 | ![Web App Settings](doc/screenshots/webapp_settings.png) | ![Global Settings](doc/screenshots/global_settings.png) | ![WebView](doc/screenshots/webview.png) |
 
 > 截图基于 Android 模拟器（Pixel 9a, API 37）实测采集。
@@ -109,12 +107,10 @@ A: Android 12（API 31）及以上。
 
 **WebNative** is a fork of
 [NativeAlphaForAndroid](https://github.com/cylonid/NativeAlphaForAndroid)
-(by [cylonid](https://github.com/cylonid)) with extensive modifications —
-UI rebuild, feature changes and optimizations. All changes are released under
-the same license as the original project.
+(by [cylonid](https://github.com/cylonid)) with extensive modifications — UI rebuild, feature changes and optimizations.
+All changes are released under the same license as the original project.
 
-WebNative is Free Software: You can use, study share and improve it at your
-will. Specifically you can redistribute and/or modify it under the terms of the
-[GNU General Public License](https://www.gnu.org/licenses/gpl.html) as
-published by the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+WebNative is Free Software: You can use, study share and improve it at your will. Specifically you can redistribute
+and/or modify it under the terms of the
+[GNU General Public License](https://www.gnu.org/licenses/gpl.html) as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version.
