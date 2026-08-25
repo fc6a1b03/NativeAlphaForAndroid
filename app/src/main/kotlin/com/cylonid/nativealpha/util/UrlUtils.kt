@@ -1,6 +1,7 @@
 package com.cylonid.nativealpha.util
 
 import android.net.Uri
+import androidx.core.net.toUri
 
 /**
  * URL 规范化与校验工具（纯逻辑，便于单元测试）。
@@ -47,7 +48,7 @@ object UrlUtils {
     fun validate(raw: String): String? {
         val url = normalize(raw)
         if (url.isBlank()) return "empty"
-        val uri = runCatching { Uri.parse(url) }.getOrNull()
+        val uri = runCatching { url.toUri() }.getOrNull()
         val host = uri?.host
         if (host.isNullOrBlank() || host.contains(" ")) {
             return "invalid"
@@ -58,7 +59,7 @@ object UrlUtils {
     /** 提取 URL 的 host（失败返回 null） */
     @JvmStatic
     fun hostOf(url: String): String? {
-        return runCatching { Uri.parse(url).host }.getOrNull()
+        return runCatching { url.toUri().host }.getOrNull()
     }
 
     /**

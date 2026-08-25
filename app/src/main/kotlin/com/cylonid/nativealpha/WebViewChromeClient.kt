@@ -2,8 +2,12 @@ package com.cylonid.nativealpha
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import androidx.annotation.StringRes
 import android.net.Uri
 import android.os.Message
+import androidx.core.graphics.createBitmap
+import androidx.core.net.toUri
+import androidx.core.view.isGone
 import android.view.View
 import android.webkit.ConsoleMessage
 import android.webkit.GeolocationPermissions
@@ -111,9 +115,9 @@ internal class CustomWebChromeClient(
         }
 
         AlertDialog.Builder(host)
-            .setTitle(getPermissionRequestStringResource("dialog_permission_", resId, "_title"))
-            .setMessage(getPermissionRequestStringResource("dialog_permission_", resId, "_txt"))
-            .setPositiveButton(android.R.string.yes) { _, _ ->
+            .setTitle(host.getString(permissionTitleRes(resId)))
+            .setMessage(host.getString(permissionDescRes(resId)))
+            .setPositiveButton(R.string.yes) { _, _ ->
                 host.enablePermissionBoolOnWebApp(successCallback)
                 host.handleGeoPermissionCallback(true)
                 permissionsToGrant.addAll(webkitPermission)
@@ -123,19 +127,27 @@ internal class CustomWebChromeClient(
                     )
                 }
             }
-            .setNegativeButton(android.R.string.no) { _, _ -> host.handleGeoPermissionCallback(false) }
+            .setNegativeButton(R.string.no) { _, _ -> host.handleGeoPermissionCallback(false) }
             .create()
             .show()
     }
 
-    private fun getPermissionRequestStringResource(
-        prefix: String, variable: String, suffix: String
-    ): String {
-        return host.getString(
-            host.resources.getIdentifier(
-                prefix + variable + suffix, "string", host.packageName
-            )
-        )
+    @StringRes
+    private fun permissionTitleRes(resId: String): Int = when (resId) {
+        "drm" -> R.string.allow_drm_content
+        "camera" -> R.string.allow_camera_access
+        "microphone" -> R.string.allow_microphone_access
+        "location" -> R.string.allow_location_access
+        else -> 0
+    }
+
+    @StringRes
+    private fun permissionDescRes(resId: String): Int = when (resId) {
+        "drm" -> R.string.desc_allow_drm
+        "camera" -> R.string.desc_allow_camera
+        "microphone" -> R.string.desc_allow_microphone
+        "location" -> R.string.desc_allow_location
+        else -> 0
     }
 
     private fun areAndroidPermissionsMissing(androidPermissions: Array<String>): Boolean {
@@ -154,7 +166,7 @@ internal class CustomWebChromeClient(
      * 权限被永久拒绝：不再重复弹系统框，提示用户去系统设置手动开启。
      */
     private fun showPermissionPermanentlyDeniedDialog(resId: String) {
-        val title = getPermissionRequestStringResource("dialog_permission_", resId, "_title")
+        val title = host.getString(permissionTitleRes(resId))
         AlertDialog.Builder(host)
             .setTitle(title)
             .setMessage(host.getString(R.string.permission_permanently_denied_msg, title))
@@ -162,7 +174,7 @@ internal class CustomWebChromeClient(
                 try {
                     val intent = Intent(
                         Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.parse("package:" + host.packageName)
+                        ("package:" + host.packageName).toUri()
                     )
                     host.startActivity(intent)
                 } catch (ignored: Exception) {
@@ -182,7 +194,7 @@ internal class CustomWebChromeClient(
         host.filePathCallback = pFilePathCallback
         return try {
             val intent = fileChooserParams.createIntent()
-            host.startActivityForResult(intent, Const.CODE_OPEN_FILE)
+            host.fileChooserLauncher.launch(intent)
             true
         } catch (e: Exception) {
             NotificationUtils.showInfoSnackbar(
@@ -195,12 +207,13 @@ internal class CustomWebChromeClient(
     }
 
     override fun getDefaultVideoPoster(): Bitmap {
-        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(1, 1, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawARGB(0, 0, 0, 0)
         return bitmap
     }
 
+    @Suppress("DEPRECATION")
     override fun onHideCustomView() {
         (host.window.decorView as FrameLayout).removeView(this.mCustomView)
         this.mCustomView = null
@@ -211,6 +224,7 @@ internal class CustomWebChromeClient(
         host.showSystemBars()
     }
 
+    @Suppress("DEPRECATION")
     override fun onShowCustomView(pView: View, pViewCallback: CustomViewCallback) {
         if (this.mCustomView != null) {
             onHideCustomView()
@@ -291,7 +305,7 @@ internal class CustomWebChromeClient(
         }
 
         if (DataManager.getInstance().settings.isShowProgressbar || host.currentlyReloading) {
-            if (host.progressBar!!.visibility == ProgressBar.GONE && progress < 100) {
+            if (host.progressBar!!.isGone && progress < 100) {
                 host.progressBar!!.visibility = ProgressBar.VISIBLE
             }
 

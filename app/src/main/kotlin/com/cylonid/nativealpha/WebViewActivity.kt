@@ -66,6 +66,7 @@ import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.annotation.NonNull
 import androidx.annotation.Nullable
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -75,6 +76,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.get
+import androidx.core.view.size
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.cylonid.nativealpha.helper.IconPopupMenuHelper
@@ -255,9 +258,22 @@ class WebViewActivity : AppCompatActivity() {
     internal var currentlyReloading = true
     internal var mGeoPermissionRequestCallback: GeolocationPermissions.Callback? = null
     internal var mGeoPermissionRequestOrigin: String? = null
-    private var dlRequest: DownloadManager.Request? = null
     internal var customHeaders: Map<String, String>? = null
     var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+    /** 文件选择器 Activity Result Launcher（替换废弃的 startActivityForResult/onActivityResult）。 */
+    val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_CANCELED) {
+            this.filePathCallback?.onReceiveValue(null)
+        } else if (result.resultCode == RESULT_OK) {
+            filePathCallback?.onReceiveValue(
+                WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+            )
+        }
+        filePathCallback = null
+    }
 
     private var quitOnNextBackpress = false
     private var reloadHandler: Handler? = null
@@ -488,10 +504,8 @@ class WebViewActivity : AppCompatActivity() {
         // ===== PWA 高频文本流渲染优化（流式输出/长文档滚动场景） =====
         // 渲染优先级拉满（文本流/长文档滚动核心）
         webview.settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
-        // 硬件加速强制（避免软件层合成拖慢流式更新）
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            webview.setLayerType(View.LAYER_TYPE_NONE, null)
-        }
+        // 硬件加速强制（避免软件层合成拖慢流式更新）。minSdk=31，直接启用无需判断。
+        webview.setLayerType(View.LAYER_TYPE_NONE, null)
         // 文字缩放（用户可调：50~200%，默认 100）
         webview.settings.textZoom = app.textZoom
         // 页面缩放（用户可调：50~200%，默认 100）：onPageFinished 里 zoomBy 应用
@@ -584,46 +598,14 @@ class WebViewActivity : AppCompatActivity() {
                         request.setDestinationInExternalPublicDir(
                             Environment.DIRECTORY_DOWNLOADS, fileName
                         )
+                        // minSdk=31，下载到公共目录无需存储权限，直接入队
                         val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager?
-                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                            val perms = arrayOf(
-                                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                                Manifest.permission.READ_EXTERNAL_STORAGE
+                        if (dm != null) {
+                            dm.enqueue(request)
+                            NotificationUtils.showInfoSnackbar(
+                                this, getString(R.string.file_download),
+                                Snackbar.LENGTH_SHORT
                             )
-                            var allGranted = true
-                            for (perm in perms) {
-                                if (ContextCompat.checkSelfPermission(
-                                        this@WebViewActivity, perm
-                                    ) != PackageManager.PERMISSION_GRANTED
-                                ) {
-                                    allGranted = false
-                                    break
-                                }
-                            }
-                            if (!allGranted) {
-                                dlRequest = request
-                                ActivityCompat.requestPermissions(
-                                    this@WebViewActivity, perms, Const.PERMISSION_RC_STORAGE
-                                )
-                            } else {
-                                if (dm != null) {
-                                    dm.enqueue(request)
-                                    NotificationUtils.showInfoSnackbar(
-                                        this, getString(R.string.file_download),
-                                        Snackbar.LENGTH_SHORT
-                                    )
-                                }
-                            }
-                        }
-                        // No storage permission needed for Android 10+
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            if (dm != null) {
-                                dm.enqueue(request)
-                                NotificationUtils.showInfoSnackbar(
-                                    this, getString(R.string.file_download),
-                                    Snackbar.LENGTH_SHORT
-                                )
-                            }
                         }
                     }
                 }
@@ -1027,74 +1009,73 @@ class WebViewActivity : AppCompatActivity() {
             )
             || (!webapp!!.isUseTimespanDarkMode && webapp!!.isForceDarkMode)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // 特性探测缓存（featXxx lazy）：内核能力进程内不变
-            val isAlgorithmicDarkeningSupported = featAlgorithmicDarkening
+        // minSdk=31，强制深色能力始终可用；内部仍按 API 33 分界线处理废弃 API
+        // 特性探测缓存（featXxx lazy）：内核能力进程内不变
+        val isAlgorithmicDarkeningSupported = featAlgorithmicDarkening
 
-            if (needsForcedDarkMode) {
-                wv!!.setBackgroundColor(Color.BLACK)
-                delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_YES
+        if (needsForcedDarkMode) {
+            wv!!.setBackgroundColor(Color.BLACK)
+            delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_YES
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    // API 33+: setForceDark / setForceDarkStrategy / setForceDarkAllowed 已废弃且为 no-op
-                    if (isAlgorithmicDarkeningSupported) {
-                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, true)
-                    }
-                } else {
-                    val isForceDarkSupported = featForceDark
-                    val isForceDarkStrategySupported = featForceDarkStrategy
-                    wv!!.setForceDarkAllowed(true)
-                    if (isForceDarkSupported) {
-                        WebSettingsCompat.setForceDark(
-                            wv!!.settings, WebSettingsCompat.FORCE_DARK_ON
-                        )
-                    }
-                    if (isForceDarkStrategySupported) {
-                        WebSettingsCompat.setForceDarkStrategy(
-                            wv!!.settings,
-                            WebSettingsCompat.DARK_STRATEGY_PREFER_WEB_THEME_OVER_USER_AGENT_DARKENING
-                        )
-                    }
-                    if (isAlgorithmicDarkeningSupported) {
-                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, true)
-                    }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // API 33+: setForceDark / setForceDarkStrategy / setForceDarkAllowed 已废弃且为 no-op
+                if (isAlgorithmicDarkeningSupported) {
+                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, true)
                 }
             } else {
-                delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-                // 加载页背景跟随应用主题（不固定白底）：深色主题下避免加载白屏闪瞎
-                // 读当前主题 colorBackground（浅色 #FBF8FF / 深色 #131318）
-                var themeBg = Color.WHITE
-                try {
-                    val tv = TypedValue()
-                    if (theme.resolveAttribute(android.R.attr.colorBackground, tv, true)) {
-                        themeBg = tv.data
-                    }
-                } catch (ignored: Exception) {
+                val isForceDarkSupported = featForceDark
+                val isForceDarkStrategySupported = featForceDarkStrategy
+                wv!!.setForceDarkAllowed(true)
+                if (isForceDarkSupported) {
+                    WebSettingsCompat.setForceDark(
+                        wv!!.settings, WebSettingsCompat.FORCE_DARK_ON
+                    )
                 }
-                wv!!.setBackgroundColor(themeBg)
+                if (isForceDarkStrategySupported) {
+                    WebSettingsCompat.setForceDarkStrategy(
+                        wv!!.settings,
+                        WebSettingsCompat.DARK_STRATEGY_PREFER_WEB_THEME_OVER_USER_AGENT_DARKENING
+                    )
+                }
+                if (isAlgorithmicDarkeningSupported) {
+                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, true)
+                }
+            }
+        } else {
+            delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            // 加载页背景跟随应用主题（不固定白底）：深色主题下避免加载白屏闪瞎
+            // 读当前主题 colorBackground（浅色 #FBF8FF / 深色 #131318）
+            var themeBg = Color.WHITE
+            try {
+                val tv = TypedValue()
+                if (theme.resolveAttribute(android.R.attr.colorBackground, tv, true)) {
+                    themeBg = tv.data
+                }
+            } catch (ignored: Exception) {
+            }
+            wv!!.setBackgroundColor(themeBg)
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    // API 33+: setForceDark / setForceDarkStrategy / setForceDarkAllowed 已废弃且为 no-op
-                    if (isAlgorithmicDarkeningSupported) {
-                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, false)
-                    }
-                } else {
-                    val isForceDarkSupported = featForceDark
-                    val isForceDarkStrategySupported = featForceDarkStrategy
-                    if (isForceDarkSupported) {
-                        WebSettingsCompat.setForceDark(
-                            wv!!.settings, WebSettingsCompat.FORCE_DARK_OFF
-                        )
-                    }
-                    if (isForceDarkStrategySupported) {
-                        WebSettingsCompat.setForceDarkStrategy(
-                            wv!!.settings,
-                            WebSettingsCompat.DARK_STRATEGY_WEB_THEME_DARKENING_ONLY
-                        )
-                    }
-                    if (isAlgorithmicDarkeningSupported) {
-                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, false)
-                    }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // API 33+: setForceDark / setForceDarkStrategy / setForceDarkAllowed 已废弃且为 no-op
+                if (isAlgorithmicDarkeningSupported) {
+                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, false)
+                }
+            } else {
+                val isForceDarkSupported = featForceDark
+                val isForceDarkStrategySupported = featForceDarkStrategy
+                if (isForceDarkSupported) {
+                    WebSettingsCompat.setForceDark(
+                        wv!!.settings, WebSettingsCompat.FORCE_DARK_OFF
+                    )
+                }
+                if (isForceDarkStrategySupported) {
+                    WebSettingsCompat.setForceDarkStrategy(
+                        wv!!.settings,
+                        WebSettingsCompat.DARK_STRATEGY_WEB_THEME_DARKENING_ONLY
+                    )
+                }
+                if (isAlgorithmicDarkeningSupported) {
+                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, false)
                 }
             }
         }
@@ -1181,14 +1162,14 @@ class WebViewActivity : AppCompatActivity() {
             { action -> handleMenuAction(action); Unit },
             { zoom ->
                 // 实时预览字体缩放
-                wv?.settings?.textZoom = zoom.toInt()
+                wv?.settings?.textZoom = zoom
                 Unit
             },
             { zoom ->
                 // 实时预览页面缩放 + 记录待保存值（zoomBy 模拟捏合）
-                mMenuPageZoom = zoom.toInt()
+                mMenuPageZoom = zoom
                 if (wv != null) {
-                    webapp!!.pageZoom = zoom.toInt()
+                    webapp!!.pageZoom = zoom
                     applyPageZoom()
                 }
                 Unit
@@ -1600,10 +1581,10 @@ class WebViewActivity : AppCompatActivity() {
         spanStringWebAppTitle.setSpan(
             StyleSpan(Typeface.BOLD), 0, spanStringWebAppTitle.length, 0
         )
-        mPopupMenu!!.menu.getItem(0).title = spanStringWebAppTitle
+        mPopupMenu!!.menu[0].title = spanStringWebAppTitle
 
-        for (i in 0 until mPopupMenu!!.menu.size()) {
-            val item = mPopupMenu!!.menu.getItem(i)
+        for (i in 0 until mPopupMenu!!.menu.size) {
+            val item = mPopupMenu!!.menu[i]
             val spanString = SpannableString(item.title)
             spanString.setSpan(foregroundColorSpan, 0, spanString.length, 0)
             item.title = spanString
@@ -1663,7 +1644,7 @@ class WebViewActivity : AppCompatActivity() {
         mPopupMenu!!.show()
     }
 
-    override fun onConfigurationChanged(@NonNull newConfig: Configuration) {
+    override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         this.setDarkModeIfNeeded()
     }
@@ -1671,6 +1652,7 @@ class WebViewActivity : AppCompatActivity() {
     // 渲染核心的有意实现：WebView 后退优先 + 再按退出，不走 super（避免双重处理）
     // 注：Manifest enableOnBackInvokedCallback=true 下系统手势仍会回调本方法（legacy 兼容）
     @SuppressLint("MissingSuperCall", "GestureBackNavigation")
+    @Suppress("OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
         val webapp = DataManager.getInstance().getWebApp(webappID)
         if (webapp == null) {
@@ -1788,7 +1770,7 @@ class WebViewActivity : AppCompatActivity() {
     /** 是否已绑定的组合键 */
     internal fun isBoundShortcut(shortcut: String): Boolean {
         val w = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true)
-        return w != null && w.keyShortcuts != null && w.keyShortcuts.contains(shortcut)
+        return w != null && w.keyShortcuts.contains(shortcut)
     }
 
     /** 构建组合键字符串（Ctrl+S / Ctrl+Shift+S） */
@@ -1804,11 +1786,11 @@ class WebViewActivity : AppCompatActivity() {
     /** keyCode → 字符（字母/数字/功能键） */
     private fun keyCodeToChar(keyCode: Int, shift: Boolean): String? {
         if (keyCode in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z) {
-            val c = ('a' + (keyCode - KeyEvent.KEYCODE_A)).toChar()
+            val c = 'a' + (keyCode - KeyEvent.KEYCODE_A)
             return if (shift) c.uppercaseChar().toString() else c.toString()
         }
         if (keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) {
-            return ('0' + (keyCode - KeyEvent.KEYCODE_0)).toChar().toString()
+            return ('0' + (keyCode - KeyEvent.KEYCODE_0)).toString()
         }
         return when (keyCode) {
             KeyEvent.KEYCODE_F1 -> "F1"
@@ -1918,53 +1900,38 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     internal fun hideSystemBars() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.setDecorFitsSystemWindows(false)
-            val controller = window.insetsController
-            if (controller != null) {
-                controller.hide(
-                    WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
-                )
-                controller.setSystemBarsBehavior(
-                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                )
-            }
-        } else {
-            window.decorView.systemUiVisibility =
-                (View.SYSTEM_UI_FLAG_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_IMMERSIVE
-                    or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
+        // minSdk=31，WindowInsetsController API 始终可用
+        window.setDecorFitsSystemWindows(false)
+        val controller = window.insetsController
+        if (controller != null) {
+            controller.hide(
+                WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
+            )
+            controller.setSystemBarsBehavior(
+                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            )
         }
     }
 
     internal fun showSystemBars() {
         if (webapp!!.isShowFullscreen) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.setDecorFitsSystemWindows(true)
-            val controller = window.insetsController
-            if (controller != null) {
-                controller.show(
-                    WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
-                )
-                controller.setSystemBarsBehavior(
-                    WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                )
-            }
-        } else {
-            window.decorView.systemUiVisibility =
-                (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN)
+        // minSdk=31，WindowInsetsController API 始终可用
+        window.setDecorFitsSystemWindows(true)
+        val controller = window.insetsController
+        if (controller != null) {
+            controller.show(
+                WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
+            )
+            controller.setSystemBarsBehavior(
+                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            )
         }
     }
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        @NonNull permissions: Array<String>,
-        @NonNull grantResults: IntArray
+        permissions: Array<String>,
+        grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
@@ -1998,18 +1965,6 @@ class WebViewActivity : AppCompatActivity() {
         if (requestCode == Const.PERMISSION_CAMERA) {
             enablePermissionBoolOnWebApp { webapp!!.isCameraPermission = true }
         }
-        if (requestCode == Const.PERMISSION_RC_STORAGE) {
-            if (dlRequest != null) {
-                val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager?
-                if (dm != null) {
-                    dm.enqueue(dlRequest)
-                    NotificationUtils.showInfoSnackbar(
-                        this, getString(R.string.file_download), Snackbar.LENGTH_SHORT
-                    )
-                }
-                dlRequest = null
-            }
-        }
     }
 
     private fun onPermissionsDenied(requestCode: Int, list: List<String>) {
@@ -2026,17 +1981,6 @@ class WebViewActivity : AppCompatActivity() {
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, intent: Intent?) {
-        super.onActivityResult(requestCode, resultCode, intent)
-        if (resultCode == RESULT_CANCELED && requestCode == Const.CODE_OPEN_FILE) {
-            this.filePathCallback?.onReceiveValue(null)
-        } else if (resultCode == RESULT_OK && requestCode == Const.CODE_OPEN_FILE) {
-            filePathCallback!!.onReceiveValue(
-                WebChromeClient.FileChooserParams.parseResult(resultCode, intent)
-            )
-            filePathCallback = null
-        }
-    }
 
     /** 权限授予回调（函数式接口，对齐原 Java @FunctionalInterface） */
     fun interface PermissionGrantedCallback {

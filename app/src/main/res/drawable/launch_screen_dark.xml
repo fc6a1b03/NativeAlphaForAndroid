@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- 深色主题启动背景（API<31 兜底；minSdk=31 实际不命中，与 values-night-v31 对应） -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/webnative_splash_dark_bg" />
-</layer-list>

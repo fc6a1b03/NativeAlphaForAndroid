@@ -47,6 +47,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -54,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
@@ -87,10 +89,10 @@ fun GlobalSettingsScreen(
     val context = LocalContext.current
 
     // 语言选择（跟随系统 / 中文 / English）
-    val langOptions = context.resources.getStringArray(R.array.language_options)
+    val langOptions = stringArrayResource(R.array.language_options)
     val currentLang = AppCompatDelegate.getApplicationLocales().toLanguageTags()
     var langSelection by remember {
-        mutableStateOf(
+        mutableIntStateOf(
             when {
                 currentLang.isEmpty() -> 0
                 currentLang.startsWith("zh") -> 1
@@ -105,8 +107,8 @@ fun GlobalSettingsScreen(
     var updateChecking by remember { mutableStateOf(false) }
 
     // UI 模式（跟随系统 / 浅色 / 深色）
-    val uiModes = context.resources.getStringArray(R.array.ui_modes)
-    var uiSelection by remember { mutableStateOf(modified.themeId.coerceIn(0, uiModes.size - 1)) }
+    val uiModes = stringArrayResource(R.array.ui_modes)
+    var uiSelection by remember { mutableIntStateOf(modified.themeId.coerceIn(0, uiModes.size - 1)) }
     var uiExpanded by remember { mutableStateOf(false) }
 
     Scaffold(

@@ -5,7 +5,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 
 import java.util.Locale
-import java.util.Objects.requireNonNull
 
 object DateUtils {
 
@@ -41,11 +40,10 @@ object DateUtils {
     fun isInInterval(low: Calendar, time: Calendar, high: Calendar): Boolean {
         // Bring timestamp with day_current + HH:mm => day_unixZero + HH:mm by parsing it again...
         val middle = Calendar.getInstance()
-        middle.time = requireNonNull(
-            getHourMinFormat().parse(
-                getHourMinFormat().format(time.time)
-            )
-        )
+        val parsed = getHourMinFormat().parse(
+            getHourMinFormat().format(time.time)
+        ) ?: return false
+        middle.time = parsed
 
         // CASE: If the end of our timespan is after midnight, add one day to the end date to get a proper span.
         if (high.before(low)) {

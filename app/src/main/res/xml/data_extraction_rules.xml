@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 12+ 备份规则：替代已废弃的 fullBackupContent。
+    允许云备份与设备间迁移的数据：
+    - SharedPreferences：WebApp 列表、全局设置、崩溃提示、更新检查等
+    - DataStore：错误日志、统计明细、Cookie 隔离快照
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="sharedpref" path="." />
+        <include domain="file" path="datastore/webnative_store.preferences_pb" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="device_sharedpref" path="." />
+        <include domain="device_file" path="datastore/webnative_store.preferences_pb" />
+    </device-transfer>
+</data-extraction-rules>

@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -104,7 +105,7 @@ class MainActivity : AppCompatActivity() {
                 val latestCrashTime = entries.filter { it.level == AppErrorEntry.LEVEL_CRASH }
                     .maxOfOrNull { it.time } ?: 0L
                 if (latestCrashTime > lastPrompted) {
-                    prefs.edit().putLong(KEY_LAST_PROMPTED_CRASH, latestCrashTime).apply()
+                    prefs.edit { putLong(KEY_LAST_PROMPTED_CRASH, latestCrashTime) }
                     runOnUiThread {
                         try {
                             AlertDialog.Builder(this@MainActivity)

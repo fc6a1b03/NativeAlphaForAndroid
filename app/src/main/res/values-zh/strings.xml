@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name" translatable="false">WebNative</string>
     <!-- Strings used for fragments for navigation -->
     <string name="global_settings">全局设置</string>
     <string name="these_settings_are_applied_globally_and_override_app_specific_settings">所有 Web App 的默认设置。应用跟随全局时继承这些值；一旦修改了某个应用的自身设置，该应用不再跟随全局，直到点击「同步全局设置」。</string>
@@ -7,7 +6,6 @@
     <string name="select_ui_mode">选择界面模式</string>
     <string name="save">保存</string>
     <string name="loading">加载中…</string>
-    <string name="loading_icon_and_website_title">正在加载图标和网站标题…</string>
     <!-- 添加向导 -->
     <string name="add_step_1">第 1 步 · 输入网站地址</string>
     <string name="add_step_2">第 2 步 · 确认名称与图标</string>
@@ -27,7 +25,6 @@
     <string name="accept_third_party_cookies">接受第三方 Cookies</string>
     <string name="clear_cache_after_usage">使用后清除缓存</string>
     <string name="re_create_shortcut">重新创建快捷方式</string>
-    <string name="url">URL</string>
     <string name="use_two_finger_swipes_for_browser_forward_and_backward_navigation">使用双指滑动进行浏览器前进/后退导航</string>
     <string-array name="ui_modes">
         <item>System default</item>
@@ -88,7 +85,9 @@
     <string name="webapp_section_cookies">Cookies 与广告</string>
     <string name="webapp_section_datasaving">数据节省</string>
     <string name="webapp_section_misc">其他</string>
-        <string name="import_success">成功恢复 %1$d 个 Web App。</string>
+        <plurals name="import_success">
+            <item quantity="other">成功恢复 %1$d 个 Web App。</item>
+        </plurals>
     <string name="import_failed">备份恢复失败。</string>
     <string name="export_failed">备份导出失败。</string>
     <string name="export_success">备份创建成功。</string>
@@ -154,6 +153,8 @@
     <string name="to_main_menu">主菜单</string>
     <string name="cancel">取消</string>
     <string name="ok">确定</string>
+    <string name="yes">是</string>
+    <string name="no">否</string>
     <string name="webview_activity_launch_failed">Web App 无法启动。</string>
     <string name="no_url_entered">未输入网址。</string>
     <string name="always_show_software_buttons">始终显示软件导航按钮</string>
@@ -196,9 +197,9 @@
     <string name="desc_open_external">其他域名的链接在外部浏览器打开。</string>
     <string name="desc_two_finger_zoom">启用双指捏合缩放手势。</string>
     <string name="text_zoom">字体大小</string>
-    <string name="desc_text_zoom">调整页面文字大小（50% ~ 200%）。</string>
+    <string name="desc_text_zoom" formatted="false">调整页面文字大小（50% ~ 200%）。</string>
     <string name="page_zoom">页面缩放</string>
-    <string name="desc_page_zoom">调整页面整体缩放比例（50% ~ 200%）。</string>
+    <string name="desc_page_zoom" formatted="false">调整页面整体缩放比例（50% ~ 200%）。</string>
     <string name="desc_standard_menu">使用系统文本选择菜单代替自定义菜单。</string>
     <string name="desc_media_background">应用退到后台时继续播放音视频。</string>
     <string name="desc_expert_settings">显示高级选项（起始 URL、UA、SSL）。</string>
@@ -249,7 +250,9 @@
     <string name="last_used">最近使用</string>
     <string name="suggestions_title">使用建议</string>
     <string name="suggestion_slow_load">平均加载 %1$s 偏慢，可在设置中尝试「桌面版请求」或检查网络</string>
-    <string name="suggestion_errors">已有 %1$d 次页面错误，建议查看下方错误日志定位问题</string>
+    <plurals name="suggestion_errors">
+        <item quantity="other">已有 %1$d 次页面错误，建议查看下方错误日志定位问题</item>
+    </plurals>
     <string name="suggestion_cache">HTTP 缓存已达 %1$s，可在下方清理释放空间</string>
     <string name="cache_cleared">缓存已清空</string>
     <string name="cache_clear_failed">清理失败，请重试</string>
@@ -294,7 +297,9 @@
     <string name="shortcut_key_label">主键: %1$s</string>
     <string name="shortcut_need_modifier">请至少选择一个修饰键</string>
     <string name="shortcut_bound">已绑定 %1$s</string>
-    <string name="shortcut_max_reached">每个应用最多 %1$d 个快捷键</string>
+    <plurals name="shortcut_max_reached">
+        <item quantity="other">每个应用最多 %1$d 个快捷键</item>
+    </plurals>
 
 <string name="load_count_times">%1$d次</string>
     <string name="shortcut_focus_hint">与电脑浏览器一致：先点击页面输入框聚焦，再发送快捷键</string>
@@ -310,7 +315,11 @@
     <string name="stats_clear">清空</string>
     <string name="stats_export">导出</string>
     <string name="stats_top_n_of">前%1$d条/共%2$d条</string>
-    <string name="stats_count_n">%1$d条</string>
-    <string name="stats_total_n_tap_detail">… 共%1$d条，点击行查看详情</string>
+    <plurals name="stats_count_n">
+        <item quantity="other">%1$d条</item>
+    </plurals>
+    <plurals name="stats_total_n_tap_detail">
+        <item quantity="other">… 共%1$d条，点击行查看详情</item>
+    </plurals>
     <string name="error_log_exported">错误日志已导出</string>
 </resources>

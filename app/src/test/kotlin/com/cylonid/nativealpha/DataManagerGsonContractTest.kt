@@ -79,10 +79,7 @@ class DataManagerGsonContractTest {
         assertEquals("about:blank", loaded.globalWebApp.baseUrl)
         assertEquals(Int.MAX_VALUE, loaded.globalWebApp.ID)
 
-        // DataManager.loadAppData 的防御逻辑仍保留：万一为 null（自定义 Gson 配置时）补默认
-        if (loaded.globalWebApp == null) {
-            loaded.globalWebApp = WebApp("about:blank", Int.MAX_VALUE)
-        }
+        // globalWebApp 有构造器默认值，Gson 缺失字段时会保留该默认值，不会为 null
         assertEquals("about:blank", loaded.globalWebApp.baseUrl)
     }
 

@@ -44,6 +44,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -65,6 +67,7 @@ import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.DateUtils
 import com.cylonid.nativealpha.util.StatsRecorder
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 // ===== 加载耗时分布分桶（统计页图表） =====
 /** 分桶边界（ms）：<1s / 1-2s / 2-3s / 3-5s / 5s+ */
@@ -107,7 +110,7 @@ fun WebAppStatsScreen(
     var showClearStatsDialog by remember { mutableStateOf(false) }
 
     // 加载该站错误日志（reloadKey 变化时重载——清理后触发刷新）
-    var reloadKey by remember { mutableStateOf(0) }
+    var reloadKey by remember { mutableIntStateOf(0) }
     // 分组展开状态（key=错误类型；默认全部收起——用户点击展开/收起）
     var expandedGroups by remember { mutableStateOf<Set<String>>(emptySet()) }
     LaunchedEffect(webapp.ID, reloadKey) {
@@ -322,7 +325,7 @@ fun WebAppStatsScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
-                                if (entries.size > 10) stringResource(R.string.stats_top_n_of, 10, entries.size) else stringResource(R.string.stats_count_n, entries.size),
+                                if (entries.size > 10) stringResource(R.string.stats_top_n_of, 10, entries.size) else pluralStringResource(R.plurals.stats_count_n, entries.size, entries.size),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -342,7 +345,7 @@ fun WebAppStatsScreen(
                             }
                             if (entries.size > 10) {
                                 Text(
-                                    stringResource(R.string.stats_total_n_tap_detail, entries.size),
+                                    pluralStringResource(R.plurals.stats_total_n_tap_detail, entries.size, entries.size),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(vertical = 4.dp)
@@ -555,7 +558,7 @@ private fun errorColor(type: String): Color = when (type) {
 @Composable
 private fun LoadTimeChart(webapp: WebApp) {
     // 真实分布：按耗时区间分桶（标签见常量），展示最近 20 次
-    val times = webapp.statLoadTimes ?: emptyList()
+    val times = webapp.statLoadTimes
     if (times.isEmpty()) return
     // 分桶：index 对应区间，值 = 次数（末桶为 5s+ 开区间）
     val buckets = IntArray(LOAD_TIME_BUCKET_MS.size)
@@ -617,8 +620,8 @@ private fun minLoadTime(webapp: WebApp): Long {
 private fun formatDuration(ms: Long): String {
     if (ms <= 0) return "—"
     return if (ms < 1000) "${ms}ms"
-    else if (ms < 60000) String.format("%.1fs", ms / 1000.0)
-    else String.format("%.1fm", ms / 60000.0)
+    else if (ms < 60000) String.format(Locale.getDefault(), "%.1fs", ms / 1000.0)
+    else String.format(Locale.getDefault(), "%.1fm", ms / 60000.0)
 }
 
 /** 字节格式化（B → KB → MB） */
@@ -626,8 +629,8 @@ private fun formatBytes(bytes: Long): String {
     if (bytes <= 0) return "0 B"
     return when {
         bytes < 1024 -> "$bytes B"
-        bytes < 1024 * 1024 -> String.format("%.1f KB", bytes / 1024.0)
-        else -> String.format("%.1f MB", bytes / 1024.0 / 1024.0)
+        bytes < 1024 * 1024 -> String.format(Locale.getDefault(), "%.1f KB", bytes / 1024.0)
+        else -> String.format(Locale.getDefault(), "%.1f MB", bytes / 1024.0 / 1024.0)
     }
 }
 
@@ -643,7 +646,11 @@ private fun buildSuggestions(context: Context, webapp: WebApp): List<String> {
         tips.add(context.getString(R.string.suggestion_slow_load, formatDuration(avgLoad)))
     }
     if (webapp.statErrors > SUGGEST_ERROR_COUNT) {
-        tips.add(context.getString(R.string.suggestion_errors, webapp.statErrors))
+        tips.add(
+            context.resources.getQuantityString(
+                R.plurals.suggestion_errors, webapp.statErrors, webapp.statErrors
+            )
+        )
     }
     if (webapp.statCacheHttpBytes > SUGGEST_CACHE_BYTES) {
         tips.add(context.getString(R.string.suggestion_cache, formatBytes(webapp.statCacheHttpBytes)))

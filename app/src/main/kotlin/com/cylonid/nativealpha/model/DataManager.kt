@@ -3,6 +3,7 @@ package com.cylonid.nativealpha.model
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
+import androidx.core.content.edit
 import android.view.Gravity
 import android.widget.Toast
 import com.cylonid.nativealpha.R
@@ -59,18 +60,13 @@ class DataManager private constructor() {
     }
 
     fun saveWebAppData() {
-        Utility.assertTrue(
-            App.getAppContext() != null,
-            "App.getAppContext() null before saving sharedpref"
-        )
-
         appdata = App.getAppContext()
             .getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE)
-        val editor = appdata!!.edit()
         val json = GSON.toJson(websites)
-        editor.putString(SHARED_PREF_WEBAPP_DATA, json)
-        editor.putInt(SHARED_PREF_MAX_ID, maxAssignedId)
-        editor.apply()
+        appdata!!.edit {
+            putString(SHARED_PREF_WEBAPP_DATA, json)
+            putInt(SHARED_PREF_MAX_ID, maxAssignedId)
+        }
     }
 
     fun getEulaData(): Boolean {
@@ -82,22 +78,16 @@ class DataManager private constructor() {
     }
 
     fun setEulaData(newValue: Boolean) {
-        generalInfo.edit().putBoolean(EULA_ACCEPTED, newValue).apply()
+        generalInfo.edit { putBoolean(EULA_ACCEPTED, newValue) }
     }
 
     fun setLastShownUpdate(newValue: Int) {
-        generalInfo.edit().putInt(LAST_SHOWN_UPDATE, newValue).apply()
+        generalInfo.edit { putInt(LAST_SHOWN_UPDATE, newValue) }
     }
 
     private val generalInfo: SharedPreferences
-        get() {
-            Utility.assertTrue(
-                App.getAppContext() != null,
-                "App.getAppContext() null before saving sharedpref"
-            )
-            return App.getAppContext()
-                .getSharedPreferences(GENERAL_INFO, Context.MODE_PRIVATE)
-        }
+        get() = App.getAppContext()
+            .getSharedPreferences(GENERAL_INFO, Context.MODE_PRIVATE)
 
     private fun checkIfWebAppIdsCollide(
         oldWebApps: ArrayList<WebApp>,
@@ -130,11 +120,6 @@ class DataManager private constructor() {
     fun loadAppData(force: Boolean) {
         if (dataLoaded && !force) return
 
-        Utility.assertTrue(
-            App.getAppContext() != null,
-            "App.getAppContext() null before loading sharedpref"
-        )
-
         // force 重读时复用已有 SharedPreferences 实例：apply() 已把新值写入内存，
         // 重新 getSharedPreferences 会从磁盘读，可能读到 apply 尚未落盘的旧数据。
         if (appdata == null) {
@@ -152,6 +137,9 @@ class DataManager private constructor() {
             if (newWebsites != null) {
                 checkIfWebAppIdsCollide(websites, newWebsites)
                 // 旧数据迁移（v2.1.23 前 displayName 字段）：用户改过的名字 → 迁移回 title
+                // Gson 不读 Kotlin 元数据，理论上数组元素可能为 null；当前类型已声明非空，
+                // 但保留 null 防御性检查可避免异常旧数据导致整批迁移崩溃。
+                @Suppress("SENSELESS_COMPARISON")
                 for (w in newWebsites) {
                     if (w != null && !w.legacyDisplayName.isNullOrEmpty()) {
                         w.title = w.legacyDisplayName!!
@@ -172,10 +160,6 @@ class DataManager private constructor() {
             val json = appdata!!.getString(SHARED_PREF_GLOBAL_SETTINGS, "")
             val loaded = GSON.fromJson<GlobalSettings?>(json, GlobalSettings::class.java)
             if (loaded != null) {
-                // 空值防护：JSON 缺失 globalWebApp 字段时 Gson 返回 null，补默认值防 NPE
-                if (loaded.globalWebApp == null) {
-                    loaded.globalWebApp = WebApp("about:blank", Int.MAX_VALUE)
-                }
                 _settings = loaded
                 assertGlobalWebappData()
             }
@@ -200,19 +184,14 @@ class DataManager private constructor() {
     }
 
     fun saveGlobalSettings() {
-        Utility.assertTrue(
-            App.getAppContext() != null,
-            "App.getAppContext() null before saving appdata to sharedpref"
-        )
-
         appdata = App.getAppContext()
             .getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE)
-        val editor = appdata!!.edit()
 
         val json = GSON.toJson(_settings)
-        editor.putString(SHARED_PREF_GLOBAL_SETTINGS, json)
-        editor.putBoolean(SHARED_PREF_GLOBAL_SETTINGS_JSON, true)
-        editor.apply()
+        appdata!!.edit {
+            putString(SHARED_PREF_GLOBAL_SETTINGS, json)
+            putBoolean(SHARED_PREF_GLOBAL_SETTINGS_JSON, true)
+        }
     }
 
     fun addWebsite(newSite: WebApp) {
@@ -268,16 +247,10 @@ class DataManager private constructor() {
                 merged.statFirstLoadedAt = webApp.statFirstLoadedAt
                 merged.statLastUsedAt = webApp.statLastUsedAt
                 // 加载耗时明细 + 发送计数（新统计字段，合并时保留）
-                if (webApp.statLoadTimes != null) {
-                    merged.statLoadTimes = ArrayList(webApp.statLoadTimes)
-                }
-                if (webApp.keyShortcutSendCounts != null) {
-                    merged.keyShortcutSendCounts = HashMap(webApp.keyShortcutSendCounts)
-                }
+                merged.statLoadTimes = ArrayList(webApp.statLoadTimes)
+                merged.keyShortcutSendCounts = HashMap(webApp.keyShortcutSendCounts)
                 // 组合快捷键不参与 copySettings 合并：从原对象复制（每站独立）
-                if (webApp.keyShortcuts != null) {
-                    merged.keyShortcuts = ArrayList(webApp.keyShortcuts)
-                }
+                merged.keyShortcuts = ArrayList(webApp.keyShortcuts)
                 merged
             } else {
                 webApp
@@ -395,9 +368,6 @@ class DataManager private constructor() {
                     saveWebAppData()
                 }
                 if (loadedSettings != null) {
-                    if (loadedSettings.globalWebApp == null) {
-                        loadedSettings.globalWebApp = WebApp("about:blank", Int.MAX_VALUE)
-                    }
                     _settings = loadedSettings
                     saveGlobalSettings()
                 }
