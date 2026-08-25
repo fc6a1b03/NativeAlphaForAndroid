@@ -765,8 +765,10 @@ class WebViewActivity : AppCompatActivity() {
                     val x = event.getX(0)
                     val y = event.getY(0)
                     // 合成流过滤：UP 后 <20ms 的 DOWN 是滚轮/注入产生的连续轻扫
-                    // （真实手指双击的 UP→DOWN 间隔 ≥30ms 人手极限）
-                    val isSynthetic = now - lastUpTime in 1 until 20
+                    // （真实手指双击的 UP→DOWN 间隔 ≥30ms 人手极限；实测合成流
+                    // 间隔可为 0/1/2/8ms——边界必须含 0）
+                    val sinceUp = now - lastUpTime
+                    val isSynthetic = lastUpTime > 0 && sinceUp < 20
                     if (!isSynthetic && now - lastDownTime < 250
                         && kotlin.math.abs(x - lastDownX) < 40
                         && kotlin.math.abs(y - lastDownY) < 40
