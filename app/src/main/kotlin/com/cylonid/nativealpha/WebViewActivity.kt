@@ -1029,27 +1029,35 @@ class WebViewActivity : AppCompatActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // 特性探测缓存（featXxx lazy）：内核能力进程内不变
-            val isForceDarkSupported = featForceDark
-            val isForceDarkStrategySupported = featForceDarkStrategy
             val isAlgorithmicDarkeningSupported = featAlgorithmicDarkening
 
             if (needsForcedDarkMode) {
                 wv!!.setBackgroundColor(Color.BLACK)
-                wv!!.setForceDarkAllowed(true)
                 delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_YES
-                if (isForceDarkSupported) {
-                    WebSettingsCompat.setForceDark(
-                        wv!!.settings, WebSettingsCompat.FORCE_DARK_ON
-                    )
-                }
-                if (isForceDarkStrategySupported) {
-                    WebSettingsCompat.setForceDarkStrategy(
-                        wv!!.settings,
-                        WebSettingsCompat.DARK_STRATEGY_PREFER_WEB_THEME_OVER_USER_AGENT_DARKENING
-                    )
-                }
-                if (isAlgorithmicDarkeningSupported) {
-                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, true)
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    // API 33+: setForceDark / setForceDarkStrategy / setForceDarkAllowed 已废弃且为 no-op
+                    if (isAlgorithmicDarkeningSupported) {
+                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, true)
+                    }
+                } else {
+                    val isForceDarkSupported = featForceDark
+                    val isForceDarkStrategySupported = featForceDarkStrategy
+                    wv!!.setForceDarkAllowed(true)
+                    if (isForceDarkSupported) {
+                        WebSettingsCompat.setForceDark(
+                            wv!!.settings, WebSettingsCompat.FORCE_DARK_ON
+                        )
+                    }
+                    if (isForceDarkStrategySupported) {
+                        WebSettingsCompat.setForceDarkStrategy(
+                            wv!!.settings,
+                            WebSettingsCompat.DARK_STRATEGY_PREFER_WEB_THEME_OVER_USER_AGENT_DARKENING
+                        )
+                    }
+                    if (isAlgorithmicDarkeningSupported) {
+                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, true)
+                    }
                 }
             } else {
                 delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
@@ -1065,19 +1073,28 @@ class WebViewActivity : AppCompatActivity() {
                 }
                 wv!!.setBackgroundColor(themeBg)
 
-                if (isForceDarkSupported) {
-                    WebSettingsCompat.setForceDark(
-                        wv!!.settings, WebSettingsCompat.FORCE_DARK_OFF
-                    )
-                }
-                if (isForceDarkStrategySupported) {
-                    WebSettingsCompat.setForceDarkStrategy(
-                        wv!!.settings,
-                        WebSettingsCompat.DARK_STRATEGY_WEB_THEME_DARKENING_ONLY
-                    )
-                }
-                if (isAlgorithmicDarkeningSupported) {
-                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, false)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    // API 33+: setForceDark / setForceDarkStrategy / setForceDarkAllowed 已废弃且为 no-op
+                    if (isAlgorithmicDarkeningSupported) {
+                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, false)
+                    }
+                } else {
+                    val isForceDarkSupported = featForceDark
+                    val isForceDarkStrategySupported = featForceDarkStrategy
+                    if (isForceDarkSupported) {
+                        WebSettingsCompat.setForceDark(
+                            wv!!.settings, WebSettingsCompat.FORCE_DARK_OFF
+                        )
+                    }
+                    if (isForceDarkStrategySupported) {
+                        WebSettingsCompat.setForceDarkStrategy(
+                            wv!!.settings,
+                            WebSettingsCompat.DARK_STRATEGY_WEB_THEME_DARKENING_ONLY
+                        )
+                    }
+                    if (isAlgorithmicDarkeningSupported) {
+                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv!!.settings, false)
+                    }
                 }
             }
         }
