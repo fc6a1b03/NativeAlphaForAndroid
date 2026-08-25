@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Android 8+ 安装 APK 更新需要该权限 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- WebView 相机/录音授权给站点（可选硬件，不强制要求设备有摄像头） -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -99,6 +101,15 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- 版本更新 APK 下载完成广播：DownloadManager 通知后自动触发安装 -->
+        <receiver
+            android:name="com.cylonid.nativealpha.util.UpdateChecker$DownloadCompleteReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

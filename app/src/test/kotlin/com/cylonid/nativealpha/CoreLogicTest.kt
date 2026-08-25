@@ -142,4 +142,51 @@ class CoreLogicTest {
         assertTrue(!result.contains("://"))
         assertTrue(!result.contains("."))
     }
+
+    // ---------- Shortcut parsing ----------
+
+    @Test
+    fun `parseShortcut parses multiple modifiers and key`() {
+        val result = WebViewActivity.parseShortcut("Ctrl+Shift+S")
+        assertNotNull(result)
+        assertEquals(true, result!!.ctrl)
+        assertEquals(true, result.shift)
+        assertEquals(false, result.alt)
+        assertEquals("S", result.key)
+    }
+
+    @Test
+    fun `parseShortcut parses single modifier and function key`() {
+        val result = WebViewActivity.parseShortcut("Alt+Enter")
+        assertNotNull(result)
+        assertEquals(false, result!!.ctrl)
+        assertEquals(false, result.shift)
+        assertEquals(true, result.alt)
+        assertEquals("Enter", result.key)
+    }
+
+    @Test
+    fun `parseShortcut returns null for bare plus sign`() {
+        // 旧数据/异常输入可能单独传入 "+"，必须避免当正则 compile 导致 crash
+        assertNull(WebViewActivity.parseShortcut("+"))
+    }
+
+    @Test
+    fun `parseShortcut returns null for empty string`() {
+        assertNull(WebViewActivity.parseShortcut(""))
+    }
+
+    @Test
+    fun `parseShortcut returns null for modifiers only`() {
+        assertNull(WebViewActivity.parseShortcut("Ctrl+Shift"))
+    }
+
+    @Test
+    fun `parseShortcut ignores empty segments from consecutive plus`() {
+        // "Ctrl++S" 中间的空段应被忽略，仍然识别 Ctrl+S
+        val result = WebViewActivity.parseShortcut("Ctrl++S")
+        assertNotNull(result)
+        assertEquals(true, result!!.ctrl)
+        assertEquals("S", result.key)
+    }
 }
