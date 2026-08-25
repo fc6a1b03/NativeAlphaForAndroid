@@ -240,30 +240,30 @@ class WebViewActivity : AppCompatActivity() {
     private val featAlgorithmicDarkening: Boolean by lazy {
         WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)
     }
-    private var wv: WebView? = null
-    private var progressBar: ProgressBar? = null
-    private var loadingAnimal: ImageView? = null
-    private var loadingBg: View? = null
+    internal var wv: WebView? = null
+    internal var progressBar: ProgressBar? = null
+    internal var loadingAnimal: ImageView? = null
+    internal var loadingBg: View? = null
 
     /** 加载页动物动画最长显示时间（ms）：站点自带 loader/慢加载站点不长期盖住 */
-    private val animalMaxShowMs = 3000L
+    internal val animalMaxShowMs = 3000L
 
     /** 动画显示起止计时（onProgressChanged 里判定短暂显示窗口用） */
-    private var pageLoadStartTime2 = 0L
-    private var currentlyReloading = true
-    private var mGeoPermissionRequestCallback: GeolocationPermissions.Callback? = null
-    private var mGeoPermissionRequestOrigin: String? = null
+    internal var pageLoadStartTime2 = 0L
+    internal var currentlyReloading = true
+    internal var mGeoPermissionRequestCallback: GeolocationPermissions.Callback? = null
+    internal var mGeoPermissionRequestOrigin: String? = null
     private var dlRequest: DownloadManager.Request? = null
-    private var customHeaders: Map<String, String>? = null
+    internal var customHeaders: Map<String, String>? = null
     var filePathCallback: ValueCallback<Array<Uri>>? = null
 
     private var quitOnNextBackpress = false
     private var reloadHandler: Handler? = null
-    private var webapp: WebApp? = null
-    private var urlOnFirstPageload = ""
+    internal var webapp: WebApp? = null
+    internal var urlOnFirstPageload = ""
 
     // 错误页重试目标（onReceivedError 主框架失败时记录，webnative://retry 用它重新加载）
-    private var retryUrl = ""
+    internal var retryUrl = ""
     private var fallbackToDefaultLongClickBehaviour = false
     private var mPopupMenu: PopupMenu? = null
 
@@ -274,21 +274,21 @@ class WebViewActivity : AppCompatActivity() {
     private var currentActionMode: ActionMode? = null
 
     // 权限审计：记录已发起过系统请求的权限（区分「首次请求」vs「永久拒绝」）
-    private val requestedPermissions = HashSet<String>()
+    internal val requestedPermissions = HashSet<String>()
 
     // 白屏检测：当前加载最后进度 + 进度推进时间戳（无推进超时判定白屏）
-    private var lastProgress = 0
-    private var lastProgressTime = 0L
+    internal var lastProgress = 0
+    internal var lastProgressTime = 0L
     private val blankScreenHandler = Handler()
 
     /** 长按检测（媒体保存菜单）：按下 600ms 无移动触发 */
     private val longPressHandler = Handler()
     private var longPressRunnable: Runnable? = null
     private val blankScreenCheck = Runnable { handleBlankScreen() }
-    private var pageLoadFinished = false
+    internal var pageLoadFinished = false
 
     // 统计埋点：页面加载开始时间（onPageStarted 到 onPageFinished 计算耗时）
-    private var pageLoadStartTime = 0L
+    internal var pageLoadStartTime = 0L
 
     /** 菜单中页面缩放预览值（保存时写回 webapp） */
     private var mMenuPageZoom = 100
@@ -456,7 +456,7 @@ class WebViewActivity : AppCompatActivity() {
                 windowInsets
             }
         }
-        webview.webViewClient = CustomBrowser()
+        webview.webViewClient = CustomBrowser(this)
         // ===== 安全加固（WebApp 设置项，默认全开） =====
         // 恶意网站防护：默认关（AGENTS.md 既有设计：用户可添加非 HTTPS 站点，按需开启）
         webview.settings.safeBrowsingEnabled = app.isSafeBrowsing
@@ -540,7 +540,7 @@ class WebViewActivity : AppCompatActivity() {
 
         customHeaders = initCustomHeaders(app.isSendSavedataRequest)
         loadURL(webview, url)
-        webview.webChromeClient = CustomWebChromeClient()
+        webview.webChromeClient = CustomWebChromeClient(this)
         webview.setDownloadListener { dlUrl, userAgent, contentDisposition, mimeType, _ ->
             if (mimeType == "application/pdf") {
                 val i = Intent(Intent.ACTION_VIEW)
@@ -1012,7 +1012,7 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     @SuppressLint("RequiresFeature")
-    private fun setDarkModeIfNeeded() {
+    internal fun setDarkModeIfNeeded() {
         if (webapp == null || wv == null) {
             return
         }
@@ -1081,7 +1081,7 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     /** 安全前进（WebView 状态异常时不崩溃——手势误触/内核态异常兜底） */
-    private fun safeGoForward() {
+    internal fun safeGoForward() {
         try {
             if (wv != null && wv!!.canGoForward()) wv!!.goForward()
         } catch (e: Exception) {
@@ -1090,7 +1090,7 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     /** 安全后退（WebView 状态异常时回落到系统返回） */
-    private fun safeBackPressed() {
+    internal fun safeBackPressed() {
         try {
             if (wv != null && wv!!.canGoBack()) {
                 wv!!.goBack()
@@ -1103,7 +1103,7 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     /** 安全刷新（reload 异常兜底） */
-    private fun safeReload() {
+    internal fun safeReload() {
         try {
             wv?.reload()
         } catch (e: Exception) {
@@ -1112,7 +1112,7 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     /** 启动加载页动物走路动画（ImageView + AnimationDrawable）+ 主题背景 */
-    private fun startLoadingAnimal() {
+    internal fun startLoadingAnimal() {
         try {
             if (loadingAnimal == null) return
             // 主题背景同步显示：加载期 WebView 内容未渲染，铺主题色防深色白屏
@@ -1132,7 +1132,7 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     /** 停止并隐藏加载页动物动画 + 主题背景 */
-    private fun stopLoadingAnimal() {
+    internal fun stopLoadingAnimal() {
         try {
             if (loadingBg != null && loadingBg!!.visibility != View.GONE) {
                 loadingBg!!.visibility = View.GONE
@@ -1199,7 +1199,7 @@ class WebViewActivity : AppCompatActivity() {
      * 必须在页面加载完成后调用才稳定（加载前设置对移动自适应页面无效）。
      * 不用 zoomBy：模拟捏合会触发缩放状态机，破坏 viewport 导致页面空白/布局错乱。
      */
-    private fun applyPageZoom() {
+    internal fun applyPageZoom() {
         if (wv == null || webapp == null) return
         val zoom = webapp!!.pageZoom
         wv!!.setInitialScale(zoom)
@@ -1340,7 +1340,7 @@ class WebViewActivity : AppCompatActivity() {
      * - 站点存储：WebStorage.getUsageForOrigin（localStorage/IndexedDB 等，回调异步补写）
      * 调用点：页面加载完成（onPageFinished）后，WebView 缓存已就绪。
      */
-    private fun recordCacheUsage() {
+    internal fun recordCacheUsage() {
         if (wv == null) return
         try {
             // HTTP 缓存：cacheDir 递归求和（IO 操作，放 StatsRecorder 线程避免主线程卡顿）
@@ -1395,7 +1395,7 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     /** 更新 WebApp 缓存统计字段（原对象，防合并副本覆盖；-1 表示该值待补/已统计，跳过） */
-    private fun updateStatsCache(httpBytes: Long, storeBytes: Long) {
+    internal fun updateStatsCache(httpBytes: Long, storeBytes: Long) {
         val original =
             DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true) ?: return
         if (httpBytes >= 0) original.statCacheHttpBytes = httpBytes
@@ -1410,7 +1410,7 @@ class WebViewActivity : AppCompatActivity() {
      * `isTrusted=true` 的 DOM 事件，严格校验可信度的页面（kimi code 等）也能收到。
      * 兜底：JS 合成 KeyboardEvent（isTrusted=false，部分页面忽略）。
      */
-    private fun sendShortcutToPage(shortcut: String?) {
+    internal fun sendShortcutToPage(shortcut: String?) {
         if (wv == null || shortcut.isNullOrEmpty()) return
         // 统计：记录发送次数（面板/统计页反馈）
         StatsRecorder.recordShortcutSent(webappID, shortcut)
@@ -1750,13 +1750,13 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     /** 是否已绑定的组合键 */
-    private fun isBoundShortcut(shortcut: String): Boolean {
+    internal fun isBoundShortcut(shortcut: String): Boolean {
         val w = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true)
         return w != null && w.keyShortcuts != null && w.keyShortcuts.contains(shortcut)
     }
 
     /** 构建组合键字符串（Ctrl+S / Ctrl+Shift+S） */
-    private fun buildShortcutString(ctrl: Boolean, shift: Boolean, alt: Boolean, key: String): String {
+    internal fun buildShortcutString(ctrl: Boolean, shift: Boolean, alt: Boolean, key: String): String {
         val sb = StringBuilder()
         if (ctrl) sb.append("Ctrl+")
         if (shift) sb.append("Shift+")
@@ -1848,7 +1848,7 @@ class WebViewActivity : AppCompatActivity() {
         return Collections.unmodifiableMap(extraHeaders)
     }
 
-    private fun loadURL(view: WebView, url: String) {
+    internal fun loadURL(view: WebView, url: String) {
         val webApp = DataManager.getInstance().getWebApp(webappID)
         if (webApp == null) {
             finish()
@@ -1880,7 +1880,7 @@ class WebViewActivity : AppCompatActivity() {
         }
     }
 
-    private fun hideSystemBars() {
+    internal fun hideSystemBars() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(false)
             val controller = window.insetsController
@@ -1903,7 +1903,7 @@ class WebViewActivity : AppCompatActivity() {
         }
     }
 
-    private fun showSystemBars() {
+    internal fun showSystemBars() {
         if (webapp!!.isShowFullscreen) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(true)
@@ -1946,7 +1946,7 @@ class WebViewActivity : AppCompatActivity() {
         }
     }
 
-    private fun enablePermissionBoolOnWebApp(successCallback: PermissionGrantedCallback) {
+    internal fun enablePermissionBoolOnWebApp(successCallback: PermissionGrantedCallback) {
         webapp!!.isOverrideGlobalSettings = true
         successCallback.execute()
         DataManager.getInstance().replaceWebApp(webapp!!)
@@ -1981,7 +1981,7 @@ class WebViewActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleGeoPermissionCallback(allow: Boolean) {
+    internal fun handleGeoPermissionCallback(allow: Boolean) {
         if (mGeoPermissionRequestCallback != null) {
             mGeoPermissionRequestCallback!!
                 .invoke(mGeoPermissionRequestOrigin, allow, false)
@@ -2011,14 +2011,14 @@ class WebViewActivity : AppCompatActivity() {
      * 只在新页面加载开始后计时，进度推进即重置；加载完成即取消。
      * AI 流式页进度持续推进（onProgressChanged 持续回调），不会误判。
      */
-    private fun scheduleBlankScreenCheck() {
+    internal fun scheduleBlankScreenCheck() {
         blankScreenHandler.removeCallbacks(blankScreenCheck)
         if (!pageLoadFinished) {
             blankScreenHandler.postDelayed(blankScreenCheck, Const.BLANK_SCREEN_TIMEOUT_MS.toLong())
         }
     }
 
-    private fun cancelBlankScreenCheck() {
+    internal fun cancelBlankScreenCheck() {
         blankScreenHandler.removeCallbacks(blankScreenCheck)
     }
 
@@ -2047,7 +2047,7 @@ class WebViewActivity : AppCompatActivity() {
      * 语言：跟随 LocaleUtils（zh/en）。
      * 字体/页面缩放：跟随当前生效配置（与页面同一套，不再有独立缩放）。
      */
-    private fun loadCustomErrorPage(code: String?, desc: String?) {
+    internal fun loadCustomErrorPage(code: String?, desc: String?) {
         if (wv == null) return
         try {
             // 缩放跟随生效配置（原固定 130 独立配置已废弃）
@@ -2069,7 +2069,7 @@ class WebViewActivity : AppCompatActivity() {
         }
     }
 
-    private fun showHttpAuthDialog(handler: HttpAuthHandler, host: String, realm: String) {
+    internal fun showHttpAuthDialog(handler: HttpAuthHandler, host: String, realm: String) {
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_http_auth, null)
         AlertDialog.Builder(this)
             .setView(view)
@@ -2086,559 +2086,6 @@ class WebViewActivity : AppCompatActivity() {
             .show()
     }
 
-    private inner class CustomWebChromeClient : WebChromeClient() {
-        private var mCustomView: View? = null
-        private var mCustomViewCallback: CustomViewCallback? = null
-        private var mOriginalOrientation = 0
-        private var mOriginalSystemUiVisibility = 0
-
-        override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-            // 统计埋点：页面 JS 错误（未捕获异常/语法错误走 console.error 上报）
-            if (consoleMessage != null
-                && consoleMessage.messageLevel() ==
-                ConsoleMessage.MessageLevel.ERROR
-            ) {
-                StatsRecorder.recordPageError(
-                    webappID, ErrorType.JS.name,
-                    ErrorType.JS.code,
-                    consoleMessage.message() ?: "JS error"
-                )
-            }
-            return false // 不阻断页面（仅采集）
-        }
-
-        private fun handlePermissionRequest(
-            resId: String,
-            currentState: Boolean,
-            androidPermissions: Array<String>,
-            requestCode: Int,
-            permissionsToGrant: MutableList<String>,
-            webkitPermission: Array<String>,
-            successCallback: PermissionGrantedCallback
-        ) {
-            val androidPermissionsMissing = areAndroidPermissionsMissing(androidPermissions)
-            if (currentState && androidPermissionsMissing) {
-                // 权限审计：区分「首次请求」vs「永久拒绝」（勾选"不再询问"）
-                // 全部权限都已请求过 + shouldShowRequestPermissionRationale=false → 永久拒绝，
-                // 不再重复弹系统框，引导用户去系统设置手动开启
-                val allRequested = androidPermissions.all { it in requestedPermissions }
-                if (allRequested) {
-                    var permanentlyDenied = false
-                    for (perm in androidPermissions) {
-                        if (ContextCompat.checkSelfPermission(
-                                this@WebViewActivity, perm
-                            ) != PackageManager.PERMISSION_GRANTED
-                            && !ActivityCompat.shouldShowRequestPermissionRationale(
-                                this@WebViewActivity, perm
-                            )
-                        ) {
-                            permanentlyDenied = true
-                            break
-                        }
-                    }
-                    if (permanentlyDenied) {
-                        handleGeoPermissionCallback(false)
-                        showPermissionPermanentlyDeniedDialog(resId)
-                        return
-                    }
-                }
-                androidPermissions.forEach { requestedPermissions.add(it) }
-                ActivityCompat.requestPermissions(
-                    this@WebViewActivity, androidPermissions, requestCode
-                )
-                return
-            }
-            if (currentState && !androidPermissionsMissing) {
-                permissionsToGrant.addAll(webkitPermission)
-                handleGeoPermissionCallback(true)
-                return
-            }
-
-            AlertDialog.Builder(this@WebViewActivity)
-                .setTitle(getPermissionRequestStringResource("dialog_permission_", resId, "_title"))
-                .setMessage(getPermissionRequestStringResource("dialog_permission_", resId, "_txt"))
-                .setPositiveButton(android.R.string.yes) { _, _ ->
-                    enablePermissionBoolOnWebApp(successCallback)
-                    handleGeoPermissionCallback(true)
-                    permissionsToGrant.addAll(webkitPermission)
-                    if (androidPermissionsMissing) {
-                        ActivityCompat.requestPermissions(
-                            this@WebViewActivity, androidPermissions, requestCode
-                        )
-                    }
-                }
-                .setNegativeButton(android.R.string.no) { _, _ -> handleGeoPermissionCallback(false) }
-                .create()
-                .show()
-        }
-
-        private fun getPermissionRequestStringResource(
-            prefix: String, variable: String, suffix: String
-        ): String {
-            return getString(
-                this@WebViewActivity.resources.getIdentifier(
-                    prefix + variable + suffix, "string", this@WebViewActivity.packageName
-                )
-            )
-        }
-
-        private fun areAndroidPermissionsMissing(androidPermissions: Array<String>): Boolean {
-            for (perm in androidPermissions) {
-                if (ContextCompat.checkSelfPermission(
-                        this@WebViewActivity, perm
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    return true
-                }
-            }
-            return false
-        }
-
-        /**
-         * 权限被永久拒绝：不再重复弹系统框，提示用户去系统设置手动开启。
-         */
-        private fun showPermissionPermanentlyDeniedDialog(resId: String) {
-            val title = getPermissionRequestStringResource("dialog_permission_", resId, "_title")
-            AlertDialog.Builder(this@WebViewActivity)
-                .setTitle(title)
-                .setMessage(getString(R.string.permission_permanently_denied_msg, title))
-                .setPositiveButton(getString(R.string.permission_go_to_settings)) { _, _ ->
-                    try {
-                        val intent = Intent(
-                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.parse("package:" + packageName)
-                        )
-                        startActivity(intent)
-                    } catch (ignored: Exception) {
-                        // 无设置页可跳时静默（不影响主功能）
-                    }
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .create()
-                .show()
-        }
-
-        override fun onShowFileChooser(
-            webView: WebView?,
-            pFilePathCallback: ValueCallback<Array<Uri>>,
-            fileChooserParams: FileChooserParams
-        ): Boolean {
-            filePathCallback = pFilePathCallback
-            return try {
-                val intent = fileChooserParams.createIntent()
-                startActivityForResult(intent, Const.CODE_OPEN_FILE)
-                true
-            } catch (e: Exception) {
-                NotificationUtils.showInfoSnackbar(
-                    this@WebViewActivity, getString(R.string.no_filemanager),
-                    Snackbar.LENGTH_LONG
-                )
-                e.printStackTrace()
-                true
-            }
-        }
-
-        override fun getDefaultVideoPoster(): Bitmap {
-            val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            canvas.drawARGB(0, 0, 0, 0)
-            return bitmap
-        }
-
-        override fun onHideCustomView() {
-            (window.decorView as FrameLayout).removeView(this.mCustomView)
-            this.mCustomView = null
-            window.decorView.systemUiVisibility = this.mOriginalSystemUiVisibility
-            setRequestedOrientation(this.mOriginalOrientation)
-            this.mCustomViewCallback!!.onCustomViewHidden()
-            this.mCustomViewCallback = null
-            showSystemBars()
-        }
-
-        override fun onShowCustomView(pView: View, pViewCallback: CustomViewCallback) {
-            if (this.mCustomView != null) {
-                onHideCustomView()
-                return
-            }
-            this.mCustomView = pView
-            this.mOriginalSystemUiVisibility = window.decorView.systemUiVisibility
-            this.mOriginalOrientation = requestedOrientation
-            this.mCustomViewCallback = pViewCallback
-            (window.decorView as FrameLayout)
-                .addView(this.mCustomView, FrameLayout.LayoutParams(-1, -1))
-            hideSystemBars()
-        }
-
-        override fun onPermissionRequest(request: PermissionRequest) {
-            val permissionsToGrant = ArrayList<String>()
-
-            val containsDrmRequest = request.resources
-                .contains(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)
-            val containsCameraRequest = request.resources
-                .contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-            val containsMicrophoneRequest = request.resources
-                .contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-
-            if (containsDrmRequest) {
-                this.handlePermissionRequest(
-                    "drm", webapp!!.isDrmAllowed, arrayOf(), -1, permissionsToGrant,
-                    arrayOf(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)
-                ) { webapp!!.isDrmAllowed = true }
-            }
-            if (containsCameraRequest) {
-                this.handlePermissionRequest(
-                    "camera", webapp!!.isCameraPermission,
-                    arrayOf(Manifest.permission.CAMERA), Const.PERMISSION_CAMERA,
-                    permissionsToGrant, arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-                ) { webapp!!.isCameraPermission = true }
-            }
-
-            if (containsMicrophoneRequest) {
-                this.handlePermissionRequest(
-                    "microphone", webapp!!.isMicrophonePermission,
-                    arrayOf(
-                        Manifest.permission.RECORD_AUDIO,
-                        Manifest.permission.MODIFY_AUDIO_SETTINGS
-                    ),
-                    Const.PERMISSION_AUDIO, permissionsToGrant,
-                    arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-                ) { webapp!!.isMicrophonePermission = true }
-            }
-
-            request.grant(permissionsToGrant.toTypedArray())
-        }
-
-        override fun onProgressChanged(view: WebView?, progress: Int) {
-            // 白屏检测：记录进度推进（用于 20s 无推进超时判定）
-            if (progress > lastProgress) {
-                lastProgress = progress
-                lastProgressTime = System.currentTimeMillis()
-                // 进度有推进 → 重新计时（每次推进重置 20s）
-                scheduleBlankScreenCheck()
-            }
-
-            // 加载动画：独立于进度条显示开关——页面加载期短暂展示（站点 loader 接管前撤）：
-            // - progress < 100（整段加载）
-            // - 距加载开始 < ANIMAL_MAX_SHOW_MS（避免长期盖住带自带 loader 的慢站）
-            // 注意：放进度条判断外，用户未开启进度条时动画依然可见（此前默认关闭进度条导致动画不显示）
-            if (progress < 100 && loadingAnimal != null) {
-                // 距加载开始时间（首次 onPageStarted 前 pageLoadStartTime2=0 → 视为 0 刚从窗口内开始）
-                val elapsed = if (pageLoadStartTime2 == 0L) 0L
-                else System.currentTimeMillis() - pageLoadStartTime2
-                if (elapsed < animalMaxShowMs) {
-                    startLoadingAnimal()
-                } else {
-                    stopLoadingAnimal()
-                }
-            } else {
-                stopLoadingAnimal()
-            }
-
-            if (DataManager.getInstance().settings.isShowProgressbar || currentlyReloading) {
-                if (progressBar!!.visibility == ProgressBar.GONE && progress < 100) {
-                    progressBar!!.visibility = ProgressBar.VISIBLE
-                }
-
-                // 平滑过渡（150ms），避免进度跳变
-                progressBar!!.setProgress(progress, true)
-
-                if (progress == 100) {
-                    progressBar!!.visibility = ProgressBar.GONE
-                    currentlyReloading = false
-                    stopLoadingAnimal()
-                }
-            }
-        }
-
-        override fun onGeolocationPermissionsShowPrompt(
-            origin: String,
-            callback: GeolocationPermissions.Callback
-        ) {
-            mGeoPermissionRequestCallback = callback
-            mGeoPermissionRequestOrigin = origin
-            this.handlePermissionRequest(
-                "location", webapp!!.isAllowLocationAccess,
-                arrayOf(
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ),
-                Const.PERMISSION_RC_LOCATION, ArrayList(),
-                arrayOf()
-            ) { webapp!!.isAllowLocationAccess = true }
-        }
-    }
-
-    private inner class CustomBrowser : WebViewClient() {
-
-        override fun onReceivedHttpAuthRequest(
-            view: WebView,
-            handler: HttpAuthHandler,
-            host: String,
-            realm: String
-        ) {
-            showHttpAuthDialog(handler, host, realm)
-        }
-
-        override fun onPageFinished(view: WebView, url: String) {
-            // 加载完成：取消白屏检测（避免误判）
-            pageLoadFinished = true
-            cancelBlankScreenCheck()
-            // 页面加载完成：隐藏加载页动物动画
-            stopLoadingAnimal()
-            // 统计埋点：主体加载耗时（started 到 finished）
-            if (pageLoadStartTime > 0) {
-                StatsRecorder.recordPageLoaded(
-                    webappID, System.currentTimeMillis() - pageLoadStartTime
-                )
-                pageLoadStartTime = 0
-            }
-            // 统计埋点：缓存占用（cacheDir + WebStorage，异步不阻塞）
-            recordCacheUsage()
-            if (url == "about:blank") {
-                loadCustomErrorPage("blank", "")
-            }
-            wv!!.evaluateJavascript(
-                "document.addEventListener(\"visibilitychange\"," +
-                    "function (event) {event.stopImmediatePropagation();},true);", null
-            )
-            // 移除图片 title/alt 属性（防止 WebView 查看图片时显示图片名浮层遮挡）。
-            // MutationObserver 持续清除（SPA 动态图片）；busy 标志防递归
-            // （clean 修改属性会再触发 observer）
-            wv!!.evaluateJavascript(
-                "(function(){"
-                    + "var busy=false;"
-                    + "var clean=function(){"
-                    + "if(busy)return;busy=true;"
-                    + "document.querySelectorAll('img').forEach(function(i){i.removeAttribute('title');i.removeAttribute('alt');});"
-                    + "busy=false;"
-                    + "};"
-                    + "clean();"
-                    + "var mo=new MutationObserver(function(){clean();});"
-                    + "mo.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['title','alt']});"
-                    + "})()",
-                null
-            )
-            // 页面缩放：zoomBy 模拟捏合（对移动版自适应页面可靠）
-            applyPageZoom()
-            super.onPageFinished(view, url)
-        }
-
-        override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
-            // 新页面加载：重置白屏检测（进度从 0 重新计时）
-            pageLoadFinished = false
-            lastProgress = 0
-            lastProgressTime = System.currentTimeMillis()
-            // 加载动画计时起点（短暂显示窗口判定）
-            pageLoadStartTime2 = System.currentTimeMillis()
-            scheduleBlankScreenCheck()
-            // 统计埋点：记录加载开始时间
-            pageLoadStartTime = System.currentTimeMillis()
-            super.onPageStarted(view, url, favicon)
-        }
-
-        override fun onReceivedError(
-            view: WebView,
-            request: WebResourceRequest,
-            error: WebResourceError?
-        ) {
-            super.onReceivedError(view, request, error)
-            // 仅主框架错误处理（子资源错误不统计防噪音）
-            if (request.isForMainFrame) {
-                val code = error?.errorCode?.toString() ?: "unknown"
-                val desc = error?.description?.toString() ?: ""
-                // 统计埋点：记录页面错误
-                StatsRecorder.recordPageError(webappID, ErrorType.NETWORK.name, code, desc)
-                // 记录重试目标 + 加载自定义错误页（不显示系统默认白屏）
-                retryUrl = request.url?.toString() ?: urlOnFirstPageload
-                loadCustomErrorPage(code, desc)
-            }
-        }
-
-        override fun onReceivedHttpError(
-            view: WebView,
-            request: WebResourceRequest,
-            errorResponse: WebResourceResponse
-        ) {
-            super.onReceivedHttpError(view, request, errorResponse)
-            // 统计埋点：HTTP 状态码错误（主框架）
-            if (request.isForMainFrame) {
-                StatsRecorder.recordPageError(
-                    webappID, ErrorType.HTTP.name,
-                    errorResponse.statusCode.toString(),
-                    "HTTP error"
-                )
-            }
-        }
-
-        override fun onRenderProcessGone(
-            view: WebView,
-            detail: RenderProcessGoneDetail
-        ): Boolean {
-            // 渲染进程崩溃/OOM：避免整个应用崩溃，提示用户并关闭页面
-            StatsRecorder.recordPageError(
-                webappID, ErrorType.RENDER.name,
-                ErrorType.RENDER.code, "Render process gone"
-            )
-            runOnUiThread {
-                NotificationUtils.showInfoSnackbar(
-                    this@WebViewActivity,
-                    getString(R.string.render_process_gone),
-                    Snackbar.LENGTH_LONG
-                )
-                finish()
-            }
-            return true // 已处理，阻止系统终止应用
-        }
-
-        @Nullable
-        override fun shouldInterceptRequest(
-            view: WebView,
-            request: WebResourceRequest
-        ): WebResourceResponse? {
-            if (urlOnFirstPageload == "") urlOnFirstPageload = request.url.toString()
-
-            if (webapp!!.isBlockThirdPartyRequests) {
-                val uri = request.url
-                val webappUri = Uri.parse(webapp!!.baseUrl)
-
-                if (uri.host != null) {
-                    if (!uri.host!!.endsWith(webappUri.host!!)) {
-                        return WebResourceResponse("text/plain", "utf-8", null)
-                    }
-                }
-            }
-            return super.shouldInterceptRequest(view, request)
-        }
-
-        override fun onReceivedSslError(
-            view: WebView,
-            handler: SslErrorHandler,
-            error: SslError
-        ) {
-            // This option is hidden in "expert settings"
-            if (webapp!!.isIgnoreSslErrors) {
-                handler.proceed()
-                return
-            }
-
-            // 统计埋点：SSL 错误
-            StatsRecorder.recordPageError(
-                webappID, ErrorType.SSL.name,
-                error.primaryError.toString(), "SSL error"
-            )
-
-            val builder = AlertDialog.Builder(this@WebViewActivity)
-
-            var message = getString(R.string.ssl_error_msg_line1) + " "
-            when (error.primaryError) {
-                SslError.SSL_UNTRUSTED ->
-                    message += getString(R.string.ssl_error_unknown_authority) + "\n"
-                SslError.SSL_EXPIRED ->
-                    message += getString(R.string.ssl_error_expired) + "\n"
-                SslError.SSL_IDMISMATCH ->
-                    message += getString(R.string.ssl_error_id_mismatch) + "\n"
-                SslError.SSL_NOTYETVALID ->
-                    message += getString(R.string.ssl_error_notyetvalid) + "\n"
-            }
-            message += getString(R.string.ssl_error_msg_line2) + "\n"
-
-            builder.setTitle(getString(R.string.ssl_error_title))
-            builder.setMessage(message)
-            builder.setIcon(android.R.drawable.ic_dialog_alert)
-            builder.setPositiveButton(getString(android.R.string.cancel)) { _, _ -> handler.cancel() }
-            builder.setNegativeButton(getString(R.string.load_anyway)) { _, _ -> handler.proceed() }
-            val dialog = builder.create()
-            dialog.show()
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-                .setTextColor(
-                    ContextCompat.getColor(
-                        this@WebViewActivity, android.R.color.holo_red_dark
-                    )
-                )
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setTextColor(
-                    ContextCompat.getColor(
-                        this@WebViewActivity, android.R.color.holo_green_dark
-                    )
-                )
-        }
-
-        override fun onLoadResource(view: WebView, url: String) {
-            super.onLoadResource(view, url)
-
-            val webapp = DataManager.getInstance().getWebApp(webappID)
-            if (webapp != null && webapp.isRequestDesktop) {
-                view.evaluateJavascript(
-                    """
-                    var needsForcedWidth = document.documentElement.clientWidth < 1200;
-                    if(needsForcedWidth) {
-                      document.querySelector('meta[name="viewport"]').setAttribute('content', 'width=1200px, initial-scale=' + (document.documentElement.clientWidth / 1200));
-                    }
-                    """.trimIndent(),
-                    null
-                )
-            }
-            view.evaluateJavascript(
-                "document.addEventListener(    \"visibilitychange\"    , (event) => {         event.stopImmediatePropagation();    }  );",
-                null
-            )
-        }
-
-        override fun shouldOverrideUrlLoading(
-            view: WebView,
-            request: WebResourceRequest
-        ): Boolean {
-            runOnUiThread { setDarkModeIfNeeded() }
-            val url = request.url.toString()
-            val webapp = DataManager.getInstance().getWebApp(webappID)
-
-            if (url.startsWith("tel:")) {
-                val intent = Intent(Intent.ACTION_DIAL, Uri.parse(url))
-                startActivity(intent)
-                return true
-            }
-            if (url.startsWith("mailto:")) {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                startActivity(intent)
-                return true
-            }
-
-            // 错误页重试：重新加载失败时的原地址（恢复用户 textZoom）
-            if (url.startsWith("webnative://retry")) {
-                if (retryUrl.isNotEmpty() && wv != null) {
-                    wv!!.settings.textZoom = webapp!!.textZoom
-                    wv!!.loadUrl(retryUrl)
-                }
-                return true
-            }
-
-            // 非 http/https 协议（tbopen://、weixin:// 等 App 唤起协议）：
-            // 交给系统处理（可唤起对应 App），避免 ERR_UNKNOWN_URL_SCHEME 错误页
-            if (!url.startsWith("http://") && !url.startsWith("https://")) {
-                try {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    // 无对应 App：留在当前页不崩溃
-                }
-                return true
-            }
-
-            if (webapp == null) {
-                return false
-            }
-
-            if (webapp.isOpenUrlExternal) {
-                val baseUrl = webapp.baseUrl
-                val uri = Uri.parse(baseUrl)
-                val host = uri.host
-                if (!url.contains(host!!)) {
-                    view.context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                    return true
-                }
-            }
-            loadURL(view, url)
-            return true
-        }
-    }
+// ChromeClient/BrowserClient 已拆出（R3）：
+// WebViewChromeClient.kt / WebViewBrowserClient.kt（host 注入，行为零变更）
 }
