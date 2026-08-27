@@ -83,6 +83,7 @@ import androidx.webkit.WebViewFeature
 import com.cylonid.nativealpha.helper.IconPopupMenuHelper
 import com.cylonid.nativealpha.helper.WebViewGestureHelper
 import com.cylonid.nativealpha.helper.WebViewTouchHandler
+import com.cylonid.nativealpha.helper.WebViewShortcutInjectHelper
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.model.WebApp
@@ -241,6 +242,9 @@ class WebViewActivity : AppCompatActivity() {
     /** 长按检测（媒体保存菜单）：按下 600ms 无移动触发 */
     /** 触摸手势处理器（P3 第一刀迁移 helper/WebViewTouchHandler） */
     internal val touchHandler = WebViewTouchHandler(this)
+
+    /** 组合键注入处理器（P3 第三刀迁移 helper/WebViewShortcutInjectHelper） */
+    internal val shortcutHelper = WebViewShortcutInjectHelper(this)
     private val blankScreenCheck = Runnable { handleBlankScreen() }
     internal var pageLoadFinished = false
 
@@ -902,7 +906,7 @@ class WebViewActivity : AppCompatActivity() {
             webappID
         ) { shortcut ->
             // 发送组合键到当前页面（JS 合成 KeyboardEvent）
-            sendShortcutToPage(shortcut)
+            shortcutHelper.sendShortcutToPage(shortcut)
             Unit
         }
     }
@@ -990,122 +994,6 @@ class WebViewActivity : AppCompatActivity() {
      * `isTrusted=true` 的 DOM 事件，严格校验可信度的页面（kimi code 等）也能收到。
      * 兜底：JS 合成 KeyboardEvent（isTrusted=false，部分页面忽略）。
      */
-    internal fun sendShortcutToPage(shortcut: String?) {
-        if (wv == null || shortcut.isNullOrEmpty()) return
-        // 统计：记录发送次数（面板/统计页反馈）
-        StatsRecorder.recordShortcutSent(webappID, shortcut)
-        // 解析组合键 → keyCode + metaState（按字面量 "+" 分割，避免正则 crash）
-        val parsed = parseShortcut(shortcut) ?: return
-        val keyCode = keyCodeOf(parsed.key)
-        if (keyCode == KeyEvent.KEYCODE_UNKNOWN) return
-        val metaState = (if (parsed.ctrl) KeyEvent.META_CTRL_ON else 0) or
-            (if (parsed.shift) KeyEvent.META_SHIFT_ON else 0) or
-            (if (parsed.alt) KeyEvent.META_ALT_ON else 0)
-
-        // 方案一：JS 合成 KeyboardEvent（主方案——kimi code 源码确认不校验 isTrusted）
-        // 带 code 字段（CodeMirror 类编辑器按 e.code 匹配）+ 聚焦输入框（target 正确）
-        injectJsWithFocus(parsed.ctrl, parsed.shift, parsed.alt, parsed.key)
-        // 方案二：注入真实 KeyEvent（补充——对校验 isTrusted 的站点生效）
-        // 保持当前页面焦点（不强行聚焦输入框——兼容多种网页）
-        try {
-            wv!!.requestFocus()
-            val now = SystemClock.uptimeMillis()
-            val down = KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, metaState)
-            val up = KeyEvent(now, now + 50, KeyEvent.ACTION_UP, keyCode, 0, metaState)
-            wv!!.dispatchKeyEvent(down)
-            wv!!.dispatchKeyEvent(up)
-        } catch (ignored: Exception) {
-            // KeyEvent 注入失败静默（JS 合成已发）
-        }
-    }
-
-    /**
-     * JS 合成 + 聚焦输入框：先聚焦页面输入框（kimi code 的 inject 需输入框有焦点），
-     * 再向 activeElement 派发带 code 的 KeyboardEvent（CodeMirror 按 e.code 匹配）。
-     */
-    private fun injectJsWithFocus(ctrl: Boolean, shift: Boolean, alt: Boolean, key: String) {
-        // 聚焦脚本：当前焦点是 body 时聚焦第一个输入框（textarea/contenteditable/input）
-        val focusJs = "(function(){var t=document.activeElement;" +
-            "if(!t||t===document.body){" +
-            "var els=document.querySelectorAll('textarea,[contenteditable=true],input[type=text],input:not([type])');" +
-            "if(els.length>0)els[0].focus();" +
-            "}return true;})()"
-        try {
-            wv!!.evaluateJavascript(focusJs) { _ ->
-                injectJsFallback(ctrl, shift, alt, key)
-            }
-        } catch (ignored: Exception) {
-            injectJsFallback(ctrl, shift, alt, key)
-        }
-    }
-
-    /** JS 合成 KeyboardEvent（kimi code 等不校验 isTrusted，合成事件可收到） */
-    private fun injectJsFallback(ctrl: Boolean, shift: Boolean, alt: Boolean, key: String) {
-        val jsKey = if (shift) key.uppercase(Locale.US) else key.lowercase(Locale.US)
-        // code 字段：CodeMirror 类编辑器按 e.code（KeyS）匹配，必须带上
-        val jsCode = keyCodeToJsCode(key)
-        val js = "var t=document.activeElement||document.body;" +
-            "t.dispatchEvent(new KeyboardEvent('keydown',{key:'" + jsKey + "',code:'" + jsCode +
-            "',ctrlKey:" + ctrl + ",shiftKey:" + shift + ",altKey:" + alt +
-            ",bubbles:true,cancelable:true}));" +
-            "t.dispatchEvent(new KeyboardEvent('keyup',{key:'" + jsKey + "',code:'" + jsCode +
-            "',ctrlKey:" + ctrl + ",shiftKey:" + shift + ",altKey:" + alt +
-            ",bubbles:true,cancelable:true}));"
-        try {
-            wv?.evaluateJavascript(js, null)
-        } catch (ignored: Exception) {
-            // JS 注入失败静默
-        }
-    }
-
-    /** 主键 → JS KeyboardEvent.code（KeyA..KeyZ / Digit0..9 / F1..F12 / Enter / Space / Tab / Backspace） */
-    private fun keyCodeToJsCode(key: String): String {
-        if (key.length == 1) {
-            val c = key[0]
-            if (c in 'A'..'Z') return "Key" + c
-            if (c in 'a'..'z') return "Key" + c.uppercaseChar()
-            if (c in '0'..'9') return "Digit" + c
-        }
-        return when (key) {
-            "Enter" -> "Enter"
-            "Space" -> "Space"
-            "Tab" -> "Tab"
-            "Backspace" -> "Backspace"
-            "F1", "F2", "F3", "F4", "F5", "F6",
-            "F7", "F8", "F9", "F10", "F11", "F12" -> key
-            else -> ""
-        }
-    }
-
-    /** 组合键主键字符串 → Android KeyCode（A-Z / 0-9 / F1-F12 / Enter / Space / Tab / Backspace） */
-    private fun keyCodeOf(key: String): Int {
-        if (key.length == 1) {
-            val c = key[0]
-            if (c in 'A'..'Z') return KeyEvent.KEYCODE_A + (c - 'A')
-            if (c in 'a'..'z') return KeyEvent.KEYCODE_A + (c - 'a')
-            if (c in '0'..'9') return KeyEvent.KEYCODE_0 + (c - '0')
-        }
-        return when (key) {
-            "Enter" -> KeyEvent.KEYCODE_ENTER
-            "Space" -> KeyEvent.KEYCODE_SPACE
-            "Tab" -> KeyEvent.KEYCODE_TAB
-            "Backspace" -> KeyEvent.KEYCODE_DEL
-            "F1" -> KeyEvent.KEYCODE_F1
-            "F2" -> KeyEvent.KEYCODE_F2
-            "F3" -> KeyEvent.KEYCODE_F3
-            "F4" -> KeyEvent.KEYCODE_F4
-            "F5" -> KeyEvent.KEYCODE_F5
-            "F6" -> KeyEvent.KEYCODE_F6
-            "F7" -> KeyEvent.KEYCODE_F7
-            "F8" -> KeyEvent.KEYCODE_F8
-            "F9" -> KeyEvent.KEYCODE_F9
-            "F10" -> KeyEvent.KEYCODE_F10
-            "F11" -> KeyEvent.KEYCODE_F11
-            "F12" -> KeyEvent.KEYCODE_F12
-            else -> KeyEvent.KEYCODE_UNKNOWN
-        }
-    }
-
     @SuppressLint("NonConstantResourceId")
     private fun showWebViewPopupMenu() {
         val center = findViewById<View>(R.id.anchorCenterScreen)
@@ -1303,64 +1191,18 @@ class WebViewActivity : AppCompatActivity() {
             val keyCode = event.keyCode
             // 仅捕获组合键（Ctrl/Shift/Alt 单独按下不处理）
             if (ctrl || shift || alt) {
-                val key = keyCodeToChar(keyCode, shift)
+                val key = shortcutHelper.keyCodeToChar(keyCode, shift)
                 if (key != null) {
-                    val shortcut = buildShortcutString(ctrl, shift, alt, key)
+                    val shortcut = shortcutHelper.buildShortcutString(ctrl, shift, alt, key)
                     // 已绑定快捷键：拦截发送（不触发浏览器默认）
-                    if (isBoundShortcut(shortcut)) {
-                        sendShortcutToPage(shortcut)
+                    if (shortcutHelper.isBoundShortcut(shortcut)) {
+                        shortcutHelper.sendShortcutToPage(shortcut)
                         return true
                     }
                 }
             }
         }
         return super.dispatchKeyEvent(event)
-    }
-
-    /** 是否已绑定的组合键 */
-    internal fun isBoundShortcut(shortcut: String): Boolean {
-        val w = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true)
-        return w != null && w.keyShortcuts.contains(shortcut)
-    }
-
-    /** 构建组合键字符串（Ctrl+S / Ctrl+Shift+S） */
-    internal fun buildShortcutString(ctrl: Boolean, shift: Boolean, alt: Boolean, key: String): String {
-        val sb = StringBuilder()
-        if (ctrl) sb.append("Ctrl+")
-        if (shift) sb.append("Shift+")
-        if (alt) sb.append("Alt+")
-        sb.append(key)
-        return sb.toString()
-    }
-
-    /** keyCode → 字符（字母/数字/功能键） */
-    private fun keyCodeToChar(keyCode: Int, shift: Boolean): String? {
-        if (keyCode in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z) {
-            val c = 'a' + (keyCode - KeyEvent.KEYCODE_A)
-            return if (shift) c.uppercaseChar().toString() else c.toString()
-        }
-        if (keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) {
-            return ('0' + (keyCode - KeyEvent.KEYCODE_0)).toString()
-        }
-        return when (keyCode) {
-            KeyEvent.KEYCODE_F1 -> "F1"
-            KeyEvent.KEYCODE_F2 -> "F2"
-            KeyEvent.KEYCODE_F3 -> "F3"
-            KeyEvent.KEYCODE_F4 -> "F4"
-            KeyEvent.KEYCODE_F5 -> "F5"
-            KeyEvent.KEYCODE_F6 -> "F6"
-            KeyEvent.KEYCODE_F7 -> "F7"
-            KeyEvent.KEYCODE_F8 -> "F8"
-            KeyEvent.KEYCODE_F9 -> "F9"
-            KeyEvent.KEYCODE_F10 -> "F10"
-            KeyEvent.KEYCODE_F11 -> "F11"
-            KeyEvent.KEYCODE_F12 -> "F12"
-            KeyEvent.KEYCODE_ENTER -> "Enter"
-            KeyEvent.KEYCODE_SPACE -> " "
-            KeyEvent.KEYCODE_TAB -> "Tab"
-            KeyEvent.KEYCODE_DEL -> "Backspace"
-            else -> null
-        }
     }
 
     /**
