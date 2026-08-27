@@ -46,6 +46,12 @@ class WebViewTouchHandler(private val activity: WebViewActivity) {
         /** 水平位移 > 垂直位移的倍数：过滤倾斜滑动（上下滚动不误判左右手势） */
         private const val GESTURE_HORIZONTAL_DOMINANCE = 1.2f
         private const val TRESHOLD = 100
+
+        /** 双击判定窗口（ms）：快速连点有效窗（300ms/50px 偏宽松曾误触——实测收紧） */
+        private const val DOUBLE_TAP_WINDOW_MS = 250
+
+        /** 双击坐标容差（px）：两次按下须落在同点附近才算双击 */
+        private const val DOUBLE_TAP_SLOP_PX = 40
     }
 
     private val longPressHandler = Handler()
@@ -242,9 +248,9 @@ class WebViewTouchHandler(private val activity: WebViewActivity) {
                     // 间隔可为 0/1/2/8ms——边界必须含 0）
                     val sinceUp = now - lastUpTime
                     val isSynthetic = lastUpTime > 0 && sinceUp < 20
-                    if (!isSynthetic && now - lastDownTime < 250
-                        && kotlin.math.abs(x - lastDownX) < 40
-                        && kotlin.math.abs(y - lastDownY) < 40
+                    if (!isSynthetic && now - lastDownTime < DOUBLE_TAP_WINDOW_MS
+                        && kotlin.math.abs(x - lastDownX) < DOUBLE_TAP_SLOP_PX
+                        && kotlin.math.abs(y - lastDownY) < DOUBLE_TAP_SLOP_PX
                     ) {
                         lastDownTime = 0 // 重置防三连击
                         // 双击：弹小菜单（输入框双击也走菜单——交互一致性）
