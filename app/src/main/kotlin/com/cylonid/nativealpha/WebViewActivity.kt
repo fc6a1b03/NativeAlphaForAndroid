@@ -84,6 +84,7 @@ import com.cylonid.nativealpha.helper.WebViewGestureHelper
 import com.cylonid.nativealpha.helper.WebViewTouchHandler
 import com.cylonid.nativealpha.helper.WebViewShortcutInjectHelper
 import com.cylonid.nativealpha.helper.WebViewMenuHelper
+import com.cylonid.nativealpha.helper.WebViewPermissionHelper
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.model.WebApp
@@ -246,6 +247,9 @@ class WebViewActivity : AppCompatActivity() {
 
     /** 菜单浮层处理器（P3 第四刀迁移 helper/WebViewMenuHelper） */
     internal val menuHelper = WebViewMenuHelper(this)
+
+    /** 权限分流处理器（P3 第五刀迁移 helper/WebViewPermissionHelper） */
+    internal val permissionHelper = WebViewPermissionHelper(this)
 
     /** 委托：WebViewTouchHandler 双击菜单调用点保持零改动 */
     internal fun showWebViewMenuSheet() = menuHelper.showWebViewMenuSheet()
@@ -979,20 +983,7 @@ class WebViewActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-        var allGranted = grantResults.isNotEmpty()
-        for (r in grantResults) {
-            if (r != PackageManager.PERMISSION_GRANTED) {
-                allGranted = false
-                break
-            }
-        }
-
-        if (allGranted) {
-            onPermissionsGranted(requestCode, permissions.toList())
-        } else {
-            onPermissionsDenied(requestCode, permissions.toList())
-        }
+        permissionHelper.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     internal fun enablePermissionBoolOnWebApp(successCallback: PermissionGrantedCallback) {
@@ -1000,22 +991,6 @@ class WebViewActivity : AppCompatActivity() {
         successCallback.execute()
         DataManager.getInstance().replaceWebApp(webapp!!)
         wv!!.reload()
-    }
-
-    private fun onPermissionsGranted(requestCode: Int, list: List<String>) {
-        if (requestCode == Const.PERMISSION_RC_LOCATION) {
-            enablePermissionBoolOnWebApp { webapp!!.isAllowLocationAccess = true }
-            this.handleGeoPermissionCallback(true)
-        }
-        if (requestCode == Const.PERMISSION_CAMERA) {
-            enablePermissionBoolOnWebApp { webapp!!.isCameraPermission = true }
-        }
-    }
-
-    private fun onPermissionsDenied(requestCode: Int, list: List<String>) {
-        if (requestCode == Const.PERMISSION_RC_LOCATION) {
-            this.handleGeoPermissionCallback(false)
-        }
     }
 
     internal fun handleGeoPermissionCallback(allow: Boolean) {
