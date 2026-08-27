@@ -137,11 +137,12 @@ object StatsRecorder {
 
     /**
      * 落盘触发：内存统计写入持久化（onPause/onDestroy 兜底）。
+     * P2 收口后走 flushPendingSave——跳过 debounce 即时落盘，L3 串行排队执行。
      */
     fun flush() {
         record {
             try {
-                DataManager.getInstance().saveWebAppData()
+                DataManager.getInstance().flushPendingSave()
             } catch (e: Exception) {
                 // 落盘失败：下次 flush 重试（内存数据仍在）
             }

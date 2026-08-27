@@ -7,6 +7,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -26,6 +27,9 @@ object CookieSessionManager {
 
     private val gson = Gson()
 
+    /** IO 作用域（SupervisorJob：单个快照操作失败不级联取消其他操作——风格统一 P2） */
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     /** Cookie 快照（key=webappId.tabIndex，value=该标签 Cookie 字符串） */
     private data class CookieSnapshots(val snapshots: Map<String, String> = emptyMap())
 
@@ -38,7 +42,7 @@ object CookieSessionManager {
      * @param tabIndex 多标签会话隔离：同一 WebApp 多个会话各自独立 Cookie
      */
     fun saveSnapshot(context: Context, webappId: Int, tabIndex: Int = 0) {
-        CoroutineScope(Dispatchers.IO).launch {
+        ioScope.launch {
             try {
                 val webapp = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappId, true) ?: return@launch
                 if (!webapp.isIsolatedSession) return@launch
@@ -72,7 +76,7 @@ object CookieSessionManager {
         tabIndex: Int = 0,
         onRestored: (() -> Unit)? = null
     ) {
-        CoroutineScope(Dispatchers.IO).launch {
+        ioScope.launch {
             try {
                 val webapp = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappId, true)
                 if (webapp == null || !webapp.isIsolatedSession) {
@@ -104,7 +108,7 @@ object CookieSessionManager {
 
     /** 清除指定 WebApp 的所有标签快照（用户关闭隔离时） */
     fun clearSnapshot(context: Context, webappId: Int) {
-        CoroutineScope(Dispatchers.IO).launch {
+        ioScope.launch {
             try {
                 val current = loadSnapshots(context)
                 val prefix = "$webappId."

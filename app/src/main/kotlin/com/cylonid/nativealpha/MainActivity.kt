@@ -10,10 +10,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.AppErrorLogRepository
@@ -48,9 +47,11 @@ class MainActivity : AppCompatActivity() {
 
         setContent {
             AppMaterialTheme {
-                val refreshKey = MainActivity.refreshTrigger
-                val webApps: List<WebApp> = remember(refreshKey) {
-                    DataManager.getInstance().activeWebsites.filterNotNull()
+                // P2 响应式列表：写路径收口后由 webAppsFlow 驱动重组（快照 revision
+                // 保证原地修改场景必达），onResume 强制重读与 refreshTrigger 退役
+                val snapshot by DataManager.getInstance().webAppsFlow.collectAsState()
+                val webApps: List<WebApp> = remember(snapshot) {
+                    snapshot.items.filterNotNull().filter { it.isActiveEntry }.sortedBy { it.order }
                 }
 
                 MainScreen(
@@ -127,21 +128,24 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 数据可能在设置页/其他页被修改：force 重读 SP（无 force 时
-        // dataLoaded 短路——备份导入/外部修改场景拿不到新数据，列表旧值）
-        DataManager.getInstance().loadAppData(true)
+        // 幂等加载（首启真正解析；已加载时短路）。数据变更后列表由 webAppsFlow
+        // 驱动刷新，不再 force 重读 SP——force 退役后每帧回前台零 Gson 解析
+        DataManager.getInstance().loadAppData()
         // 主题即时切换（像微信）：onResume 对比 themeId，变化则 recreate（系统栏/状态栏即时刷新）
         val themeId = DataManager.getInstance().settings.themeId
         if (lastAppliedThemeId != themeId) {
             lastAppliedThemeId = themeId
             recreate()
         }
-        refreshTrigger++
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // 掉电兜底：后台前挂起等待在途快照落盘（协程挂起不占线程，stop 无帧预算）
+        lifecycleScope.launch { DataManager.getInstance().awaitPendingSave() }
     }
 
     companion object {
-        /** 用于触发 Compose 列表刷新的计数器（onResume 时自增）——必须用 Compose state，普通变量无法触发重组 */
-        var refreshTrigger: Int by mutableIntStateOf(0)
         /** 主题即时切换：记录上次应用的 themeId（onResume 对比，变化 recreate） */
         @Volatile
         var lastAppliedThemeId: Int = -1
@@ -165,8 +169,8 @@ class MainActivity : AppCompatActivity() {
                     ).show()
                 }
             }
-        DataManager.getInstance().saveWebAppData()
-        // 刷新列表（删除后立即移除条目）
-        refreshTrigger++
+        // 统一写收口：isActiveEntry 是绕过 DataManager 写方法的内存改动，
+        // commitChanges 发射 flow（列表即时移除条目）+ 触发持久化
+        DataManager.getInstance().commitChanges()
     }
 }

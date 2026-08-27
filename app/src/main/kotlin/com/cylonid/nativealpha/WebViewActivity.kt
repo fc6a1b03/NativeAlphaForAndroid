@@ -1863,7 +1863,8 @@ class WebViewActivity : AppCompatActivity() {
                 if (stored != null) {
                     stored.isAllowHttp = true
                     stored.isOverrideGlobalSettings = true
-                    DataManager.getInstance().saveWebAppData()
+                    // 统一写收口：发射 flow（设置页返回后列表/设置即时反映）+ 触发持久化
+                    DataManager.getInstance().commitChanges()
                 }
                 view.loadUrl(url, customHeaders!!)
             }
