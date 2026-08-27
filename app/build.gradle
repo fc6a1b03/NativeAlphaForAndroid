@@ -120,6 +120,8 @@ dependencies {
 
     // 测试
     testImplementation libs.junit
+    // 协程测试（MainDispatcherRule：Dispatchers.Main → StandardTestDispatcher 虚拟时钟）
+    testImplementation libs.kotlinx.coroutines.test
     testImplementation libs.robolectric
     testImplementation libs.mockito.core
     testImplementation libs.mockito.kotlin

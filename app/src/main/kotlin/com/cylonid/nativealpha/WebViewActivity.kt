@@ -81,6 +81,7 @@ import androidx.core.view.size
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.cylonid.nativealpha.helper.IconPopupMenuHelper
+import com.cylonid.nativealpha.helper.WebViewGestureHelper
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.model.WebApp
@@ -131,68 +132,12 @@ class WebViewActivity : AppCompatActivity() {
         private const val TRESHOLD = 100
 
         /**
-         * 双击空白判定 JS：检测双击点是否真正落在可见文本字符上。
-         * caretRangeFromPoint（浏览器内部命中）+ 文本节点矩形命中验证——
-         * 空白处 caretRangeFromPoint 会返回"最近插入位置"，必须加矩形命中
-         * 才能区分「点在字符上」vs「点在空白但邻近文本」。
-         * 兼容 Taro/WebComponents：自定义组件文字系统可选中，但标准 DOM 探测
-         * 命中不到——此时按 text 处理（双击文字不弹菜单，交还系统选中单词）。
-         * 返回 'text' 或 'blank'。
+         * 双击空白判定脚本（占位符 %1$f/%2$f 为双击坐标）。
+         * P1 起脚本构建与返回值语义契约收口 WebViewGestureHelper——JS 返回语义
+         * 与 Kotlin 消费端同源，五类返回值可穷举单测防漂移；此处仅实例化结果
+         * （P3 手势拆分时随触摸监听整体迁移 helper）。
          */
-        private val LONGPRESS_JS =
-            "(function(){" +
-                "var px=%1\$f,py=%2\$f;" +
-                "var dpr=window.devicePixelRatio||1;" +
-                "var innerW=window.innerWidth||document.documentElement.clientWidth;" +
-                "var outerW=window.outerWidth||innerW;" +
-                "var scale=dpr*outerW/innerW;" +
-                "if(!(scale>0)||scale===1){scale=1;}" +
-                "var x=px/scale,y=py/scale;" +
-                "var e=document.elementFromPoint(x,y);" +
-                "if(!e)return 'blank';" +
-                "var tag=e.tagName?e.tagName.toLowerCase():'';" +
-                "if(tag==='html'||tag==='body')return 'blank';" +
-                // 交互元素检测：双击落在按钮/链接/输入等可操作元素上时交还网页，
-                // 只有真空白才弹小菜单（用户需求：菜单只属于无功能空白区）
-                "var it=e;" +
-                "while(it&&it!==document.body){" +
-                "var t2=it.tagName?it.tagName.toLowerCase():'';" +
-                "if(t2==='button'||t2==='a'||t2==='input'||t2==='select'||t2==='textarea'" +
-                "||t2==='option'||t2==='label'||t2==='form'||t2==='details'||t2==='summary'" +
-                "||t2==='audio'||t2==='embed'||t2==='object')return 'interactive';" +
-                "var role=it.getAttribute?it.getAttribute('role'):'';" +
-                "if(role==='button'||role==='link'||role==='tab'||role==='checkbox'" +
-                "||role==='radio'||role==='switch'||role==='menuitem'||role==='slider'" +
-                "||role==='combobox'||role==='listbox'||role==='option'||role==='textbox'" +
-                "||role==='searchbox')return 'interactive';" +
-                "if(it.isContentEditable)return 'interactive';" +
-                "var tb=it.getAttribute?it.getAttribute('tabindex'):null;" +
-                "if(tb&&tb!=='-1')return 'interactive';" +
-                "it=it.parentElement;" +
-                "}" +
-                "var te=e;" +
-                "while(te&&te!==document.body){" +
-                "var tt=te.tagName?te.tagName.toLowerCase():'';" +
-                "if(tt==='img'||tt==='canvas'||tt==='svg'||tt==='video'||tt==='iframe')return 'media';" +
-                "te=te.parentElement;" +
-                "}" +
-                "var range=null;" +
-                "if(document.caretRangeFromPoint){range=document.caretRangeFromPoint(x,y);}" +
-                "if(range&&range.startContainer){" +
-                "var n=range.startContainer;" +
-                "if(n.nodeType===3){" +
-                "var len=n.length||0;" +
-                "if(range.startOffset>0&&range.startOffset<len){" +
-                "var full=document.createRange();" +
-                "full.selectNodeContents(n);" +
-                "var rect=full.getBoundingClientRect();" +
-                "if(x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom){" +
-                "return 'text';" +
-                "}" +
-                "}" +
-                "}" +
-                "}" +
-                "return 'blank';})()"
+        private val LONGPRESS_JS = WebViewGestureHelper.buildLongPressJs()
 
         /**
          * 图片长按检测 JS：返回长按点命中的 img 的绝对 URL（src/currentSrc），
@@ -472,6 +417,12 @@ class WebViewActivity : AppCompatActivity() {
         // 必须在 setContentView 之后 findViewById——视图未建立时返回 null（886b145 回归修复）
         val webview = findViewById<WebView>(R.id.webview).also { wv = it }
 
+        // 仅 debug 包开启 WebView 远程调试（chrome://inspect + CDP 自动化验证）；
+        // release 永不开启——远程调试是安全敏感面，不得泄漏到生产
+        if (BuildConfig.DEBUG) {
+            WebView.setWebContentsDebuggingEnabled(true)
+        }
+
         // 移除 WebView 字段名注入的 UA 尾巴（找不到字段时静默跳过，避免 NPE）；
         // 反射结果进程内缓存（uaFieldName lazy）
         val fieldName = uaFieldName
@@ -684,21 +635,22 @@ class WebViewActivity : AppCompatActivity() {
         var lastDownX = -1f
         var lastDownY = -1f
 
-        /** 双击空白判定：JS 检测双击点是否落在文本字符上，空白则弹小菜单 */
+        /**
+         * 双击菜单判定：JS 检测命中语义后由 WebViewGestureHelper 归一化决策，
+         * blank/input 弹小菜单（文本框双击=选择/粘贴高频操作），其余交还网页。
+         */
         fun checkBlankAndShowMenu(px: Float, py: Float) {
             if (isFinishing || wv == null) return
             val js = String.format(Locale.US, LONGPRESS_JS, px, py)
             val mediaJs = String.format(Locale.US, MEDIA_LONGPRESS_JS, px, py)
             wv!!.evaluateJavascript(js) { value ->
-                var type = value?.replace("\"", "") ?: "blank"
-                if (type == "null" || type.isEmpty()) type = "blank"
-                val isBlank = type == "blank"
-                if (isBlank && !isFinishing && wv != null) {
-                    // 空白检测通过，再探测是否命中 media（双击图片时弹保存菜单而非小菜单）
+                val type = WebViewGestureHelper.parseLongPressResult(value)
+                if (WebViewGestureHelper.shouldShowMenuOnDoubleTap(type) && !isFinishing && wv != null) {
+                    // blank/input 检测通过，再探测是否命中 media（双击图片时弹保存菜单而非小菜单）
                     wv!!.evaluateJavascript(mediaJs) { mediaValue ->
                         val mediaUrl = mediaValue?.replace("\"", "") ?: "null"
-                        if (mediaUrl == "null" || mediaUrl.isEmpty() || !isBlank) {
-                            // 非 media（空白/文本）→ 走原有小菜单
+                        if (mediaUrl == "null" || mediaUrl.isEmpty()) {
+                            // 非 media（空白/输入框/文本字符）→ 弹原有小菜单
                             runOnUiThread {
                                 if (wv != null) {
                                     // 双击弹菜单时收起输入法：blur 失焦（键盘必收且小菜单

@@ -229,6 +229,7 @@
 
 ## 7. 已验证的坑（项目实践沉淀）
 
+- coroutines-test 1.10.x 的 `Dispatchers.setMain/resetMain` 是 **test 模块的扩展函数**（kotlinx-coroutines-core 已无此 API），必须显式 `import kotlinx.coroutines.test.setMain/resetMain`，否则 Unresolved reference 且报错点会误导排查方向（实测 jar 反编译确认）
 - Kotlin 位或用 `or` 关键字（`|` 有解析歧义——实测）
 - `OutlinedTextFieldDefaults.colors` 参数名随 Material3 版本变化（避免新旧歧义参数）
 - CRLF 文件用 Python `newline=''` 处理（Edit 工具的 LF 匹配可能失败）
