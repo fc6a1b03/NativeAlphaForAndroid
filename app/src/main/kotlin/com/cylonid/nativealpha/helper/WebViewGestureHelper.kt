@@ -34,6 +34,32 @@ object WebViewGestureHelper {
     )
 
     /**
+     * 构建图片长按检测 JS 模板（占位符与坐标换算同 [buildLongPressJs]）。
+     * 返回长按点命中的 img 的绝对 URL（src/currentSrc），没命中返回 'null'。
+     * **只匹配 img**——视频不做长按下载（全屏播放/页面视频均不误触）。
+     */
+    fun buildMediaLongPressJs(): String =
+        "(function(){" +
+            "var px=%1\$f,py=%2\$f;" +
+            "var dpr=window.devicePixelRatio||1;" +
+            "var innerW=window.innerWidth||document.documentElement.clientWidth;" +
+            "var outerW=window.outerWidth||innerW;" +
+            "var scale=dpr*outerW/innerW;" +
+            "if(!(scale>0)||scale===1){scale=1;}" +
+            "var x=px/scale,y=py/scale;" +
+            "var e=document.elementFromPoint(x,y);" +
+            "if(!e)return 'null';" +
+            "var te=e;" +
+            "while(te&&te!==document.body){" +
+            "var tt=te.tagName?te.tagName.toLowerCase():'';" +
+            "if(tt==='img'){var s=te.currentSrc||te.src;" +
+            "if(s&&s.indexOf('data:')!==0)return s;" +
+            "return 'null';}" +
+            "te=te.parentElement;" +
+            "}" +
+            "return 'null';})()"
+
+    /**
      * 解析 evaluateJavascript 回调值为语义类型。
      * evaluateJavascript 对 JS 字符串返回带引号 JSON 文本、对 undefined/null
      * 返回字面量 "null"——统一归一化为 blank（保守放行菜单）。
