@@ -47,7 +47,6 @@ import android.window.OnBackInvokedDispatcher
 import android.webkit.GeolocationPermissions
 import android.webkit.HttpAuthHandler
 import android.webkit.PermissionRequest
-import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -468,8 +467,13 @@ class WebViewActivity : AppCompatActivity() {
         webview.scrollBarStyle = View.SCROLLBARS_OUTSIDE_OVERLAY
 
         // ===== PWA 高频文本流渲染优化（流式输出/长文档滚动场景） =====
-        // 渲染优先级拉满（文本流/长文档滚动核心）
-        webview.settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
+        // 渲染进程优先级（Chromium 官方推荐，替代废弃 setRenderPriority）：
+        // 渲染进程不可见时 WAIVED（可被系统回收减压），可见时正常渲染——
+        // 文本流场景前台渲染不受影响（minSdk 31 无版本分支）
+        webview.setRendererPriorityPolicy(
+            android.webkit.WebView.RENDERER_PRIORITY_WAIVED,
+            true
+        )
         // 硬件加速强制（避免软件层合成拖慢流式更新）。minSdk=31，直接启用无需判断。
         webview.setLayerType(View.LAYER_TYPE_NONE, null)
         // 文字缩放（用户可调：50~200%，默认 100）

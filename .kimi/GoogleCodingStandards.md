@@ -138,7 +138,7 @@
 - 资源命名 `snake_case` 语义前缀；AndroidManifest 权限最小化、activity 逐项声明
 - Activity 一个一职责；`onCreate` 必须 `setTheme` + `ThemeUtils.applyUiMode` + `applySystemBarColors(this)`
 - Compose：`@Composable` 大驼峰、state 提升、`stringResource()` 组合期预取（禁回调内 `context.getString`）
-- WebView 渲染优化（RenderPriority.HIGH + OffscreenPreRaster）不得回退
+- WebView 渲染优化（setRendererPriorityPolicy(WAIVED, waivedWhenNotVisible=true) + OffscreenPreRaster）不得回退——废弃的 setRenderPriority 已于 v2.2.0 P6 移除
 - Cookie 隔离走 `CookieSessionManager`（唯一入口）；头像走 `WebAppIconManager`（统一源）
 
 ---
