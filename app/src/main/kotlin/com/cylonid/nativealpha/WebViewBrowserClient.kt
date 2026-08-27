@@ -16,6 +16,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.util.Const
+import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.StatsRecorder
 import com.cylonid.nativealpha.model.ErrorType
 import android.Manifest
@@ -157,6 +158,10 @@ internal class CustomBrowser(
         StatsRecorder.recordPageError(
             host.webappID, ErrorType.RENDER.name,
             ErrorType.RENDER.code, "Render process gone"
+        )
+        // 观测门面接线（P6）：功能级渲染崩溃计数，matrix/webevent 同范式复用
+        FeatureMetrics.reportError(
+            "webview", "RenderGone", "render process gone"
         )
         host.runOnUiThread {
             NotificationUtils.showInfoSnackbar(

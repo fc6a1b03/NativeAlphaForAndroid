@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.1.35`（`versionCode 2135`）
+- **当前版本**：`2.1.36`（`versionCode 2136`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -148,7 +148,11 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── Utility.kt               # 通用辅助函数
 │   └── ...
 └── helper/
-    └── IconPopupMenuHelper.kt   # WebView 图标弹窗辅助
+    ├── WebViewGestureHelper.kt       # 双击手势判定契约（JS 构建+语义解析，可单测）
+    ├── WebViewTouchHandler.kt        # 触摸手势（双击菜单/长按下载/多指切换/边缘滑）
+    ├── WebViewShortcutInjectHelper.kt  # 组合键注入（JS 合成 + KeyEvent 双路）
+    ├── WebViewMenuHelper.kt          # 菜单浮层（缩放/会话标签/快捷键面板/缓存统计）
+    └── WebViewPermissionHelper.kt    # 运行时权限分流
 ```
 
 资源目录 `app/src/main/res/` 仅保留必要的 XML 资源：启动主题、WebView 布局、图标、字符串双语、错误页 HTML/CSS、Baseline

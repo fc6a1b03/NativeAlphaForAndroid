@@ -47,7 +47,6 @@ import android.window.OnBackInvokedDispatcher
 import android.webkit.GeolocationPermissions
 import android.webkit.HttpAuthHandler
 import android.webkit.PermissionRequest
-import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -80,7 +79,11 @@ import androidx.core.view.get
 import androidx.core.view.size
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
-import com.cylonid.nativealpha.helper.IconPopupMenuHelper
+import com.cylonid.nativealpha.helper.WebViewGestureHelper
+import com.cylonid.nativealpha.helper.WebViewTouchHandler
+import com.cylonid.nativealpha.helper.WebViewShortcutInjectHelper
+import com.cylonid.nativealpha.helper.WebViewMenuHelper
+import com.cylonid.nativealpha.helper.WebViewPermissionHelper
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.model.WebApp
@@ -112,113 +115,13 @@ import java.util.Locale
 class WebViewActivity : AppCompatActivity() {
 
     companion object {
-        // Constants for touchlistener
-        private const val NONE = 0
-        private const val SWIPE = 1
-        private const val SINGLE_FINGER = 2
-
-        /** 单指左右滑手势触发距离（px）：比 TRESHOLD 更严——只识别明确意图的长滑，防误触 */
-        private const val GESTURE_SWIPE_MIN_PX = 150
-
-        /** 长按触发时间（ms）——长按媒体直接下载（500ms 主流折中：不误触不迟钝） */
-        private const val LONG_PRESS_MS = 500L
-
-        /** 单指手势边缘区宽度（屏幕横向比例）：起点在左右各 <20% 或 >80% 才识别左右滑（页面内表格不冲突） */
-        private const val GESTURE_EDGE_ZONE_RATIO = 0.2f
-
-        /** 水平位移 > 垂直位移的倍数：过滤倾斜滑动（上下滚动不误判左右手势） */
-        private const val GESTURE_HORIZONTAL_DOMINANCE = 1.2f
-        private const val TRESHOLD = 100
-
         /**
-         * 双击空白判定 JS：检测双击点是否真正落在可见文本字符上。
-         * caretRangeFromPoint（浏览器内部命中）+ 文本节点矩形命中验证——
-         * 空白处 caretRangeFromPoint 会返回"最近插入位置"，必须加矩形命中
-         * 才能区分「点在字符上」vs「点在空白但邻近文本」。
-         * 兼容 Taro/WebComponents：自定义组件文字系统可选中，但标准 DOM 探测
-         * 命中不到——此时按 text 处理（双击文字不弹菜单，交还系统选中单词）。
-         * 返回 'text' 或 'blank'。
+         * 双击空白判定脚本（占位符 %1$f/%2$f 为双击坐标）。
+         * P1 起脚本构建与返回值语义契约收口 WebViewGestureHelper——JS 返回语义
+         * 与 Kotlin 消费端同源，五类返回值可穷举单测防漂移；此处仅实例化结果
+         * （P3 手势拆分时随触摸监听整体迁移 helper）。
          */
-        private val LONGPRESS_JS =
-            "(function(){" +
-                "var px=%1\$f,py=%2\$f;" +
-                "var dpr=window.devicePixelRatio||1;" +
-                "var innerW=window.innerWidth||document.documentElement.clientWidth;" +
-                "var outerW=window.outerWidth||innerW;" +
-                "var scale=dpr*outerW/innerW;" +
-                "if(!(scale>0)||scale===1){scale=1;}" +
-                "var x=px/scale,y=py/scale;" +
-                "var e=document.elementFromPoint(x,y);" +
-                "if(!e)return 'blank';" +
-                "var tag=e.tagName?e.tagName.toLowerCase():'';" +
-                "if(tag==='html'||tag==='body')return 'blank';" +
-                // 交互元素检测：双击落在按钮/链接/输入等可操作元素上时交还网页，
-                // 只有真空白才弹小菜单（用户需求：菜单只属于无功能空白区）
-                "var it=e;" +
-                "while(it&&it!==document.body){" +
-                "var t2=it.tagName?it.tagName.toLowerCase():'';" +
-                "if(t2==='button'||t2==='a'||t2==='input'||t2==='select'||t2==='textarea'" +
-                "||t2==='option'||t2==='label'||t2==='form'||t2==='details'||t2==='summary'" +
-                "||t2==='audio'||t2==='embed'||t2==='object')return 'interactive';" +
-                "var role=it.getAttribute?it.getAttribute('role'):'';" +
-                "if(role==='button'||role==='link'||role==='tab'||role==='checkbox'" +
-                "||role==='radio'||role==='switch'||role==='menuitem'||role==='slider'" +
-                "||role==='combobox'||role==='listbox'||role==='option'||role==='textbox'" +
-                "||role==='searchbox')return 'interactive';" +
-                "if(it.isContentEditable)return 'interactive';" +
-                "var tb=it.getAttribute?it.getAttribute('tabindex'):null;" +
-                "if(tb&&tb!=='-1')return 'interactive';" +
-                "it=it.parentElement;" +
-                "}" +
-                "var te=e;" +
-                "while(te&&te!==document.body){" +
-                "var tt=te.tagName?te.tagName.toLowerCase():'';" +
-                "if(tt==='img'||tt==='canvas'||tt==='svg'||tt==='video'||tt==='iframe')return 'media';" +
-                "te=te.parentElement;" +
-                "}" +
-                "var range=null;" +
-                "if(document.caretRangeFromPoint){range=document.caretRangeFromPoint(x,y);}" +
-                "if(range&&range.startContainer){" +
-                "var n=range.startContainer;" +
-                "if(n.nodeType===3){" +
-                "var len=n.length||0;" +
-                "if(range.startOffset>0&&range.startOffset<len){" +
-                "var full=document.createRange();" +
-                "full.selectNodeContents(n);" +
-                "var rect=full.getBoundingClientRect();" +
-                "if(x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom){" +
-                "return 'text';" +
-                "}" +
-                "}" +
-                "}" +
-                "}" +
-                "return 'blank';})()"
-
-        /**
-         * 图片长按检测 JS：返回长按点命中的 img 的绝对 URL（src/currentSrc），
-         * 没命中返回 'null'。**只匹配 img**——视频不做长按下载（全屏播放/页面视频均不误触）。
-         * 与 LONGPRESS_JS 的坐标换算保持一致（devicePixelRatio + 视口缩放）。
-         */
-        private val MEDIA_LONGPRESS_JS =
-            "(function(){" +
-                "var px=%1\$f,py=%2\$f;" +
-                "var dpr=window.devicePixelRatio||1;" +
-                "var innerW=window.innerWidth||document.documentElement.clientWidth;" +
-                "var outerW=window.outerWidth||innerW;" +
-                "var scale=dpr*outerW/innerW;" +
-                "if(!(scale>0)||scale===1){scale=1;}" +
-                "var x=px/scale,y=py/scale;" +
-                "var e=document.elementFromPoint(x,y);" +
-                "if(!e)return 'null';" +
-                "var te=e;" +
-                "while(te&&te!==document.body){" +
-                "var tt=te.tagName?te.tagName.toLowerCase():'';" +
-                "if(tt==='img'){var s=te.currentSrc||te.src;" +
-                "if(s&&s.indexOf('data:')!==0)return s;" +
-                "return 'null';}" +
-                "te=te.parentElement;" +
-                "}" +
-                "return 'null';})()"
+        private val LONGPRESS_JS = WebViewGestureHelper.buildLongPressJs()
 
         /** 组合键解析结果 */
         data class ShortcutParseResult(
@@ -319,8 +222,6 @@ class WebViewActivity : AppCompatActivity() {
 
     // 错误页重试目标（onReceivedError 主框架失败时记录，webnative://retry 用它重新加载）
     internal var retryUrl = ""
-    private var fallbackToDefaultLongClickBehaviour = false
-    private var mPopupMenu: PopupMenu? = null
 
     // 长按动态分流：系统是否已启动文本/链接选择 ActionMode（区分「有内容」vs「空白处」）
     private var actionModeActive = false
@@ -337,8 +238,29 @@ class WebViewActivity : AppCompatActivity() {
     private val blankScreenHandler = Handler()
 
     /** 长按检测（媒体保存菜单）：按下 600ms 无移动触发 */
-    private val longPressHandler = Handler()
-    private var longPressRunnable: Runnable? = null
+    /** 触摸手势处理器（P3 第一刀迁移 helper/WebViewTouchHandler） */
+    internal val touchHandler = WebViewTouchHandler(this)
+
+    /** 组合键注入处理器（P3 第三刀迁移 helper/WebViewShortcutInjectHelper） */
+    internal val shortcutHelper = WebViewShortcutInjectHelper(this)
+
+    /** 菜单浮层处理器（P3 第四刀迁移 helper/WebViewMenuHelper） */
+    internal val menuHelper = WebViewMenuHelper(this)
+
+    /** 权限分流处理器（P3 第五刀迁移 helper/WebViewPermissionHelper） */
+    internal val permissionHelper = WebViewPermissionHelper(this)
+
+    /** 委托：WebViewTouchHandler 双击菜单调用点保持零改动 */
+    internal fun showWebViewMenuSheet() = menuHelper.showWebViewMenuSheet()
+
+    /** 委托：页面加载完成回调的缩放生效点保持零改动 */
+    internal fun applyPageZoom() = menuHelper.applyPageZoom()
+
+    /** 委托：onPageFinished 缓存统计入口保持零改动 */
+    internal fun recordCacheUsage() = menuHelper.recordCacheUsage()
+
+    /** 菜单「后退」入口：onBackPressed 为 protected，helper 经此转发（语义不变） */
+    internal fun triggerBack() = onBackPressed()
     private val blankScreenCheck = Runnable { handleBlankScreen() }
     internal var pageLoadFinished = false
 
@@ -472,6 +394,12 @@ class WebViewActivity : AppCompatActivity() {
         // 必须在 setContentView 之后 findViewById——视图未建立时返回 null（886b145 回归修复）
         val webview = findViewById<WebView>(R.id.webview).also { wv = it }
 
+        // 仅 debug 包开启 WebView 远程调试（chrome://inspect + CDP 自动化验证）；
+        // release 永不开启——远程调试是安全敏感面，不得泄漏到生产
+        if (BuildConfig.DEBUG) {
+            WebView.setWebContentsDebuggingEnabled(true)
+        }
+
         // 移除 WebView 字段名注入的 UA 尾巴（找不到字段时静默跳过，避免 NPE）；
         // 反射结果进程内缓存（uaFieldName lazy）
         val fieldName = uaFieldName
@@ -539,8 +467,13 @@ class WebViewActivity : AppCompatActivity() {
         webview.scrollBarStyle = View.SCROLLBARS_OUTSIDE_OVERLAY
 
         // ===== PWA 高频文本流渲染优化（流式输出/长文档滚动场景） =====
-        // 渲染优先级拉满（文本流/长文档滚动核心）
-        webview.settings.setRenderPriority(WebSettings.RenderPriority.HIGH)
+        // 渲染进程优先级（Chromium 官方推荐，替代废弃 setRenderPriority）：
+        // 渲染进程不可见时 WAIVED（可被系统回收减压），可见时正常渲染——
+        // 文本流场景前台渲染不受影响（minSdk 31 无版本分支）
+        webview.setRendererPriorityPolicy(
+            android.webkit.WebView.RENDERER_PRIORITY_WAIVED,
+            true
+        )
         // 硬件加速强制（避免软件层合成拖慢流式更新）。minSdk=31，直接启用无需判断。
         webview.setLayerType(View.LAYER_TYPE_NONE, null)
         // 文字缩放（用户可调：50~200%，默认 100）
@@ -648,389 +581,7 @@ class WebViewActivity : AppCompatActivity() {
                 }
             }
         }
-        attachTouchListener()
-    }
-
-    /** 收起软键盘（双击空白弹小菜单时调用，避免输入法和小菜单打架） */
-    private fun hideSoftKeyboard() {
-        try {
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as
-                InputMethodManager
-            imm.hideSoftInputFromWindow(wv!!.windowToken, 0)
-        } catch (ignored: Exception) {
-            // 收起失败不影响小菜单弹出
-        }
-    }
-
-    /** 触摸手势（双击菜单/长按媒体下载/多指切换/边缘左右滑）——原匿名 OnTouchListener 逐行翻译 */
-    @SuppressLint("ClickableViewAccessibility")
-    private fun attachTouchListener() {
-        var mode = NONE
-        var startX = 0f
-        var stopX = 0f
-        var startY = 0f
-        var stopY = 0f
-        // 双击检测：双击空白 → 弹小菜单。
-        // 设计：长按完全交还系统（文字选中 100% 正常，不再与系统 ActionMode
-        // 竞争——此前空白长按判定在真实站点频繁误判，是历史 bug 根因）。
-        // 双击是纯手势识别（300ms 内同点二次按下），系统在空白处无默认行为。
-        // 自实现不用 GestureDetector：其内部状态机对注入事件/快速连点
-        // 识别不稳定，自实现时间戳+坐标判定简单可靠。
-        var lastDownTime = 0L
-        // 上一次 ACTION_UP 的时刻：真实手指双击的 UP→DOWN 间隔 ≥30ms（人手极限）；
-        // 滚轮/自动化注入的合成流 UP→DOWN 仅 1-2ms（实测 0x5002 触屏源），
-        // 间隔 <20ms 判为合成事件，不参与双击判定
-        var lastUpTime = 0L
-        var lastDownX = -1f
-        var lastDownY = -1f
-
-        /** 双击空白判定：JS 检测双击点是否落在文本字符上，空白则弹小菜单 */
-        fun checkBlankAndShowMenu(px: Float, py: Float) {
-            if (isFinishing || wv == null) return
-            val js = String.format(Locale.US, LONGPRESS_JS, px, py)
-            val mediaJs = String.format(Locale.US, MEDIA_LONGPRESS_JS, px, py)
-            wv!!.evaluateJavascript(js) { value ->
-                var type = value?.replace("\"", "") ?: "blank"
-                if (type == "null" || type.isEmpty()) type = "blank"
-                val isBlank = type == "blank"
-                if (isBlank && !isFinishing && wv != null) {
-                    // 空白检测通过，再探测是否命中 media（双击图片时弹保存菜单而非小菜单）
-                    wv!!.evaluateJavascript(mediaJs) { mediaValue ->
-                        val mediaUrl = mediaValue?.replace("\"", "") ?: "null"
-                        if (mediaUrl == "null" || mediaUrl.isEmpty() || !isBlank) {
-                            // 非 media（空白/文本）→ 走原有小菜单
-                            runOnUiThread {
-                                if (wv != null) {
-                                    // 双击弹菜单时收起输入法：blur 失焦（键盘必收且小菜单
-                                    // 关闭后不弹回）+ hideSoftInput 兜底
-                                    wv!!.evaluateJavascript(
-                                        "window.getSelection().removeAllRanges();", null
-                                    )
-                                    // 输入框失焦：键盘必然收起且不再弹
-                                    wv!!.evaluateJavascript(
-                                        "var el=document.activeElement;"
-                                            + "if(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.isContentEditable)){el.blur();}",
-                                        null
-                                    )
-                                }
-                                // 收起输入法（兜底，blur 已处理主要路径）
-                                hideSoftKeyboard()
-                                showWebViewMenuSheet()
-                            }
-                        } else {
-                            // 命中图片/视频：交还 WebView（双击放大由网页处理；保存走长按）
-                            Log.d("LongPress", "media double-tap -> webview handles")
-                        }
-                    }
-                }
-            }
-        }
-
-        /** 判断下载 URL 是否为视频（去 query/fragment 后按后缀；带签名参数的 CDN 链接也能识别） */
-        fun isVideoUrl(url: String?): Boolean {
-            if (url == null) return false
-            var clean = url
-            val q = clean.indexOf('?')
-            if (q >= 0) clean = clean.substring(0, q)
-            val h = clean.indexOf('#')
-            if (h >= 0) clean = clean.substring(0, h)
-            clean = clean.lowercase(Locale.US)
-            return clean.endsWith(".mp4") || clean.endsWith(".webm") || clean.endsWith(".mov")
-                || clean.endsWith(".ogg") || clean.endsWith(".mkv") || clean.endsWith(".m3u8")
-        }
-
-        /** 保存图片/视频：复用 DownloadManager（与全站下载一致的统一处理） */
-        fun downloadMedia(url: String?) {
-            if (url.isNullOrEmpty()) {
-                NotificationUtils.showToast(
-                    this@WebViewActivity,
-                    getString(R.string.file_download), Toast.LENGTH_SHORT
-                )
-                return
-            }
-            var dlUrl = url
-            if (dlUrl.startsWith("blob:")) {
-                dlUrl = dlUrl.replace("blob:", "")
-                try {
-                    dlUrl = URLDecoder.decode(dlUrl, "UTF-8")
-                } catch (ignored: UnsupportedEncodingException) {
-                }
-            }
-            try {
-                val request = DownloadManager.Request(Uri.parse(dlUrl))
-                val isMediaVideo = isVideoUrl(dlUrl)
-                request.setMimeType(if (isMediaVideo) "video/*" else "image/*")
-                var fileName = Utility.getFileNameFromDownload(dlUrl, null, null)
-                if (fileName.isNullOrEmpty()) {
-                    fileName = "media_" + System.currentTimeMillis() +
-                        (if (isMediaVideo) ".mp4" else ".png")
-                }
-                request.setTitle(fileName)
-                request.setDescription(getString(R.string.file_download_started))
-                request.allowScanningByMediaScanner()
-                request.setNotificationVisibility(
-                    DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
-                )
-                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-                val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager?
-                if (dm != null) {
-                    // 与「应用更新」一致：系统 DownloadManager + 开始/完成通知；开始即 Snackbar 提示
-                    dm.enqueue(request)
-                    NotificationUtils.showInfoSnackbar(
-                        this@WebViewActivity,
-                        getString(R.string.file_download_started),
-                        Snackbar.LENGTH_SHORT
-                    )
-                }
-            } catch (e: Exception) {
-                NotificationUtils.showToast(
-                    this@WebViewActivity,
-                    getString(R.string.file_download), Toast.LENGTH_SHORT
-                )
-            }
-        }
-
-        /** 取消长按检测（移动/抬起/多指时） */
-        fun cancelLongPress() {
-            if (longPressRunnable != null) {
-                longPressHandler.removeCallbacks(longPressRunnable!!)
-                longPressRunnable = null
-            }
-        }
-
-        /** 长按命中 media：直接下载（用户需求——长按即存，无中间菜单） */
-        fun checkMediaLongPress(px: Float, py: Float) {
-            if (isFinishing || wv == null) return
-            val mediaJs = String.format(Locale.US, MEDIA_LONGPRESS_JS, px, py)
-            wv!!.evaluateJavascript(mediaJs) { value ->
-                val mediaUrl = value?.replace("\"", "") ?: "null"
-                if (mediaUrl != "null" && mediaUrl.isNotEmpty() && !isFinishing) {
-                    runOnUiThread {
-                        // 直接下载（DownloadManager）；Toast 提示已存
-                        downloadMedia(mediaUrl)
-                    }
-                }
-            }
-        }
-
-        wv!!.setOnTouchListener { _, event ->
-            val webapp = DataManager.getInstance().getWebApp(webappID)
-            if (webapp == null || webapp.isRequestDesktop) {
-                return@setOnTouchListener false
-            }
-            // 鼠标/触控笔源不参与触摸手势：双击/长按/多指语义均针对手指设计，
-            // 鼠标滚轮(hover+scroll 走 onGenericMotionEvent)与左键快连曾误判双击弹菜单
-            if (event.getSource() and InputDevice.SOURCE_CLASS_POINTER != 0
-                && event.isFromSource(InputDevice.SOURCE_MOUSE)
-            ) {
-                return@setOnTouchListener false
-            }
-
-            when (event.action and MotionEvent.ACTION_MASK) {
-                MotionEvent.ACTION_DOWN -> {
-                    // 双击检测：250ms 内同点（±40px）再次按下 → 双击 → 弹小菜单。
-                    // 250ms/40px 是快速双击窗口：慢速点击/滚动不会误判
-                    // （300ms/50px 偏宽松，滚动+连点曾误触——实测收紧）
-                    val now = System.currentTimeMillis()
-                    val x = event.getX(0)
-                    val y = event.getY(0)
-                    // 合成流过滤：UP 后 <20ms 的 DOWN 是滚轮/注入产生的连续轻扫
-                    // （真实手指双击的 UP→DOWN 间隔 ≥30ms 人手极限；实测合成流
-                    // 间隔可为 0/1/2/8ms——边界必须含 0）
-                    val sinceUp = now - lastUpTime
-                    val isSynthetic = lastUpTime > 0 && sinceUp < 20
-                    if (!isSynthetic && now - lastDownTime < 250
-                        && kotlin.math.abs(x - lastDownX) < 40
-                        && kotlin.math.abs(y - lastDownY) < 40
-                    ) {
-                        lastDownTime = 0 // 重置防三连击
-                        // 双击：弹小菜单（输入框双击也走菜单——交互一致性）
-                        checkBlankAndShowMenu(x, y)
-                    } else {
-                        lastDownTime = if (isSynthetic) 0 else now
-                        lastDownX = x
-                        lastDownY = y
-                        // 单击：完全交还 WebView（键盘自然弹，无任何拦截——
-                        // 拦截/恢复机制是实机「输入法反复弹收」的根因，已删除）
-                    }
-                    // 单指按下：记录起始坐标（供滑动阈值判断）
-                    // stopX/stopY 同时初始化（防 POINTER_UP 用旧值/0 误判）
-                    startX = x
-                    startY = y
-                    stopX = x
-                    stopY = y
-                    // 长按检测：600ms 无移动且命中图片/视频 → 弹保存菜单
-                    if (longPressRunnable != null) {
-                        longPressHandler.removeCallbacks(longPressRunnable!!)
-                    }
-                    val pressX = x
-                    val pressY = y
-                    longPressRunnable = Runnable {
-                        longPressHandler.removeCallbacks(longPressRunnable!!)
-                        checkMediaLongPress(pressX, pressY)
-                    }
-                    longPressHandler.postDelayed(longPressRunnable!!, LONG_PRESS_MS)
-                    // 单指手势：仅单指（未进入多指）时启用
-                    mode = SINGLE_FINGER
-                    false
-                }
-
-                MotionEvent.ACTION_POINTER_DOWN -> {
-                    // This happens when you touch the screen with two fingers
-                    mode = SWIPE
-                    // 多指手势（捏合/双指滚动）：不是双击，清除双击检测状态
-                    lastDownTime = 0
-                    // You can also use event.getY(1) or the average of the two
-                    startX = event.getX(0)
-                    startY = event.getY(0)
-                    true
-                }
-
-                MotionEvent.ACTION_POINTER_UP -> {
-                    // This happens when you release the second finger
-                    mode = NONE
-                    // release 前指针数（POINTER_UP 时 getPointerCount 已减 1）
-                    val prevCount = event.pointerCount + 1
-                    if (kotlin.math.abs(startX - stopX) > TRESHOLD) {
-                        if (startX > stopX) {
-                            if (prevCount == 3 &&
-                                DataManager.getInstance().settings.isThreeFingerMultitouch
-                            ) {
-                                WebViewLauncher.startWebView(
-                                    DataManager.getInstance().getPredecessor(webappID),
-                                    this@WebViewActivity
-                                )
-                                finish()
-                            } else if (DataManager.getInstance().settings.isTwoFingerMultitouch) {
-                                safeGoForward()
-                            }
-                        } else {
-                            if (prevCount == 3 &&
-                                DataManager.getInstance().settings.isThreeFingerMultitouch
-                            ) {
-                                WebViewLauncher.startWebView(
-                                    DataManager.getInstance().getSuccessor(webappID),
-                                    this@WebViewActivity
-                                )
-                                finish()
-                            } else if (DataManager.getInstance().settings.isTwoFingerMultitouch) {
-                                safeBackPressed()
-                            }
-                        }
-                        return@setOnTouchListener true
-                    }
-                    if (DataManager.getInstance().settings.isMultitouchReload &&
-                        kotlin.math.abs(startY - stopY) > TRESHOLD
-                    ) {
-                        if (stopY > startY) {
-                            currentlyReloading = true
-                            safeReload()
-                        }
-                        return@setOnTouchListener true
-                    }
-                    // fall through 语义（原 Java switch 无 break 直落）：不满足阈值时
-                    // 走 UP 分支的收尾——POINTER_UP 后 mode=NONE，UP 的边缘手势判断
-                    // 天然不触发，等价于仅做长按取消 + 状态复位
-                    false
-                }
-
-                MotionEvent.ACTION_UP -> {
-                    // 抬起即取消长按：单击(快速 DOWN→UP)后 600ms 定时器不得再触发——
-                    // 否则单击图片必然在抬起后误弹「保存/下载」（用户实测反馈的 bug）。
-                    // 只清长按不清双击状态：双击=UP 后短窗内再 DOWN，UP 本身是双击的
-                    // 正常组成部分，清掉会让双击检测永久失效（实测踩坑）
-                    lastUpTime = System.currentTimeMillis()
-                    longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
-                    longPressRunnable = null
-                    handleActionUp(mode, event, startX, startY, stopX, stopY)
-                }
-
-                MotionEvent.ACTION_MOVE -> {
-                    // 无论单指/多指都记录当前坐标（stopX/stopY 保持最新，POINTER_UP/UP 用最新值）
-                    // 单指非滑动（mode==单指）也更新：防 POINTER_UP 用旧值误判
-                    stopX = event.getX(0)
-                    stopY = event.getY(0)
-                    // 移动超阈值（滑动/拖动滚动）：不是双击，清除双击检测状态；移动也取消长按
-                    if (kotlin.math.abs(stopX - startX) > TRESHOLD
-                        || kotlin.math.abs(stopY - startY) > TRESHOLD
-                    ) {
-                        cancelLongPressAndReset { }
-                    }
-                    false
-                }
-
-                MotionEvent.ACTION_SCROLL -> {
-                    // 滚轮滚动：不是双击，清除双击检测状态（防止误判弹菜单）
-                    lastDownTime = 0
-                    false
-                }
-
-                else -> false
-            }
-        }
-    }
-
-    /** UP/POINTER_UP 落底共享逻辑：边缘单指滑手势 + 状态重置（原 switch 直落语义拆出） */
-    private fun handleActionUp(
-        mode: Int,
-        event: MotionEvent,
-        startX: Float,
-        startY: Float,
-        stopX: Float,
-        stopY: Float
-    ): Boolean {
-        // 抬起：重置滑动状态。
-        // 单指左右滑手势（竖屏单手控制前进/后退）：
-        // - 右滑（stopX > startX）= 后退（回上一个页面，与返回一致）
-        // - 左滑（stopX < startX）= 前进（有历史才执行）
-        // 防冲突（用户反馈）：只识别**屏幕左右边缘区**（起点在左右各 20% 内）——
-        // 页面中间区域（表格/轮播等可横向滚动内容）完全交还 WebView，不拦截。
-        // 触发距离 150px（比 TRESHOLD 更严），要求水平位移 > 垂直位移*1.2。
-        if (mode == SINGLE_FINGER && event.pointerCount == 1) {
-            val dx = stopX - startX
-            val dy = kotlin.math.abs(stopY - startY)
-            val screenW = resources.displayMetrics.widthPixels
-            val edgeZone = startX < screenW * GESTURE_EDGE_ZONE_RATIO
-                || startX > screenW * (1f - GESTURE_EDGE_ZONE_RATIO)
-            if (edgeZone && kotlin.math.abs(dx) > GESTURE_SWIPE_MIN_PX
-                && kotlin.math.abs(dx) > dy * GESTURE_HORIZONTAL_DOMINANCE
-            ) {
-                if (dx > 0) {
-                    // 右滑后退：有历史才退（与系统返回一致）；
-                    // 无历史不动作（此前会退出应用）——给轻提示
-                    if (wv != null && wv!!.canGoBack()) {
-                        safeBackPressed()
-                    } else {
-                        NotificationUtils.showToast(
-                            this@WebViewActivity,
-                            getString(R.string.gesture_no_prev_page), Toast.LENGTH_SHORT
-                        )
-                    }
-                } else if (dx < 0) {
-                    // 左滑前进：有前进历史才执行；无则不动作，给轻提示
-                    if (wv != null && wv!!.canGoForward()) {
-                        safeGoForward()
-                    } else {
-                        NotificationUtils.showToast(
-                            this@WebViewActivity,
-                            getString(R.string.gesture_no_next_page), Toast.LENGTH_SHORT
-                        )
-                    }
-                }
-                // 关键：不消费 UP（return false）——WebView 需要完整 DOWN→MOVE→UP
-                // 事件流，消费 UP 会让 WebView 触摸状态机卡在"按住"，
-                // 导致后续上下滑动完全失效（用户反馈的 bug 根因）
-                return false
-            }
-        }
-        return false
-    }
-
-    /** MOVE 超阈值：取消长按 + 清双击状态（局部状态经回调复位） */
-    private fun cancelLongPressAndReset(resetDoubleTap: () -> Unit) {
-        longPressRunnable?.let { longPressHandler.removeCallbacks(it) }
-        longPressRunnable = null
-        resetDoubleTap()
+        touchHandler.attach()
     }
 
     @SuppressLint("RequiresFeature")
@@ -1185,278 +736,6 @@ class WebViewActivity : AppCompatActivity() {
         }
     }
 
-    /** 显示 Compose 底部菜单（当前页叠加，WebView 保留在后面；滑杆实时预览，关闭即保存） */
-    private fun showWebViewMenuSheet() {
-        val currentUrl = wv?.url ?: ""
-        // 初始化页面缩放待保存值（防只调字体时把已保存的 pageZoom 覆盖成 100）
-        mMenuPageZoom = webapp!!.pageZoom
-        this.showWebViewMenuOverlay(
-            currentUrl,
-            wv!!.canGoBack(),
-            wv!!.canGoForward(),
-            webapp!!.textZoom,
-            webapp!!.pageZoom,
-            { action -> handleMenuAction(action); Unit },
-            { zoom ->
-                // 实时预览字体缩放
-                wv?.settings?.textZoom = zoom
-                Unit
-            },
-            { zoom ->
-                // 实时预览页面缩放 + 记录待保存值（zoomBy 模拟捏合）
-                mMenuPageZoom = zoom
-                if (wv != null) {
-                    webapp!!.pageZoom = zoom
-                    applyPageZoom()
-                }
-                Unit
-            },
-            { saveZoomSettings(); Unit }
-        )
-    }
-
-    /** 保存字体/缩放设置到 WebApp 原对象（菜单关闭时触发），不污染合并对象。
-     *  菜单调整 = 应用设置（单一事实源，不存在优先级困惑）：
-     *  跟随全局（override=false）时，先把当前生效配置整体继承为应用自身配置，
-     *  再开 override——除本次缩放外，其他设置不因 override 切换而跳变。 */
-    private fun saveZoomSettings() {
-        if (wv == null || webapp == null) return
-        val original =
-            DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true) ?: return
-        if (!original.isOverrideGlobalSettings) {
-            original.copySettings(webapp!!) // webapp = 当前生效的合并对象
-        }
-        original.textZoom = wv!!.settings.textZoom
-        original.pageZoom = mMenuPageZoom
-        original.isOverrideGlobalSettings = true
-        DataManager.getInstance().replaceWebApp(original)
-    }
-
-    /**
-     * 页面缩放：setInitialScale（内容缩放，不改 viewport 布局模式）。
-     * 必须在页面加载完成后调用才稳定（加载前设置对移动自适应页面无效）。
-     * 不用 zoomBy：模拟捏合会触发缩放状态机，破坏 viewport 导致页面空白/布局错乱。
-     */
-    internal fun applyPageZoom() {
-        if (wv == null || webapp == null) return
-        val zoom = webapp!!.pageZoom
-        wv!!.setInitialScale(zoom)
-    }
-
-    /** 菜单动作处理（异常进错误日志——实机排查唯一入口是导出日志） */
-    private fun handleMenuAction(action: String) {
-        try {
-            handleMenuActionInner(action)
-        } catch (e: Exception) {
-            ErrorReporter.report(this, "MenuAction", "menu action failed: $action", e)
-        }
-    }
-
-    private fun handleMenuActionInner(action: String) {
-        when (action) {
-            "back" -> onBackPressed()
-            "forward" -> if (wv != null && wv!!.canGoForward()) wv!!.goForward()
-            "reload" -> wv?.reload()
-            "copy" -> {
-                if (wv != null && wv!!.url != null) {
-                    val clipboard = getSystemService(ClipboardManager::class.java)
-                    clipboard.setPrimaryClip(ClipData.newPlainText("URL", wv!!.url))
-                }
-            }
-            "share" -> {
-                if (wv != null && wv!!.url != null) {
-                    ShareCompat.IntentBuilder(this@WebViewActivity)
-                        .setType("text/plain")
-                        .setChooserTitle("Share URL")
-                        .setText(wv!!.url)
-                        .startChooser()
-                }
-            }
-            "home" -> {
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
-            }
-            "close" -> finishAndRemoveTask()
-            "new_tab" -> {
-                // 新增会话：sessionTabCount+1，跳到新标签（销毁当前，重建）
-                addNewSessionTab()
-            }
-            "switch_tab" -> {
-                // 切换会话：弹标签选择（单实例，选后销毁重建）
-                showSessionSwitchDialog()
-            }
-            "delete_tab" -> {
-                // 删除会话：会话数-1，重建回第一个标签
-                deleteCurrentSessionTab()
-            }
-            "shortcuts" -> {
-                // 组合快捷键面板（录制/发送，页面独有快捷键）
-                showShortcutMenuSheet()
-            }
-            "settings" -> {
-                // 跳转 WebApp 设置页（小菜单直达管理，与快捷键面板「管理」一致）
-                val settingsIntent = Intent(this, WebAppSettingsActivity::class.java)
-                settingsIntent.putExtra(Const.INTENT_WEBAPPID, webappID)
-                startActivity(settingsIntent)
-            }
-        }
-    }
-
-    /** 新增会话：sessionTabCount+1（隔离模式下），保存当前快照后销毁重建到新标签 */
-    private fun addNewSessionTab() {
-        if (webapp == null) return
-        val original =
-            DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true) ?: return
-        // 会话数+1（上限10，防内存）
-        if (original.sessionTabCount < 10) {
-            original.sessionTabCount = original.sessionTabCount + 1
-            DataManager.getInstance().replaceWebApp(original)
-        }
-        val newTab = original.sessionTabCount - 1
-        // 保存当前快照（异步）→ CLEAR_TOP 复用实例重载到新标签（不销毁，单实例）
-        CookieSessionManager.saveSnapshot(this, webappID, webappTabIndex)
-        WebViewLauncher.startWebViewById(webappID, newTab, this)
-    }
-
-    /** 切换会话：弹对话框列出所有会话标签，选一个销毁重建 */
-    private fun showSessionSwitchDialog() {
-        if (webapp == null) return
-        val count = maxOf(1, webapp!!.sessionTabCount)
-        // 二级会话菜单（简约）：列表切换 + "新增"；多会话才显示"删除"。
-        // 禁用 setMessage：AlertDialog 的 message 与 items 互斥——message 存在时
-        // 列表行不渲染（用户实测「看不到会话行只见按钮」的根因）；
-        // 会话行文案已含「（当前）」标记，提示语并入 title 行
-        val items = Array(count) { i ->
-            if (i == webappTabIndex) getString(R.string.session_item_current, i + 1)
-            else getString(R.string.session_item, i + 1)
-        }
-        val b = AlertDialog.Builder(this)
-            .setTitle(getString(R.string.menu_session))
-            .setItems(items) { _, which ->
-                if (which != webappTabIndex) {
-                    ErrorReporter.runCatchingReport(
-                        this, "SessionSwitch",
-                        getString(R.string.session_switch_failed)
-                    ) {
-                        CookieSessionManager.saveSnapshot(this, webappID, webappTabIndex)
-                        WebViewLauncher.startWebViewById(webappID, which, this)
-                    }
-                }
-            }
-            .setPositiveButton(R.string.session_add) { _, _ -> addNewSessionTab() }
-        // 单会话不显示删除（至少保留一个）
-        if (count > 1) {
-            b.setNegativeButton(R.string.delete) { _, _ -> deleteCurrentSessionTab() }
-        }
-        b.show()
-    }
-
-    /** 删除会话：会话数-1，销毁重建到第一个会话（保留目标快照） */
-    private fun deleteCurrentSessionTab() {
-        if (webapp == null) return
-        val original =
-            DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true) ?: return
-        val count = maxOf(1, original.sessionTabCount)
-        if (count == 1) {
-            // 单会话：不删除（至少保留一个），提示
-            Toast.makeText(this, getString(R.string.session_at_least_one), Toast.LENGTH_SHORT)
-                .show()
-            return
-        }
-        original.sessionTabCount = count - 1
-        DataManager.getInstance().replaceWebApp(original)
-        // 保存快照 → CLEAR_TOP 复用重载到第一个会话（不销毁）
-        CookieSessionManager.saveSnapshot(this, webappID, webappTabIndex)
-        WebViewLauncher.startWebViewById(webappID, 0, this)
-    }
-
-    /** 显示组合快捷键面板（ModalBottomSheet，纯发送；管理在设置页） */
-    private fun showShortcutMenuSheet() {
-        this.showShortcutMenuOverlay(
-            webappID
-        ) { shortcut ->
-            // 发送组合键到当前页面（JS 合成 KeyboardEvent）
-            sendShortcutToPage(shortcut)
-            Unit
-        }
-    }
-
-    /** 保存快捷键到 WebApp 原对象 */
-    private fun saveShortcutSettings() {
-        val original =
-            DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true) ?: return
-        DataManager.getInstance().replaceWebApp(original)
-    }
-
-    /**
-     * 统计缓存占用（异步，不阻塞主线程）：
-     * - HTTP 缓存：cacheDir 递归求和（WebView 缓存目录，含 app_webview）
-     * - 站点存储：WebStorage.getUsageForOrigin（localStorage/IndexedDB 等，回调异步补写）
-     * 调用点：页面加载完成（onPageFinished）后，WebView 缓存已就绪。
-     */
-    internal fun recordCacheUsage() {
-        if (wv == null) return
-        try {
-            // HTTP 缓存：cacheDir 递归求和（IO 操作，放 StatsRecorder 线程避免主线程卡顿）
-            // 不依赖 getOrigins 回调：HTTP 缓存立即统计，站点存储回调补写（两者独立）
-            StatsRecorder.record {
-                try {
-                    val httpBytes = dirSize(cacheDir)
-                    updateStatsCache(httpBytes, -1L) // -1 表示站点存储待补
-                } catch (e: Exception) {
-                    // 缓存统计失败静默（不影响主功能）
-                }
-            }
-            // 站点存储：异步查询（WebStorage 回调），回调后单独补写
-            WebStorage.getInstance().getOrigins { originsMap ->
-                var storeBytes = 0L
-                if (originsMap != null) {
-                    // getOrigins 回调为原始 Map：values 需强转 WebStorage.Origin
-                    for (o in originsMap.values) {
-                        if (o is WebStorage.Origin) {
-                            storeBytes += if (o.quota > 0) o.usage else 0L
-                        }
-                    }
-                }
-                val finalStoreBytes = storeBytes
-                StatsRecorder.record {
-                    updateStatsCache(-1L, finalStoreBytes) // -1 表示 HTTP 缓存已统计
-                }
-            }
-        } catch (e: Exception) {
-            // 缓存统计失败静默（不影响主功能）
-        }
-    }
-
-    /** 递归计算目录大小（字节） */
-    private fun dirSize(dir: java.io.File): Long {
-        var size = 0L
-        try {
-            val files = dir.listFiles()
-            if (files != null) {
-                for (f in files) {
-                    if (f.isDirectory) {
-                        size += dirSize(f)
-                    } else {
-                        size += f.length()
-                    }
-                }
-            }
-        } catch (ignored: Exception) {
-            // 目录不可读/损坏：跳过（统计尽力而为）
-        }
-        return size
-    }
-
-    /** 更新 WebApp 缓存统计字段（原对象，防合并副本覆盖；-1 表示该值待补/已统计，跳过） */
-    internal fun updateStatsCache(httpBytes: Long, storeBytes: Long) {
-        val original =
-            DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true) ?: return
-        if (httpBytes >= 0) original.statCacheHttpBytes = httpBytes
-        if (storeBytes >= 0) original.statCacheStoreBytes = storeBytes
-        DataManager.getInstance().replaceWebApp(original)
-    }
-
     /**
      * 发送组合键到当前页面。
      *
@@ -1464,210 +743,6 @@ class WebViewActivity : AppCompatActivity() {
      * `isTrusted=true` 的 DOM 事件，严格校验可信度的页面（kimi code 等）也能收到。
      * 兜底：JS 合成 KeyboardEvent（isTrusted=false，部分页面忽略）。
      */
-    internal fun sendShortcutToPage(shortcut: String?) {
-        if (wv == null || shortcut.isNullOrEmpty()) return
-        // 统计：记录发送次数（面板/统计页反馈）
-        StatsRecorder.recordShortcutSent(webappID, shortcut)
-        // 解析组合键 → keyCode + metaState（按字面量 "+" 分割，避免正则 crash）
-        val parsed = parseShortcut(shortcut) ?: return
-        val keyCode = keyCodeOf(parsed.key)
-        if (keyCode == KeyEvent.KEYCODE_UNKNOWN) return
-        val metaState = (if (parsed.ctrl) KeyEvent.META_CTRL_ON else 0) or
-            (if (parsed.shift) KeyEvent.META_SHIFT_ON else 0) or
-            (if (parsed.alt) KeyEvent.META_ALT_ON else 0)
-
-        // 方案一：JS 合成 KeyboardEvent（主方案——kimi code 源码确认不校验 isTrusted）
-        // 带 code 字段（CodeMirror 类编辑器按 e.code 匹配）+ 聚焦输入框（target 正确）
-        injectJsWithFocus(parsed.ctrl, parsed.shift, parsed.alt, parsed.key)
-        // 方案二：注入真实 KeyEvent（补充——对校验 isTrusted 的站点生效）
-        // 保持当前页面焦点（不强行聚焦输入框——兼容多种网页）
-        try {
-            wv!!.requestFocus()
-            val now = SystemClock.uptimeMillis()
-            val down = KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, metaState)
-            val up = KeyEvent(now, now + 50, KeyEvent.ACTION_UP, keyCode, 0, metaState)
-            wv!!.dispatchKeyEvent(down)
-            wv!!.dispatchKeyEvent(up)
-        } catch (ignored: Exception) {
-            // KeyEvent 注入失败静默（JS 合成已发）
-        }
-    }
-
-    /**
-     * JS 合成 + 聚焦输入框：先聚焦页面输入框（kimi code 的 inject 需输入框有焦点），
-     * 再向 activeElement 派发带 code 的 KeyboardEvent（CodeMirror 按 e.code 匹配）。
-     */
-    private fun injectJsWithFocus(ctrl: Boolean, shift: Boolean, alt: Boolean, key: String) {
-        // 聚焦脚本：当前焦点是 body 时聚焦第一个输入框（textarea/contenteditable/input）
-        val focusJs = "(function(){var t=document.activeElement;" +
-            "if(!t||t===document.body){" +
-            "var els=document.querySelectorAll('textarea,[contenteditable=true],input[type=text],input:not([type])');" +
-            "if(els.length>0)els[0].focus();" +
-            "}return true;})()"
-        try {
-            wv!!.evaluateJavascript(focusJs) { _ ->
-                injectJsFallback(ctrl, shift, alt, key)
-            }
-        } catch (ignored: Exception) {
-            injectJsFallback(ctrl, shift, alt, key)
-        }
-    }
-
-    /** JS 合成 KeyboardEvent（kimi code 等不校验 isTrusted，合成事件可收到） */
-    private fun injectJsFallback(ctrl: Boolean, shift: Boolean, alt: Boolean, key: String) {
-        val jsKey = if (shift) key.uppercase(Locale.US) else key.lowercase(Locale.US)
-        // code 字段：CodeMirror 类编辑器按 e.code（KeyS）匹配，必须带上
-        val jsCode = keyCodeToJsCode(key)
-        val js = "var t=document.activeElement||document.body;" +
-            "t.dispatchEvent(new KeyboardEvent('keydown',{key:'" + jsKey + "',code:'" + jsCode +
-            "',ctrlKey:" + ctrl + ",shiftKey:" + shift + ",altKey:" + alt +
-            ",bubbles:true,cancelable:true}));" +
-            "t.dispatchEvent(new KeyboardEvent('keyup',{key:'" + jsKey + "',code:'" + jsCode +
-            "',ctrlKey:" + ctrl + ",shiftKey:" + shift + ",altKey:" + alt +
-            ",bubbles:true,cancelable:true}));"
-        try {
-            wv?.evaluateJavascript(js, null)
-        } catch (ignored: Exception) {
-            // JS 注入失败静默
-        }
-    }
-
-    /** 主键 → JS KeyboardEvent.code（KeyA..KeyZ / Digit0..9 / F1..F12 / Enter / Space / Tab / Backspace） */
-    private fun keyCodeToJsCode(key: String): String {
-        if (key.length == 1) {
-            val c = key[0]
-            if (c in 'A'..'Z') return "Key" + c
-            if (c in 'a'..'z') return "Key" + c.uppercaseChar()
-            if (c in '0'..'9') return "Digit" + c
-        }
-        return when (key) {
-            "Enter" -> "Enter"
-            "Space" -> "Space"
-            "Tab" -> "Tab"
-            "Backspace" -> "Backspace"
-            "F1", "F2", "F3", "F4", "F5", "F6",
-            "F7", "F8", "F9", "F10", "F11", "F12" -> key
-            else -> ""
-        }
-    }
-
-    /** 组合键主键字符串 → Android KeyCode（A-Z / 0-9 / F1-F12 / Enter / Space / Tab / Backspace） */
-    private fun keyCodeOf(key: String): Int {
-        if (key.length == 1) {
-            val c = key[0]
-            if (c in 'A'..'Z') return KeyEvent.KEYCODE_A + (c - 'A')
-            if (c in 'a'..'z') return KeyEvent.KEYCODE_A + (c - 'a')
-            if (c in '0'..'9') return KeyEvent.KEYCODE_0 + (c - '0')
-        }
-        return when (key) {
-            "Enter" -> KeyEvent.KEYCODE_ENTER
-            "Space" -> KeyEvent.KEYCODE_SPACE
-            "Tab" -> KeyEvent.KEYCODE_TAB
-            "Backspace" -> KeyEvent.KEYCODE_DEL
-            "F1" -> KeyEvent.KEYCODE_F1
-            "F2" -> KeyEvent.KEYCODE_F2
-            "F3" -> KeyEvent.KEYCODE_F3
-            "F4" -> KeyEvent.KEYCODE_F4
-            "F5" -> KeyEvent.KEYCODE_F5
-            "F6" -> KeyEvent.KEYCODE_F6
-            "F7" -> KeyEvent.KEYCODE_F7
-            "F8" -> KeyEvent.KEYCODE_F8
-            "F9" -> KeyEvent.KEYCODE_F9
-            "F10" -> KeyEvent.KEYCODE_F10
-            "F11" -> KeyEvent.KEYCODE_F11
-            "F12" -> KeyEvent.KEYCODE_F12
-            else -> KeyEvent.KEYCODE_UNKNOWN
-        }
-    }
-
-    @SuppressLint("NonConstantResourceId")
-    private fun showWebViewPopupMenu() {
-        val center = findViewById<View>(R.id.anchorCenterScreen)
-        mPopupMenu = IconPopupMenuHelper.getMenu(center, R.menu.wv_context_menu, this)
-
-        val currentUrl = wv!!.url
-        var title = ""
-        if (currentUrl != null) {
-            title = if (currentUrl.length < 32) currentUrl
-            else currentUrl.substring(0, 32) + "…"
-        }
-        val spanStringWebAppTitle = SpannableString(title)
-
-        // The item is disabled because it has no click action, but we want to override the disabled style (text color)
-        val colorOnSurface = MaterialColors.getColor(
-            center, com.google.android.material.R.attr.colorOnSurface, Color.BLACK
-        )
-        val foregroundColorSpan = ForegroundColorSpan(colorOnSurface)
-        spanStringWebAppTitle.setSpan(
-            foregroundColorSpan, 0, spanStringWebAppTitle.length, 0
-        )
-
-        spanStringWebAppTitle.setSpan(
-            StyleSpan(Typeface.BOLD), 0, spanStringWebAppTitle.length, 0
-        )
-        mPopupMenu!!.menu[0].title = spanStringWebAppTitle
-
-        for (i in 0 until mPopupMenu!!.menu.size) {
-            val item = mPopupMenu!!.menu[i]
-            val spanString = SpannableString(item.title)
-            spanString.setSpan(foregroundColorSpan, 0, spanString.length, 0)
-            item.title = spanString
-        }
-        if (wv!!.canGoForward()) {
-            val forwardItem = mPopupMenu!!.menu.findItem(R.id.cmItemForward)
-            forwardItem?.isVisible = true
-        }
-        if (BuildConfig.DEBUG) {
-            val debugItem = mPopupMenu!!.menu.findItem(R.id.cmFallbackContextmenuTemp)
-            debugItem?.isVisible = true
-        }
-        mPopupMenu!!.setOnMenuItemClickListener { menuItem ->
-            val id = menuItem.itemId
-            if (id == R.id.cmItemForward) {
-                wv!!.goForward()
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmItemBack) {
-                onBackPressed()
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmItemReload) {
-                wv!!.reload()
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmItemCopyUrl) {
-                val clipboard = getSystemService(ClipboardManager::class.java)
-                val clip = ClipData.newPlainText("URL", wv!!.url)
-                clipboard.setPrimaryClip(clip)
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmItemShareUrl) {
-                ShareCompat.IntentBuilder(this@WebViewActivity)
-                    .setType("text/plain")
-                    .setChooserTitle("Share URL")
-                    .setText(wv!!.url)
-                    .startChooser()
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmItemCloseWebApp) {
-                finishAndRemoveTask()
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmFallbackContextmenuTemp) {
-                fallbackToDefaultLongClickBehaviour = true
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmMainMenu) {
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
-                return@setOnMenuItemClickListener true
-            }
-            false
-        }
-
-        mPopupMenu!!.show()
-    }
-
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         this.setDarkModeIfNeeded()
@@ -1735,7 +810,6 @@ class WebViewActivity : AppCompatActivity() {
         }
         // 统计埋点：落盘兜底（内存统计写入持久化）
         StatsRecorder.flush()
-        mPopupMenu?.dismiss()
 
         if (webapp != null &&
             (webapp!!.isClearCache || DataManager.getInstance().settings.isClearCache) &&
@@ -1777,64 +851,18 @@ class WebViewActivity : AppCompatActivity() {
             val keyCode = event.keyCode
             // 仅捕获组合键（Ctrl/Shift/Alt 单独按下不处理）
             if (ctrl || shift || alt) {
-                val key = keyCodeToChar(keyCode, shift)
+                val key = shortcutHelper.keyCodeToChar(keyCode, shift)
                 if (key != null) {
-                    val shortcut = buildShortcutString(ctrl, shift, alt, key)
+                    val shortcut = shortcutHelper.buildShortcutString(ctrl, shift, alt, key)
                     // 已绑定快捷键：拦截发送（不触发浏览器默认）
-                    if (isBoundShortcut(shortcut)) {
-                        sendShortcutToPage(shortcut)
+                    if (shortcutHelper.isBoundShortcut(shortcut)) {
+                        shortcutHelper.sendShortcutToPage(shortcut)
                         return true
                     }
                 }
             }
         }
         return super.dispatchKeyEvent(event)
-    }
-
-    /** 是否已绑定的组合键 */
-    internal fun isBoundShortcut(shortcut: String): Boolean {
-        val w = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true)
-        return w != null && w.keyShortcuts.contains(shortcut)
-    }
-
-    /** 构建组合键字符串（Ctrl+S / Ctrl+Shift+S） */
-    internal fun buildShortcutString(ctrl: Boolean, shift: Boolean, alt: Boolean, key: String): String {
-        val sb = StringBuilder()
-        if (ctrl) sb.append("Ctrl+")
-        if (shift) sb.append("Shift+")
-        if (alt) sb.append("Alt+")
-        sb.append(key)
-        return sb.toString()
-    }
-
-    /** keyCode → 字符（字母/数字/功能键） */
-    private fun keyCodeToChar(keyCode: Int, shift: Boolean): String? {
-        if (keyCode in KeyEvent.KEYCODE_A..KeyEvent.KEYCODE_Z) {
-            val c = 'a' + (keyCode - KeyEvent.KEYCODE_A)
-            return if (shift) c.uppercaseChar().toString() else c.toString()
-        }
-        if (keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) {
-            return ('0' + (keyCode - KeyEvent.KEYCODE_0)).toString()
-        }
-        return when (keyCode) {
-            KeyEvent.KEYCODE_F1 -> "F1"
-            KeyEvent.KEYCODE_F2 -> "F2"
-            KeyEvent.KEYCODE_F3 -> "F3"
-            KeyEvent.KEYCODE_F4 -> "F4"
-            KeyEvent.KEYCODE_F5 -> "F5"
-            KeyEvent.KEYCODE_F6 -> "F6"
-            KeyEvent.KEYCODE_F7 -> "F7"
-            KeyEvent.KEYCODE_F8 -> "F8"
-            KeyEvent.KEYCODE_F9 -> "F9"
-            KeyEvent.KEYCODE_F10 -> "F10"
-            KeyEvent.KEYCODE_F11 -> "F11"
-            KeyEvent.KEYCODE_F12 -> "F12"
-            KeyEvent.KEYCODE_ENTER -> "Enter"
-            KeyEvent.KEYCODE_SPACE -> " "
-            KeyEvent.KEYCODE_TAB -> "Tab"
-            KeyEvent.KEYCODE_DEL -> "Backspace"
-            else -> null
-        }
     }
 
     /**
@@ -1911,7 +939,8 @@ class WebViewActivity : AppCompatActivity() {
                 if (stored != null) {
                     stored.isAllowHttp = true
                     stored.isOverrideGlobalSettings = true
-                    DataManager.getInstance().saveWebAppData()
+                    // 统一写收口：发射 flow（设置页返回后列表/设置即时反映）+ 触发持久化
+                    DataManager.getInstance().commitChanges()
                 }
                 view.loadUrl(url, customHeaders!!)
             }
@@ -1958,20 +987,7 @@ class WebViewActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-        var allGranted = grantResults.isNotEmpty()
-        for (r in grantResults) {
-            if (r != PackageManager.PERMISSION_GRANTED) {
-                allGranted = false
-                break
-            }
-        }
-
-        if (allGranted) {
-            onPermissionsGranted(requestCode, permissions.toList())
-        } else {
-            onPermissionsDenied(requestCode, permissions.toList())
-        }
+        permissionHelper.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     internal fun enablePermissionBoolOnWebApp(successCallback: PermissionGrantedCallback) {
@@ -1979,22 +995,6 @@ class WebViewActivity : AppCompatActivity() {
         successCallback.execute()
         DataManager.getInstance().replaceWebApp(webapp!!)
         wv!!.reload()
-    }
-
-    private fun onPermissionsGranted(requestCode: Int, list: List<String>) {
-        if (requestCode == Const.PERMISSION_RC_LOCATION) {
-            enablePermissionBoolOnWebApp { webapp!!.isAllowLocationAccess = true }
-            this.handleGeoPermissionCallback(true)
-        }
-        if (requestCode == Const.PERMISSION_CAMERA) {
-            enablePermissionBoolOnWebApp { webapp!!.isCameraPermission = true }
-        }
-    }
-
-    private fun onPermissionsDenied(requestCode: Int, list: List<String>) {
-        if (requestCode == Const.PERMISSION_RC_LOCATION) {
-            this.handleGeoPermissionCallback(false)
-        }
     }
 
     internal fun handleGeoPermissionCallback(allow: Boolean) {

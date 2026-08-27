@@ -66,7 +66,7 @@ object WebAppIconManager {
                     // 文件损坏：清理防污染（下次 resolveIcon 重新拉）
                     f.delete()
                     webApp.iconPath = null
-                    DataManager.getInstance().saveWebAppData()
+                    DataManager.getInstance().commitChanges()
                     return null
                 }
                 bmp
@@ -194,7 +194,7 @@ object WebAppIconManager {
     private fun persistFavicon(context: Context, webApp: WebApp, cacheFile: File, bmp: Bitmap): Bitmap {
         FileOutputStream(cacheFile).use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 90, out) }
         saveIcon(context, webApp, bmp)
-        DataManager.getInstance().saveWebAppData()
+        DataManager.getInstance().commitChanges()
         return bmp
     }
 

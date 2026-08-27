@@ -102,7 +102,7 @@ fun ShortcutRecreateDialog(
             if (webapp.title.isBlank()) {
                 webapp.title = UrlUtils.displayHost(newUrl)
             }
-            DataManager.getInstance().saveWebAppData()
+            DataManager.getInstance().commitChanges()
         }
         bitmap = favicon
         if (favicon == null) fetchFailed = true
@@ -193,7 +193,7 @@ private fun pinShortcut(activity: Activity, webapp: WebApp, fetched: Bitmap?, ti
     if (fetched != null) {
         WebAppIconManager.saveIcon(activity, webapp, fetched)
     }
-    DataManager.getInstance().saveWebAppData()
+    DataManager.getInstance().commitChanges()
 
     val intent = WebViewLauncher.createWebViewIntent(webapp, activity)
         ?: return

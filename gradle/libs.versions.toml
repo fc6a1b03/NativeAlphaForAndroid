@@ -36,6 +36,7 @@ vico = "2.2.1"
 markwon = "4.6.2"
 
 # 测试
+coroutinesTest = "1.10.2"
 junit = "4.13.2"
 robolectric = "4.16.1"
 mockitoCore = "5.23.0"
@@ -76,6 +77,7 @@ jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 markwon = { group = "io.noties.markwon", name = "core", version.ref = "markwon" }
 
 # 测试
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoCore" }

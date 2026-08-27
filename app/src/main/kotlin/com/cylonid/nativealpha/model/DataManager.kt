@@ -16,6 +16,13 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
@@ -31,6 +38,12 @@ import java.util.TreeMap
  */
 class DataManager private constructor() {
 
+    /**
+     * WebApp 列表快照（flow 载荷）：revision 是必达发射的关键——
+     * 详见 DataManager.snapshotRevision 注释。
+     */
+    class WebAppsSnapshot(val items: List<WebApp>, val revision: Long)
+
     private var websites = ArrayList<WebApp>()
     private var maxAssignedId = -1
     private var appdata: SharedPreferences? = null
@@ -42,6 +55,22 @@ class DataManager private constructor() {
     private var dataLoaded = false
 
     private var _settings = GlobalSettings()
+
+    // —— P2 响应式数据流 ——
+    /** WebApp 列表唯一响应式出口：写路径收口后由 commitChanges/loadAppData 发射。
+     * DataManager 是进程级单例，StateFlow 本身即热流且天然跨页面共享，
+     * 无需再包 stateIn(WhileSubscribed)（多一层共享协程反而增加损耗） */
+    private val _webApps = MutableStateFlow(WebAppsSnapshot(emptyList(), 0))
+    val webAppsFlow: StateFlow<WebAppsSnapshot> = _webApps.asStateFlow()
+
+    // —— P2 异步持久化（L3 串行）——
+    /** SupervisorJob + IO 串行通道（L3）：Gson 序列化与 SP 写盘全部在此执行，
+     * 失败不级联、永不阻塞主线程；limitedParallelism(1) 是串行通道的官方实现 */
+    private val saveScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+    private val saveScheduler = SaveScheduler(saveScope, SAVE_DEBOUNCE_MS) { snapshot ->
+        persistWebsites(snapshot)
+    }
 
     /**
      * 全局设置。自定义 setter 保留原 Java `setSettings()` 的副作用语义
@@ -59,11 +88,76 @@ class DataManager private constructor() {
         maxAssignedId = -1
     }
 
+    /**
+     * 保存入口（P2 收口）：调用线程仅做引用快照（µs 级），Gson 全量序列化与
+     * SP 落盘移交 L3 串行调度器（500ms debounce 合并、最新胜出）。
+     * 既有 10 处调用点零改动即完成主线程零序列化。
+     */
     fun saveWebAppData() {
+        ensurePrefs()
+        saveScheduler.submit(websites.toList())
+    }
+
+    /** 即时落盘（跳过 debounce）：页面销毁兜底；L3 串行排队与 debounce 消费互斥 */
+    fun flushPendingSave() {
+        ensurePrefs()
+        val snapshot = websites.toList()
+        saveScope.launch { persistWebsites(snapshot) }
+    }
+
+    /**
+     * 掉电兜底：挂起等待全部在途保存完成（Activity onStop 调用——协程挂起不占
+     * 线程、onStop 无帧预算约束；lifecycleScope 不会因 stop 取消）。
+     */
+    suspend fun awaitPendingSave() {
+        // 哨兵任务在 FIFO 串行队列中排尾，其完成即代表在途快照/flush 全部落盘
+        saveScope.launch { }.join()
+    }
+
+    /**
+     * 统一写收口：绕过 DataManager 写方法的内存改动（如删除站点的 isActiveEntry
+     * 置位、图标路径更新）完成后调用——发射 flow 驱动 UI 即时刷新 + 触发持久化。
+     */
+    fun commitChanges() {
+        updateFlow()
+        saveWebAppData()
+    }
+
+    /**
+     * 逃生门：收口遗漏的野写路径兜底（force 重读 SP + flow 重发射）。
+     * 常规数据变更禁止走此处——会丢弃内存中尚未落盘的改动。
+     */
+    fun invalidate() {
+        // 逃生门语义=外部已改 SP：重取实例（SP 进程内缓存使常规场景重取即同一对象，
+        // 零行为变化；测试沙盒场景则拿到当前沙盒实例，避免陈旧对象读不到外部写入）
         appdata = App.getAppContext()
             .getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE)
-        val json = GSON.toJson(websites)
-        appdata!!.edit {
+        loadAppData(true)
+        updateFlow()
+    }
+
+    /** 快照版本号：每次 updateFlow 递增——原地修改场景（删除/改名/统计字段）下列表
+     * 元素引用不变且 WebApp data class equals 只含主构造字段（baseUrl+ID），
+     * StateFlow 结构比较会吞掉发射；revision 保证每次 commitChanges 必达 UI */
+    private var snapshotRevision = 0L
+
+    private fun updateFlow() {
+        snapshotRevision += 1
+        _webApps.value = WebAppsSnapshot(websites.toList(), snapshotRevision)
+    }
+
+    /** SharedPreferences 实例惰性初始化（复用实例，避免 apply 未落盘时重取读旧值） */
+    private fun ensurePrefs() {
+        if (appdata == null) {
+            appdata = App.getAppContext()
+                .getSharedPreferences(SHARED_PREF_KEY, Context.MODE_PRIVATE)
+        }
+    }
+
+    /** SP 落盘（仅 L3 串行线程调用——Gson 全量序列化的唯一实现处） */
+    private fun persistWebsites(snapshot: List<WebApp>) {
+        val json = GSON.toJson(snapshot)
+        appdata?.edit {
             putString(SHARED_PREF_WEBAPP_DATA, json)
             putInt(SHARED_PREF_MAX_ID, maxAssignedId)
         }
@@ -166,6 +260,8 @@ class DataManager private constructor() {
         }
 
         dataLoaded = true
+        // 流式发射（启动预热线程可能非主线程——MutableStateFlow 线程安全）
+        updateFlow()
     }
 
     /** 迁移旧版散列全局设置（仅在检测到 globalSettingsStoredAsJson 键时触发） */
@@ -196,7 +292,7 @@ class DataManager private constructor() {
 
     fun addWebsite(newSite: WebApp) {
         websites.add(newSite)
-        saveWebAppData()
+        commitChanges()
     }
 
     val incrementedID: Int
@@ -271,7 +367,7 @@ class DataManager private constructor() {
     fun replaceWebApp(webapp: WebApp) {
         val index = webapp.ID
         websites[index] = webapp
-        saveWebAppData()
+        commitChanges()
     }
 
     val activeWebsitesCount: Int
@@ -365,7 +461,7 @@ class DataManager private constructor() {
 
                 if (loadedWebsites != null) {
                     websites = loadedWebsites
-                    saveWebAppData()
+                    commitChanges()
                 }
                 if (loadedSettings != null) {
                     _settings = loadedSettings
@@ -450,6 +546,9 @@ class DataManager private constructor() {
 
         /** 共享 Gson 实例（线程安全）——避免每次读写都新建（saveWebAppData 为热路径） */
         private val GSON = Gson()
+
+        /** 保存 debounce 合并窗口（ms）：窗口内连发快照只落盘最新一份（P2） */
+        private const val SAVE_DEBOUNCE_MS = 500L
 
         private val instance = DataManager()
 

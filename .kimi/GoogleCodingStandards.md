@@ -138,7 +138,7 @@
 - 资源命名 `snake_case` 语义前缀；AndroidManifest 权限最小化、activity 逐项声明
 - Activity 一个一职责；`onCreate` 必须 `setTheme` + `ThemeUtils.applyUiMode` + `applySystemBarColors(this)`
 - Compose：`@Composable` 大驼峰、state 提升、`stringResource()` 组合期预取（禁回调内 `context.getString`）
-- WebView 渲染优化（RenderPriority.HIGH + OffscreenPreRaster）不得回退
+- WebView 渲染优化（setRendererPriorityPolicy(WAIVED, waivedWhenNotVisible=true) + OffscreenPreRaster）不得回退——废弃的 setRenderPriority 已于 v2.2.0 P6 移除
 - Cookie 隔离走 `CookieSessionManager`（唯一入口）；头像走 `WebAppIconManager`（统一源）
 
 ---
@@ -229,6 +229,11 @@
 
 ## 7. 已验证的坑（项目实践沉淀）
 
+- coroutines-test 1.10.x 的 `Dispatchers.setMain/resetMain` 是 **test 模块的扩展函数**（kotlinx-coroutines-core 已无此 API），必须显式 `import kotlinx.coroutines.test.setMain/resetMain`，否则 Unresolved reference 且报错点会误导排查方向（实测 jar 反编译确认）
+- coroutines-test 1.10.x 的 **`TestScope.backgroundScope` 协程在首个挂起点后不再被 `advanceUntilIdle` 恢复**（无挂起点则正常执行，实测矩阵确认）——挂起型消费循环必须用 `runTest` 的 TestScope 直接子协程 + 收尾显式 `cancel()`，勿用 backgroundScope
+- **Robolectric 每个测试方法新建沙盒 Application，而 JVM 静态单例跨方法存活**——单例持有的 SP/Context 字段指向旧沙盒死对象，读不到当前沙盒写入；需要拾取外部写入的入口（如 DataManager.invalidate）必须重取实例，勿信任「SP 进程内缓存同一实例」假设
+- **data class 的 equals 只比较主构造参数**：body 声明的属性（如 `WebApp.isActiveEntry`）不参与相等性——原地修改字段后 `MutableStateFlow<List<T>>` 结构比较判定无变化、吞掉发射；跨页通知流必须带版本号/revision 载荷（V2_2_0 P2 `WebAppsSnapshot` 范式）
+- Git Bash 中 `export MSYS_NO_PATHCONV=1` 与 `./gradlew` 同会话混用会导致 wrapper 报 `ClassNotFoundException: GradleWrapperMain`（该变量禁用了 gradlew 内部 classpath 的路径转换）——adb 与 gradle 命令分开执行
 - Kotlin 位或用 `or` 关键字（`|` 有解析歧义——实测）
 - `OutlinedTextFieldDefaults.colors` 参数名随 Material3 版本变化（避免新旧歧义参数）
 - CRLF 文件用 Python `newline=''` 处理（Edit 工具的 LF 匹配可能失败）
