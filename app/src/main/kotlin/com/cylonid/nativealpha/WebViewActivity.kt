@@ -80,10 +80,10 @@ import androidx.core.view.get
 import androidx.core.view.size
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
-import com.cylonid.nativealpha.helper.IconPopupMenuHelper
 import com.cylonid.nativealpha.helper.WebViewGestureHelper
 import com.cylonid.nativealpha.helper.WebViewTouchHandler
 import com.cylonid.nativealpha.helper.WebViewShortcutInjectHelper
+import com.cylonid.nativealpha.helper.WebViewMenuHelper
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.model.WebApp
@@ -222,8 +222,6 @@ class WebViewActivity : AppCompatActivity() {
 
     // 错误页重试目标（onReceivedError 主框架失败时记录，webnative://retry 用它重新加载）
     internal var retryUrl = ""
-    private var fallbackToDefaultLongClickBehaviour = false
-    private var mPopupMenu: PopupMenu? = null
 
     // 长按动态分流：系统是否已启动文本/链接选择 ActionMode（区分「有内容」vs「空白处」）
     private var actionModeActive = false
@@ -245,6 +243,21 @@ class WebViewActivity : AppCompatActivity() {
 
     /** 组合键注入处理器（P3 第三刀迁移 helper/WebViewShortcutInjectHelper） */
     internal val shortcutHelper = WebViewShortcutInjectHelper(this)
+
+    /** 菜单浮层处理器（P3 第四刀迁移 helper/WebViewMenuHelper） */
+    internal val menuHelper = WebViewMenuHelper(this)
+
+    /** 委托：WebViewTouchHandler 双击菜单调用点保持零改动 */
+    internal fun showWebViewMenuSheet() = menuHelper.showWebViewMenuSheet()
+
+    /** 委托：页面加载完成回调的缩放生效点保持零改动 */
+    internal fun applyPageZoom() = menuHelper.applyPageZoom()
+
+    /** 委托：onPageFinished 缓存统计入口保持零改动 */
+    internal fun recordCacheUsage() = menuHelper.recordCacheUsage()
+
+    /** 菜单「后退」入口：onBackPressed 为 protected，helper 经此转发（语义不变） */
+    internal fun triggerBack() = onBackPressed()
     private val blankScreenCheck = Runnable { handleBlankScreen() }
     internal var pageLoadFinished = false
 
@@ -715,278 +728,6 @@ class WebViewActivity : AppCompatActivity() {
         }
     }
 
-    /** 显示 Compose 底部菜单（当前页叠加，WebView 保留在后面；滑杆实时预览，关闭即保存） */
-    internal fun showWebViewMenuSheet() {
-        val currentUrl = wv?.url ?: ""
-        // 初始化页面缩放待保存值（防只调字体时把已保存的 pageZoom 覆盖成 100）
-        mMenuPageZoom = webapp!!.pageZoom
-        this.showWebViewMenuOverlay(
-            currentUrl,
-            wv!!.canGoBack(),
-            wv!!.canGoForward(),
-            webapp!!.textZoom,
-            webapp!!.pageZoom,
-            { action -> handleMenuAction(action); Unit },
-            { zoom ->
-                // 实时预览字体缩放
-                wv?.settings?.textZoom = zoom
-                Unit
-            },
-            { zoom ->
-                // 实时预览页面缩放 + 记录待保存值（zoomBy 模拟捏合）
-                mMenuPageZoom = zoom
-                if (wv != null) {
-                    webapp!!.pageZoom = zoom
-                    applyPageZoom()
-                }
-                Unit
-            },
-            { saveZoomSettings(); Unit }
-        )
-    }
-
-    /** 保存字体/缩放设置到 WebApp 原对象（菜单关闭时触发），不污染合并对象。
-     *  菜单调整 = 应用设置（单一事实源，不存在优先级困惑）：
-     *  跟随全局（override=false）时，先把当前生效配置整体继承为应用自身配置，
-     *  再开 override——除本次缩放外，其他设置不因 override 切换而跳变。 */
-    private fun saveZoomSettings() {
-        if (wv == null || webapp == null) return
-        val original =
-            DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true) ?: return
-        if (!original.isOverrideGlobalSettings) {
-            original.copySettings(webapp!!) // webapp = 当前生效的合并对象
-        }
-        original.textZoom = wv!!.settings.textZoom
-        original.pageZoom = mMenuPageZoom
-        original.isOverrideGlobalSettings = true
-        DataManager.getInstance().replaceWebApp(original)
-    }
-
-    /**
-     * 页面缩放：setInitialScale（内容缩放，不改 viewport 布局模式）。
-     * 必须在页面加载完成后调用才稳定（加载前设置对移动自适应页面无效）。
-     * 不用 zoomBy：模拟捏合会触发缩放状态机，破坏 viewport 导致页面空白/布局错乱。
-     */
-    internal fun applyPageZoom() {
-        if (wv == null || webapp == null) return
-        val zoom = webapp!!.pageZoom
-        wv!!.setInitialScale(zoom)
-    }
-
-    /** 菜单动作处理（异常进错误日志——实机排查唯一入口是导出日志） */
-    private fun handleMenuAction(action: String) {
-        try {
-            handleMenuActionInner(action)
-        } catch (e: Exception) {
-            ErrorReporter.report(this, "MenuAction", "menu action failed: $action", e)
-        }
-    }
-
-    private fun handleMenuActionInner(action: String) {
-        when (action) {
-            "back" -> onBackPressed()
-            "forward" -> if (wv != null && wv!!.canGoForward()) wv!!.goForward()
-            "reload" -> wv?.reload()
-            "copy" -> {
-                if (wv != null && wv!!.url != null) {
-                    val clipboard = getSystemService(ClipboardManager::class.java)
-                    clipboard.setPrimaryClip(ClipData.newPlainText("URL", wv!!.url))
-                }
-            }
-            "share" -> {
-                if (wv != null && wv!!.url != null) {
-                    ShareCompat.IntentBuilder(this@WebViewActivity)
-                        .setType("text/plain")
-                        .setChooserTitle("Share URL")
-                        .setText(wv!!.url)
-                        .startChooser()
-                }
-            }
-            "home" -> {
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
-            }
-            "close" -> finishAndRemoveTask()
-            "new_tab" -> {
-                // 新增会话：sessionTabCount+1，跳到新标签（销毁当前，重建）
-                addNewSessionTab()
-            }
-            "switch_tab" -> {
-                // 切换会话：弹标签选择（单实例，选后销毁重建）
-                showSessionSwitchDialog()
-            }
-            "delete_tab" -> {
-                // 删除会话：会话数-1，重建回第一个标签
-                deleteCurrentSessionTab()
-            }
-            "shortcuts" -> {
-                // 组合快捷键面板（录制/发送，页面独有快捷键）
-                showShortcutMenuSheet()
-            }
-            "settings" -> {
-                // 跳转 WebApp 设置页（小菜单直达管理，与快捷键面板「管理」一致）
-                val settingsIntent = Intent(this, WebAppSettingsActivity::class.java)
-                settingsIntent.putExtra(Const.INTENT_WEBAPPID, webappID)
-                startActivity(settingsIntent)
-            }
-        }
-    }
-
-    /** 新增会话：sessionTabCount+1（隔离模式下），保存当前快照后销毁重建到新标签 */
-    private fun addNewSessionTab() {
-        if (webapp == null) return
-        val original =
-            DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true) ?: return
-        // 会话数+1（上限10，防内存）
-        if (original.sessionTabCount < 10) {
-            original.sessionTabCount = original.sessionTabCount + 1
-            DataManager.getInstance().replaceWebApp(original)
-        }
-        val newTab = original.sessionTabCount - 1
-        // 保存当前快照（异步）→ CLEAR_TOP 复用实例重载到新标签（不销毁，单实例）
-        CookieSessionManager.saveSnapshot(this, webappID, webappTabIndex)
-        WebViewLauncher.startWebViewById(webappID, newTab, this)
-    }
-
-    /** 切换会话：弹对话框列出所有会话标签，选一个销毁重建 */
-    private fun showSessionSwitchDialog() {
-        if (webapp == null) return
-        val count = maxOf(1, webapp!!.sessionTabCount)
-        // 二级会话菜单（简约）：列表切换 + "新增"；多会话才显示"删除"。
-        // 禁用 setMessage：AlertDialog 的 message 与 items 互斥——message 存在时
-        // 列表行不渲染（用户实测「看不到会话行只见按钮」的根因）；
-        // 会话行文案已含「（当前）」标记，提示语并入 title 行
-        val items = Array(count) { i ->
-            if (i == webappTabIndex) getString(R.string.session_item_current, i + 1)
-            else getString(R.string.session_item, i + 1)
-        }
-        val b = AlertDialog.Builder(this)
-            .setTitle(getString(R.string.menu_session))
-            .setItems(items) { _, which ->
-                if (which != webappTabIndex) {
-                    ErrorReporter.runCatchingReport(
-                        this, "SessionSwitch",
-                        getString(R.string.session_switch_failed)
-                    ) {
-                        CookieSessionManager.saveSnapshot(this, webappID, webappTabIndex)
-                        WebViewLauncher.startWebViewById(webappID, which, this)
-                    }
-                }
-            }
-            .setPositiveButton(R.string.session_add) { _, _ -> addNewSessionTab() }
-        // 单会话不显示删除（至少保留一个）
-        if (count > 1) {
-            b.setNegativeButton(R.string.delete) { _, _ -> deleteCurrentSessionTab() }
-        }
-        b.show()
-    }
-
-    /** 删除会话：会话数-1，销毁重建到第一个会话（保留目标快照） */
-    private fun deleteCurrentSessionTab() {
-        if (webapp == null) return
-        val original =
-            DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true) ?: return
-        val count = maxOf(1, original.sessionTabCount)
-        if (count == 1) {
-            // 单会话：不删除（至少保留一个），提示
-            Toast.makeText(this, getString(R.string.session_at_least_one), Toast.LENGTH_SHORT)
-                .show()
-            return
-        }
-        original.sessionTabCount = count - 1
-        DataManager.getInstance().replaceWebApp(original)
-        // 保存快照 → CLEAR_TOP 复用重载到第一个会话（不销毁）
-        CookieSessionManager.saveSnapshot(this, webappID, webappTabIndex)
-        WebViewLauncher.startWebViewById(webappID, 0, this)
-    }
-
-    /** 显示组合快捷键面板（ModalBottomSheet，纯发送；管理在设置页） */
-    private fun showShortcutMenuSheet() {
-        this.showShortcutMenuOverlay(
-            webappID
-        ) { shortcut ->
-            // 发送组合键到当前页面（JS 合成 KeyboardEvent）
-            shortcutHelper.sendShortcutToPage(shortcut)
-            Unit
-        }
-    }
-
-    /** 保存快捷键到 WebApp 原对象 */
-    private fun saveShortcutSettings() {
-        val original =
-            DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true) ?: return
-        DataManager.getInstance().replaceWebApp(original)
-    }
-
-    /**
-     * 统计缓存占用（异步，不阻塞主线程）：
-     * - HTTP 缓存：cacheDir 递归求和（WebView 缓存目录，含 app_webview）
-     * - 站点存储：WebStorage.getUsageForOrigin（localStorage/IndexedDB 等，回调异步补写）
-     * 调用点：页面加载完成（onPageFinished）后，WebView 缓存已就绪。
-     */
-    internal fun recordCacheUsage() {
-        if (wv == null) return
-        try {
-            // HTTP 缓存：cacheDir 递归求和（IO 操作，放 StatsRecorder 线程避免主线程卡顿）
-            // 不依赖 getOrigins 回调：HTTP 缓存立即统计，站点存储回调补写（两者独立）
-            StatsRecorder.record {
-                try {
-                    val httpBytes = dirSize(cacheDir)
-                    updateStatsCache(httpBytes, -1L) // -1 表示站点存储待补
-                } catch (e: Exception) {
-                    // 缓存统计失败静默（不影响主功能）
-                }
-            }
-            // 站点存储：异步查询（WebStorage 回调），回调后单独补写
-            WebStorage.getInstance().getOrigins { originsMap ->
-                var storeBytes = 0L
-                if (originsMap != null) {
-                    // getOrigins 回调为原始 Map：values 需强转 WebStorage.Origin
-                    for (o in originsMap.values) {
-                        if (o is WebStorage.Origin) {
-                            storeBytes += if (o.quota > 0) o.usage else 0L
-                        }
-                    }
-                }
-                val finalStoreBytes = storeBytes
-                StatsRecorder.record {
-                    updateStatsCache(-1L, finalStoreBytes) // -1 表示 HTTP 缓存已统计
-                }
-            }
-        } catch (e: Exception) {
-            // 缓存统计失败静默（不影响主功能）
-        }
-    }
-
-    /** 递归计算目录大小（字节） */
-    private fun dirSize(dir: java.io.File): Long {
-        var size = 0L
-        try {
-            val files = dir.listFiles()
-            if (files != null) {
-                for (f in files) {
-                    if (f.isDirectory) {
-                        size += dirSize(f)
-                    } else {
-                        size += f.length()
-                    }
-                }
-            }
-        } catch (ignored: Exception) {
-            // 目录不可读/损坏：跳过（统计尽力而为）
-        }
-        return size
-    }
-
-    /** 更新 WebApp 缓存统计字段（原对象，防合并副本覆盖；-1 表示该值待补/已统计，跳过） */
-    internal fun updateStatsCache(httpBytes: Long, storeBytes: Long) {
-        val original =
-            DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true) ?: return
-        if (httpBytes >= 0) original.statCacheHttpBytes = httpBytes
-        if (storeBytes >= 0) original.statCacheStoreBytes = storeBytes
-        DataManager.getInstance().replaceWebApp(original)
-    }
-
     /**
      * 发送组合键到当前页面。
      *
@@ -994,94 +735,6 @@ class WebViewActivity : AppCompatActivity() {
      * `isTrusted=true` 的 DOM 事件，严格校验可信度的页面（kimi code 等）也能收到。
      * 兜底：JS 合成 KeyboardEvent（isTrusted=false，部分页面忽略）。
      */
-    @SuppressLint("NonConstantResourceId")
-    private fun showWebViewPopupMenu() {
-        val center = findViewById<View>(R.id.anchorCenterScreen)
-        mPopupMenu = IconPopupMenuHelper.getMenu(center, R.menu.wv_context_menu, this)
-
-        val currentUrl = wv!!.url
-        var title = ""
-        if (currentUrl != null) {
-            title = if (currentUrl.length < 32) currentUrl
-            else currentUrl.substring(0, 32) + "…"
-        }
-        val spanStringWebAppTitle = SpannableString(title)
-
-        // The item is disabled because it has no click action, but we want to override the disabled style (text color)
-        val colorOnSurface = MaterialColors.getColor(
-            center, com.google.android.material.R.attr.colorOnSurface, Color.BLACK
-        )
-        val foregroundColorSpan = ForegroundColorSpan(colorOnSurface)
-        spanStringWebAppTitle.setSpan(
-            foregroundColorSpan, 0, spanStringWebAppTitle.length, 0
-        )
-
-        spanStringWebAppTitle.setSpan(
-            StyleSpan(Typeface.BOLD), 0, spanStringWebAppTitle.length, 0
-        )
-        mPopupMenu!!.menu[0].title = spanStringWebAppTitle
-
-        for (i in 0 until mPopupMenu!!.menu.size) {
-            val item = mPopupMenu!!.menu[i]
-            val spanString = SpannableString(item.title)
-            spanString.setSpan(foregroundColorSpan, 0, spanString.length, 0)
-            item.title = spanString
-        }
-        if (wv!!.canGoForward()) {
-            val forwardItem = mPopupMenu!!.menu.findItem(R.id.cmItemForward)
-            forwardItem?.isVisible = true
-        }
-        if (BuildConfig.DEBUG) {
-            val debugItem = mPopupMenu!!.menu.findItem(R.id.cmFallbackContextmenuTemp)
-            debugItem?.isVisible = true
-        }
-        mPopupMenu!!.setOnMenuItemClickListener { menuItem ->
-            val id = menuItem.itemId
-            if (id == R.id.cmItemForward) {
-                wv!!.goForward()
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmItemBack) {
-                onBackPressed()
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmItemReload) {
-                wv!!.reload()
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmItemCopyUrl) {
-                val clipboard = getSystemService(ClipboardManager::class.java)
-                val clip = ClipData.newPlainText("URL", wv!!.url)
-                clipboard.setPrimaryClip(clip)
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmItemShareUrl) {
-                ShareCompat.IntentBuilder(this@WebViewActivity)
-                    .setType("text/plain")
-                    .setChooserTitle("Share URL")
-                    .setText(wv!!.url)
-                    .startChooser()
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmItemCloseWebApp) {
-                finishAndRemoveTask()
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmFallbackContextmenuTemp) {
-                fallbackToDefaultLongClickBehaviour = true
-                return@setOnMenuItemClickListener true
-            }
-            if (id == R.id.cmMainMenu) {
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
-                return@setOnMenuItemClickListener true
-            }
-            false
-        }
-
-        mPopupMenu!!.show()
-    }
-
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         this.setDarkModeIfNeeded()
@@ -1149,7 +802,6 @@ class WebViewActivity : AppCompatActivity() {
         }
         // 统计埋点：落盘兜底（内存统计写入持久化）
         StatsRecorder.flush()
-        mPopupMenu?.dismiss()
 
         if (webapp != null &&
             (webapp!!.isClearCache || DataManager.getInstance().settings.isClearCache) &&
