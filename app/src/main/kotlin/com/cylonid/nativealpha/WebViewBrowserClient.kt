@@ -1,10 +1,10 @@
 package com.cylonid.nativealpha
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.http.SslError
-import android.os.Build
 import android.view.View
 import android.webkit.HttpAuthHandler
 import android.webkit.RenderProcessGoneDetail
@@ -14,38 +14,30 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import com.cylonid.nativealpha.model.DataManager
-import com.cylonid.nativealpha.util.Const
-import com.cylonid.nativealpha.util.FeatureMetrics
-import com.cylonid.nativealpha.util.StatsRecorder
-import com.cylonid.nativealpha.model.ErrorType
-import android.Manifest
-import android.app.DownloadManager
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Environment
 import androidx.core.net.toUri
-import android.view.LayoutInflater
-import android.widget.EditText
-import android.widget.FrameLayout
-import android.widget.ProgressBar
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
-import com.cylonid.nativealpha.R
+import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.model.ErrorType
+import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.google.android.material.snackbar.Snackbar
-import java.net.URLDecoder
 
 /**
- * WebView 的 WebViewClient：页面开始/结束/错误回调、SSL 拦截、
- * 渲染进程崩溃恢复、请求拦截与 URL 分流。
+ * WebViewClient 基类：站点行为的唯一同源实现——页面开始/结束/错误回调、
+ * SSL 拦截、请求拦截与 URL 分流、统计埋点。
  *
- * 从 WebViewActivity.kt 拆出（R3 治理）：原 private inner class 独立化，
- * Activity 引用经 host 构造参数注入——行为零变更。
+ * QA 基类抽取（P4 第 0 步）：原 CustomBrowser 直连 WebViewActivity 的触点
+ * 全部改为 [WebViewSiteContext] 注入，宿主 Activity 与矩阵格各自提供实现。
+ * 行为迁移为逐行对应（机械重构零语义变更），宿主回归由既有单测 + release
+ * 冒烟保障。
+ *
+ * 渲染进程崩溃处置是唯一 open 分歧点：宿主子类 [CustomBrowser] 提示并
+ * finish；矩阵子类回错误态并调度批量恢复（共享渲染进程全窗同死，D3/A）。
  */
 @SuppressLint("MissingOnRenderProcessGone")
-internal class CustomBrowser(
-    private val host: WebViewActivity
+internal abstract class SiteWebViewClient(
+    protected val site: WebViewSiteContext
 ) : WebViewClient() {
     // 注：onRenderProcessGone 已在下方 override 并实现崩溃恢复；lint 在此类定义处误报，
     // 因方法签名包含 API 26+ 的 RenderProcessGoneDetail，minSdk=31 已完全支持。
@@ -56,35 +48,30 @@ internal class CustomBrowser(
         authHost: String,
         realm: String
     ) {
-        host.showHttpAuthDialog(handler, authHost, realm)
+        site.onHttpAuthRequested(handler, authHost, realm)
     }
 
     override fun onPageFinished(view: WebView, url: String) {
-        // 加载完成：取消白屏检测（避免误判）
-        host.pageLoadFinished = true
-        host.cancelBlankScreenCheck()
-        // 页面加载完成：隐藏加载页动物动画
-        host.stopLoadingAnimal()
+        // 加载完成：宿主收尾加载 UI（取消白屏检测/停加载动画）
+        site.onPageLoadFinished()
         // 统计埋点：主体加载耗时（started 到 finished）
-        if (host.pageLoadStartTime > 0) {
-            StatsRecorder.recordPageLoaded(
-                host.webappID, System.currentTimeMillis() - host.pageLoadStartTime
-            )
-            host.pageLoadStartTime = 0
+        if (site.pageLoadStartTime > 0) {
+            site.recordPageLoadDuration(System.currentTimeMillis() - site.pageLoadStartTime)
+            site.pageLoadStartTime = 0
         }
         // 统计埋点：缓存占用（cacheDir + WebStorage，异步不阻塞）
-        host.recordCacheUsage()
+        site.recordCacheUsage()
         if (url == "about:blank") {
-            host.loadCustomErrorPage("blank", "")
+            site.showCustomErrorPage("blank", "")
         }
-        host.wv!!.evaluateJavascript(
+        view.evaluateJavascript(
             "document.addEventListener(\"visibilitychange\"," +
                 "function (event) {event.stopImmediatePropagation();},true);", null
         )
         // 移除图片 title/alt 属性（防止 WebView 查看图片时显示图片名浮层遮挡）。
         // MutationObserver 持续清除（SPA 动态图片）；busy 标志防递归
         // （clean 修改属性会再触发 observer）
-        host.wv!!.evaluateJavascript(
+        view.evaluateJavascript(
             "(function(){"
                 + "var busy=false;"
                 + "var clean=function(){"
@@ -99,20 +86,15 @@ internal class CustomBrowser(
             null
         )
         // 页面缩放：zoomBy 模拟捏合（对移动版自适应页面可靠）
-        host.applyPageZoom()
+        site.applyPageZoom()
         super.onPageFinished(view, url)
     }
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
-        // 新页面加载：重置白屏检测（进度从 0 重新计时）
-        host.pageLoadFinished = false
-        host.lastProgress = 0
-        host.lastProgressTime = System.currentTimeMillis()
-        // 加载动画计时起点（短暂显示窗口判定）
-        host.pageLoadStartTime2 = System.currentTimeMillis()
-        host.scheduleBlankScreenCheck()
+        // 新页面加载：宿主重置加载 UI 状态（白屏检测/进度计时/动画起点）
+        site.onPageLoadStarted()
         // 统计埋点：记录加载开始时间
-        host.pageLoadStartTime = System.currentTimeMillis()
+        site.pageLoadStartTime = System.currentTimeMillis()
         super.onPageStarted(view, url, favicon)
     }
 
@@ -127,10 +109,10 @@ internal class CustomBrowser(
             val code = error?.errorCode?.toString() ?: "unknown"
             val desc = error?.description?.toString() ?: ""
             // 统计埋点：记录页面错误
-            StatsRecorder.recordPageError(host.webappID, ErrorType.NETWORK.name, code, desc)
+            site.recordPageError(ErrorType.NETWORK.name, code, desc)
             // 记录重试目标 + 加载自定义错误页（不显示系统默认白屏）
-            host.retryUrl = request.url?.toString() ?: host.urlOnFirstPageload
-            host.loadCustomErrorPage(code, desc)
+            site.retryUrl = request.url?.toString() ?: site.urlOnFirstPageload
+            site.showCustomErrorPage(code, desc)
         }
     }
 
@@ -142,8 +124,8 @@ internal class CustomBrowser(
         super.onReceivedHttpError(view, request, errorResponse)
         // 统计埋点：HTTP 状态码错误（主框架）
         if (request.isForMainFrame) {
-            StatsRecorder.recordPageError(
-                host.webappID, ErrorType.HTTP.name,
+            site.recordPageError(
+                ErrorType.HTTP.name,
                 errorResponse.statusCode.toString(),
                 "HTTP error"
             )
@@ -154,35 +136,29 @@ internal class CustomBrowser(
         view: WebView,
         detail: RenderProcessGoneDetail
     ): Boolean {
-        // 渲染进程崩溃/OOM：避免整个应用崩溃，提示用户并关闭页面
-        StatsRecorder.recordPageError(
-            host.webappID, ErrorType.RENDER.name,
-            ErrorType.RENDER.code, "Render process gone"
-        )
+        // 渲染进程崩溃/OOM：统计埋点后交由子类清理（宿主 finish / 矩阵格错误态）
+        site.recordPageError(ErrorType.RENDER.name, ErrorType.RENDER.code, "Render process gone")
         // 观测门面接线（P6）：功能级渲染崩溃计数，matrix/webevent 同范式复用
-        FeatureMetrics.reportError(
-            "webview", "RenderGone", "render process gone"
-        )
-        host.runOnUiThread {
-            NotificationUtils.showInfoSnackbar(
-                host,
-                host.getString(R.string.render_process_gone),
-                Snackbar.LENGTH_LONG
-            )
-            host.finish()
-        }
-        return true // 已处理，阻止系统终止应用
+        FeatureMetrics.reportError("webview", "RenderGone", "render process gone")
+        return onRenderCrashCleanup(view)
     }
+
+    /**
+     * 渲染崩溃清理——宿主/矩阵唯一行为分歧点。
+     * 返回 true 阻止系统终止应用（崩溃已被处置）。
+     */
+    protected abstract fun onRenderCrashCleanup(view: WebView): Boolean
 
     override fun shouldInterceptRequest(
         view: WebView,
         request: WebResourceRequest
     ): WebResourceResponse? {
-        if (host.urlOnFirstPageload == "") host.urlOnFirstPageload = request.url.toString()
+        if (site.urlOnFirstPageload == "") site.urlOnFirstPageload = request.url.toString()
 
-        if (host.webapp!!.isBlockThirdPartyRequests) {
+        val webapp = site.webapp
+        if (webapp != null && webapp.isBlockThirdPartyRequests) {
             val uri = request.url
-            val webappUri = host.webapp!!.baseUrl.toUri()
+            val webappUri = webapp.baseUrl.toUri()
 
             if (uri.host != null) {
                 if (!uri.host!!.endsWith(webappUri.host!!)) {
@@ -202,49 +178,54 @@ internal class CustomBrowser(
         // 业务设计：专家设置中可开启"忽略 SSL 错误"；默认情况下弹出对话框让用户自主选择
         // 是否继续访问（常用于自签名证书站点）。此行为由用户配置驱动，非默认放行。
         // This option is hidden in "expert settings"
-        if (host.webapp!!.isIgnoreSslErrors) {
+        val webapp = site.webapp
+        if (webapp != null && webapp.isIgnoreSslErrors) {
             handler.proceed()
             return
         }
 
         // 统计埋点：SSL 错误
-        StatsRecorder.recordPageError(
-            host.webappID, ErrorType.SSL.name,
-            error.primaryError.toString(), "SSL error"
+        site.recordPageError(
+            ErrorType.SSL.name, error.primaryError.toString(), "SSL error"
         )
 
-        val builder = AlertDialog.Builder(host)
+        val context = site.siteContext
+        val builder = AlertDialog.Builder(context)
 
-        var message = host.getString(R.string.ssl_error_msg_line1) + " "
+        var message = context.getString(R.string.ssl_error_msg_line1) + " "
         when (error.primaryError) {
             SslError.SSL_UNTRUSTED ->
-                message += host.getString(R.string.ssl_error_unknown_authority) + "\n"
+                message += context.getString(R.string.ssl_error_unknown_authority) + "\n"
             SslError.SSL_EXPIRED ->
-                message += host.getString(R.string.ssl_error_expired) + "\n"
+                message += context.getString(R.string.ssl_error_expired) + "\n"
             SslError.SSL_IDMISMATCH ->
-                message += host.getString(R.string.ssl_error_id_mismatch) + "\n"
+                message += context.getString(R.string.ssl_error_id_mismatch) + "\n"
             SslError.SSL_NOTYETVALID ->
-                message += host.getString(R.string.ssl_error_notyetvalid) + "\n"
+                message += context.getString(R.string.ssl_error_notyetvalid) + "\n"
         }
-        message += host.getString(R.string.ssl_error_msg_line2) + "\n"
+        message += context.getString(R.string.ssl_error_msg_line2) + "\n"
 
-        builder.setTitle(host.getString(R.string.ssl_error_title))
+        builder.setTitle(context.getString(R.string.ssl_error_title))
         builder.setMessage(message)
         builder.setIcon(android.R.drawable.ic_dialog_alert)
-        builder.setPositiveButton(host.getString(android.R.string.cancel)) { _, _ -> handler.cancel() }
-        builder.setNegativeButton(host.getString(R.string.load_anyway)) { _, _ -> handler.proceed() }
+        builder.setPositiveButton(context.getString(android.R.string.cancel)) { _, _ ->
+            handler.cancel()
+        }
+        builder.setNegativeButton(context.getString(R.string.load_anyway)) { _, _ ->
+            handler.proceed()
+        }
         val dialog = builder.create()
         dialog.show()
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
             .setTextColor(
                 ContextCompat.getColor(
-                    host, android.R.color.holo_red_dark
+                    context, android.R.color.holo_red_dark
                 )
             )
         dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             .setTextColor(
                 ContextCompat.getColor(
-                    host, android.R.color.holo_green_dark
+                    context, android.R.color.holo_green_dark
                 )
             )
     }
@@ -252,8 +233,10 @@ internal class CustomBrowser(
     override fun onLoadResource(view: WebView, url: String) {
         super.onLoadResource(view, url)
 
-        val webapp = DataManager.getInstance().getWebApp(host.webappID)
-        if (host.webapp != null && host.webapp!!.isRequestDesktop) {
+        @Suppress("UNUSED_VARIABLE")
+        val webapp = DataManager.getInstance().getWebApp(site.webappId)
+        val siteConfig = site.webapp
+        if (siteConfig != null && siteConfig.isRequestDesktop) {
             view.evaluateJavascript(
                 """
                 var needsForcedWidth = document.documentElement.clientWidth < 1200;
@@ -274,26 +257,26 @@ internal class CustomBrowser(
         view: WebView,
         request: WebResourceRequest
     ): Boolean {
-        host.runOnUiThread { host.setDarkModeIfNeeded() }
+        site.refreshDarkModeOnMainThread()
         val url = request.url.toString()
-        val webapp = DataManager.getInstance().getWebApp(host.webappID)
 
         if (url.startsWith("tel:")) {
             val intent = Intent(Intent.ACTION_DIAL, url.toUri())
-            host.startActivity(intent)
+            site.siteContext.startActivity(intent)
             return true
         }
         if (url.startsWith("mailto:")) {
             val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-            host.startActivity(intent)
+            site.siteContext.startActivity(intent)
             return true
         }
 
         // 错误页重试：重新加载失败时的原地址（恢复用户 textZoom）
         if (url.startsWith("webnative://retry")) {
-            if (host.retryUrl.isNotEmpty() && host.wv != null) {
-                host.wv!!.settings.textZoom = host.webapp!!.textZoom
-                host.wv!!.loadUrl(host.retryUrl)
+            if (site.retryUrl.isNotEmpty()) {
+                val webapp = site.webapp
+                if (webapp != null) view.settings.textZoom = webapp.textZoom
+                view.loadUrl(site.retryUrl)
             }
             return true
         }
@@ -303,27 +286,46 @@ internal class CustomBrowser(
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
             try {
                 val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-                host.startActivity(intent)
+                site.siteContext.startActivity(intent)
             } catch (e: Exception) {
                 // 无对应 App：留在当前页不崩溃
             }
             return true
         }
 
-        if (host.webapp == null) {
-            return false
-        }
+        val webapp = site.webapp ?: return false
 
-        if (host.webapp!!.isOpenUrlExternal) {
-            val baseUrl = host.webapp!!.baseUrl
+        if (webapp.isOpenUrlExternal) {
+            val baseUrl = webapp.baseUrl
             val uri = baseUrl.toUri()
-            val host = uri.host
-            if (!url.contains(host!!)) {
+            val baseHost = uri.host
+            if (!url.contains(baseHost!!)) {
                 view.context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
                 return true
             }
         }
-        host.loadURL(view, url)
+        site.loadSiteUrl(view, url)
         return true
+    }
+}
+
+/**
+ * 宿主 WebViewActivity 的站点客户端：崩溃处置=提示用户并关闭当前页面。
+ * 行为与抽取前 CustomBrowser 逐行一致（QA 基类抽取唯一子类分歧点）。
+ */
+internal class CustomBrowser(
+    private val host: WebViewActivity
+) : SiteWebViewClient(host) {
+
+    override fun onRenderCrashCleanup(view: WebView): Boolean {
+        host.runOnUiThread {
+            NotificationUtils.showInfoSnackbar(
+                host,
+                host.getString(R.string.render_process_gone),
+                Snackbar.LENGTH_LONG
+            )
+            host.finish()
+        }
+        return true // 已处理，阻止系统终止应用
     }
 }
