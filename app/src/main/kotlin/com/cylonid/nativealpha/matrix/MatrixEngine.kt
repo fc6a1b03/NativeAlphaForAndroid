@@ -121,14 +121,30 @@ internal class MatrixEngine(
     /** 警示条本会话已弹标记（忽略后本会话不弹） */
     private var memoryWarningShown = false
 
+    /** 持久化单写者队列（conflate：写期间的新快照合并，最新胜出且有序） */
+    private val persistQueue = MutableStateFlow<MatrixSessionState?>(null)
+
+    init {
+        mainScope.launch {
+            persistQueue.collect { snapshot ->
+                if (snapshot != null) {
+                    withContext(Dispatchers.IO) {
+                        MatrixSessionStore.write(appContext, snapshot)
+                    }
+                }
+            }
+        }
+    }
+
     /** 主线程调度（引擎全部可变状态只在主线程触碰） */
     private val mainScope get() = lifecycleOwner.lifecycleScope
 
     // ===== 会话恢复（进入矩阵调用一次） =====
 
     /**
-     * 从 DataStore 恢复布局：归一化 → 已删站点过滤 → 窗格回填。
-     * 已删站点格自动回占位（规格 §4.2）；恢复只还原布局，页面统一重载（D8）。
+     * 从 DataStore 恢复布局：归一化 → 已删站点过滤 → 窗格回填 → 绑定格
+     * 自动重载（D8：退出即释放，再进「布局在、页面重载」——重载走
+     * pickSite 完整闸门/错峰链路，不绕过容量守卫）。已删站点格自动回占位。
      */
     fun restoreSession() {
         mainScope.launch {
@@ -139,6 +155,9 @@ internal class MatrixEngine(
                 if (cell.isPlaceholder) MatrixCellUi() else MatrixCellUi(
                     webappId = cell.webappId
                 )
+            }
+            restored.cells.forEachIndexed { index, cell ->
+                if (!cell.isPlaceholder) pickSite(index, cell.webappId)
             }
         }
     }
@@ -527,9 +546,10 @@ internal class MatrixEngine(
             windowCount = _windowCount.value,
             cells = _cells.value.map { MatrixCellState(it.webappId) }
         )
-        mainScope.launch {
-            withContext(Dispatchers.IO) { MatrixSessionStore.write(appContext, snapshot) }
-        }
+        // 单写者队列：连续变更（如 Slider 一次跨两档）只保留最新快照且按序
+        // 落盘——各自发射独立协程在 Dispatchers.IO 上不保序，旧快照可能
+        // 覆盖新快照（实测踩坑：4 窗状态被前一档 3 窗快照回写）
+        persistQueue.value = snapshot
     }
 
     /** 窗格加载头（与宿主 initCustomHeaders 同源：DNT/UA 清标/语言/省流） */

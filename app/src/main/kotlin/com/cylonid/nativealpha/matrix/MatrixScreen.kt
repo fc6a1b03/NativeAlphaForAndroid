@@ -552,15 +552,6 @@ private fun CellPickerSheet(
     }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // 把手（视觉等价 DragHandle；当前 material3 版本无此符号）
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(vertical = 8.dp)
-                    .size(width = 24.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
-            )
             Text(
                 text = stringResource(R.string.matrix_pick_title),
                 style = MaterialTheme.typography.titleMedium,
