@@ -83,6 +83,11 @@ class MainActivity : AppCompatActivity() {
                     },
                     onGlobalSettingsClick = {
                         startActivity(Intent(this, SettingsActivity::class.java))
+                    },
+                    onMatrixClick = {
+                        startActivity(
+                            Intent(this, com.cylonid.nativealpha.matrix.MatrixActivity::class.java)
+                        )
                     }
                 )
             }

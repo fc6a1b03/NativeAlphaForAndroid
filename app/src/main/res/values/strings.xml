@@ -327,4 +327,27 @@
         <item quantity="other">… %1$d entries total, tap a row for details</item>
     </plurals>
     <string name="error_log_exported">Error log exported</string>
+
+    <!-- ===== Matrix view (P4) ===== -->
+    <string name="matrix_entry_desc">Open matrix view</string>
+    <string name="matrix_empty_hint">Add a site first</string>
+    <string name="matrix_title">Matrix</string>
+    <string name="matrix_window_count">Windows on screen</string>
+    <string name="matrix_pick_app">Pick an app</string>
+    <string name="matrix_pick_title">Pick an app</string>
+    <string name="matrix_cookie_disclosure">Matrix uses shared cookies; isolation restores on exit</string>
+    <string name="matrix_reduce_confirm_title">Close this window?</string>
+    <string name="matrix_reduce_confirm_body">The window content will be discarded.</string>
+    <string name="matrix_memory_warning">Memory low, fewer windows advised</string>
+    <string name="matrix_window_crashed">Window recovered, tap to re-pick</string>
+    <string name="matrix_loading">Loading…</string>
+    <string name="matrix_enlarge">Enlarge</string>
+    <string name="matrix_close_window">Close window</string>
+    <string name="matrix_search_hint">Search sites</string>
+    <string name="matrix_picker_empty">No matching sites</string>
+    <string name="matrix_capacity_limit">Rendering has reached the device limit. Close other apps and retry.</string>
+    <string name="matrix_device_underpowered">Device performance is too low for multi-window rendering.</string>
+    <string name="matrix_notice_degraded">Reduced to two windows due to memory pressure</string>
+    <string name="matrix_notice_backoff">Windows keep crashing; auto-reload paused. Tap a window to retry.</string>
+    <string name="matrix_notice_http_blocked">This site has not been allowed to open HTTP pages</string>
 </resources>

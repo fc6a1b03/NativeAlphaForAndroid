@@ -53,7 +53,16 @@
             android:launchMode="standard"
             android:documentLaunchMode="intoExisting"
             />
- 
+
+        <!-- 多窗矩阵（P4）：configChanges 与宿主 WebViewActivity 同口径（Q6 重建防护） -->
+        <activity
+            android:name=".matrix.MatrixActivity"
+            android:parentActivityName=".MainActivity"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|smallestScreenSize|density|screenLayout|uiMode|keyboard|keyboardHidden|navigation"
+            android:launchMode="standard"
+            />
+
         <activity
             android:name="com.cylonid.nativealpha.SettingsActivity"
             android:parentActivityName=".MainActivity"

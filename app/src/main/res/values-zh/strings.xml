@@ -324,4 +324,27 @@
         <item quantity="other">… 共%1$d条，点击行查看详情</item>
     </plurals>
     <string name="error_log_exported">错误日志已导出</string>
+
+    <!-- ===== 多窗矩阵（P4） ===== -->
+    <string name="matrix_entry_desc">打开多窗矩阵</string>
+    <string name="matrix_empty_hint">先添加站点再使用矩阵</string>
+    <string name="matrix_title">多窗矩阵</string>
+    <string name="matrix_window_count">同屏窗口数量</string>
+    <string name="matrix_pick_app">选择应用</string>
+    <string name="matrix_pick_title">选择应用</string>
+    <string name="matrix_cookie_disclosure">矩阵使用共享 Cookie；退出矩阵后恢复站点独立会话</string>
+    <string name="matrix_reduce_confirm_title">关闭此窗口？</string>
+    <string name="matrix_reduce_confirm_body">窗口内容将被丢弃。</string>
+    <string name="matrix_memory_warning">内存紧张，建议减少窗口</string>
+    <string name="matrix_window_crashed">窗口已恢复，点击重新选择</string>
+    <string name="matrix_loading">正在加载…</string>
+    <string name="matrix_enlarge">放大查看</string>
+    <string name="matrix_close_window">关闭窗口</string>
+    <string name="matrix_search_hint">搜索站点</string>
+    <string name="matrix_picker_empty">没有匹配的站点</string>
+    <string name="matrix_capacity_limit">渲染已达到设备极限，请关闭其他应用后重试。</string>
+    <string name="matrix_device_underpowered">设备性能较低，多窗功能无法支持。</string>
+    <string name="matrix_notice_degraded">因内存压力已减少为两个窗口</string>
+    <string name="matrix_notice_backoff">窗口连续崩溃，自动恢复已暂停。点击窗口可重试。</string>
+    <string name="matrix_notice_http_blocked">该站点未被允许打开 HTTP 页面</string>
 </resources>
