@@ -409,14 +409,16 @@ internal class MatrixEngine(
         _cells.value = _cells.value.mapIndexed { i, cell ->
             if (i == cellIndex) cell.copy(zoomPercent = zoomPercent, textZoomPercent = textZoomPercent) else cell
         }
-        // 实时应用：字体 textZoom 相对站点基准；页面缩放按新旧比例 zoomBy
+        // 实时应用：字体 textZoom 相对站点基准；页面缩放走 CSS zoom——
+        // WebView.zoomBy 对带 viewport meta 的页面实测无效（用户反馈
+        // 「完全无效」），CSS zoom 注入是可靠路径（导航后在 onPageFinished 重放）
         cellWebViews.getOrNull(cellIndex)?.let { webview ->
             val webapp = old.webapp
             webview.settings.textZoom =
                 ((webapp?.textZoom ?: 100) * textZoomPercent / 100f).toInt().coerceIn(50, 300)
-            if (old.zoomPercent in 1..1000) {
-                webview.zoomBy(zoomPercent.toFloat() / old.zoomPercent.toFloat())
-            }
+            webview.evaluateJavascript(
+                "try{document.documentElement.style.zoom='$zoomPercent%'}catch(e){}", null
+            )
         }
         persistSession()
     }
@@ -504,10 +506,12 @@ internal class MatrixEngine(
         _cells.value = _cells.value.mapIndexed { i, cell ->
             if (i == cellIndex) cell.copy(state = MatrixCellUiState.ACTIVE) else cell
         }
-        // 页面缩放应用：新文档加载后 WebView 重置 100%，按格子留存值缩放
+        // 页面缩放重放：新文档的 CSS zoom 被 DOM 重建清除，按格子留存值重注
         cellWebViews.getOrNull(cellIndex)?.let { webview ->
-            val target = (_cells.value.getOrNull(cellIndex)?.zoomPercent ?: 100) / 100f
-            if (target != 1f) webview.zoomBy(target)
+            val target = _cells.value.getOrNull(cellIndex)?.zoomPercent ?: 100
+            webview.evaluateJavascript(
+                "try{document.documentElement.style.zoom='$target%'}catch(e){}", null
+            )
         }
         mainScope.launch {
             val pss = withContext(Dispatchers.IO) {
