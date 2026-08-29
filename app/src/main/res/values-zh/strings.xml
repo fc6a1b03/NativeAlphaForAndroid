@@ -339,6 +339,13 @@
     <string name="matrix_window_crashed">窗口已恢复，点击重新选择</string>
     <string name="matrix_loading">正在加载…</string>
     <string name="matrix_enlarge">放大查看</string>
+    <string name="matrix_collapse">退出放大</string>
+    <string name="matrix_adjust">调节显示</string>
+    <string name="matrix_zoom_page">页面缩放</string>
+    <string name="matrix_zoom_page_value">%1$d%%</string>
+    <string name="matrix_zoom_text">字体大小</string>
+    <string name="matrix_zoom_text_value">%1$d%%</string>
+    <string name="matrix_drag_hint">长按标题可拖动窗口换位</string>
     <string name="matrix_close_window">关闭窗口</string>
     <string name="matrix_search_hint">搜索站点</string>
     <string name="matrix_picker_empty">没有匹配的站点</string>

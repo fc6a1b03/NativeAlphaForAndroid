@@ -114,16 +114,17 @@ class MatrixSessionTest {
         assertEquals(1, filtered.cells[0].webappId) // 存活
         assertTrue(filtered.cells[1].isPlaceholder) // 已删 → 占位
         assertEquals(3, filtered.cells[2].webappId) // 存活
-        assertFalse(filtered.cells[1].zoomPercent != 100)
+        assertEquals(MatrixCellState.DEFAULT_ZOOM_PERCENT, filtered.cells[1].zoomPercent)
     }
 
-    /** 占位格默认值契约：webappId=-1（PLACEHOLDER），zoomPercent=100 */
+    /** 占位格默认值契约：webappId=-1（PLACEHOLDER）、页面缩放 80%、字体 90% */
     @Test
     fun placeholderCell_defaults() {
         val cell = MatrixCellState()
 
         assertTrue(cell.isPlaceholder)
         assertEquals(MatrixCellState.PLACEHOLDER_WEBAPP_ID, cell.webappId)
-        assertEquals(100, cell.zoomPercent)
+        assertEquals(MatrixCellState.DEFAULT_ZOOM_PERCENT, cell.zoomPercent)
+        assertEquals(MatrixCellState.DEFAULT_TEXT_ZOOM_PERCENT, cell.textZoomPercent)
     }
 }

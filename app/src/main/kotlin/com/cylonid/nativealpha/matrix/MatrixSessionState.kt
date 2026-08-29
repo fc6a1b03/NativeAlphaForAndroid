@@ -53,13 +53,16 @@ data class MatrixSessionState(
  * 单个矩阵窗格的持久化状态。
  *
  * @property webappId 绑定站点（-1=占位）；同站可选多窗（多窗对照）
- * @property zoomPercent 页面缩放留存（Q1 决策：v1 窗内禁缩放，字段前向
- * 兼容保留不使用；Q1 实测后定去留）
+ * @property zoomPercent 页面缩放留存（Q1 反转后启用：格子视口小，默认
+ * 80% 起步，用户可在格内调节并持久化）
+ * @property textZoomPercent 字体缩放留存（相对站点 textZoom 的百分比，
+ * 默认 90%「小一级」——用户实测格子内默认字体偏大）
  */
 @Keep
 data class MatrixCellState(
     val webappId: Int = PLACEHOLDER_WEBAPP_ID,
-    val zoomPercent: Int = 100
+    val zoomPercent: Int = DEFAULT_ZOOM_PERCENT,
+    val textZoomPercent: Int = DEFAULT_TEXT_ZOOM_PERCENT
 ) {
 
     /** 是否为空占位格（未绑定站点） */
@@ -67,5 +70,11 @@ data class MatrixCellState(
 
     companion object {
         const val PLACEHOLDER_WEBAPP_ID = -1
+
+        /** 格子视口小于全屏，页面等比渲染偏大——用户拍板默认 80% */
+        const val DEFAULT_ZOOM_PERCENT = 80
+
+        /** 字体「小一级」：相对站点 textZoom 的 90% */
+        const val DEFAULT_TEXT_ZOOM_PERCENT = 90
     }
 }
