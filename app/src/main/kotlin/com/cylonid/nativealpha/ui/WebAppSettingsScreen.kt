@@ -174,6 +174,10 @@ fun WebAppSettingsScreen(
             MiscSection(modified = modified, updateSettings = ::updateSettings)
             // 快捷键（手机点选录入，管理入口）
             ShortcutsSection(modified = modified, updateSettings = ::updateSettings)
+            // 事件规则（P5：宿主唯一改动，规格 §5.3）
+            if (!isGlobal) {
+                com.cylonid.nativealpha.webevent.EventsEntrySection(webApp = webapp)
+            }
             // 高级
             ExpertSection(modified = modified, update = ::update, updateSettings = ::updateSettings)
             Spacer(modifier = Modifier.height(32.dp))

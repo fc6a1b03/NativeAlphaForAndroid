@@ -8,6 +8,7 @@ import android.app.DownloadManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ComponentCallbacks2
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -95,6 +96,7 @@ import com.cylonid.nativealpha.util.EntryPointUtils
 import com.cylonid.nativealpha.util.LocaleUtils
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.StatsRecorder
+import com.cylonid.nativealpha.util.WebViewSetup
 import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.util.Utility
 import com.cylonid.nativealpha.ui.showShortcutMenuOverlay
@@ -112,7 +114,7 @@ import java.util.Locale
  * 渲染核心 Activity：WebView 配置/回调/手势/下载/权限/错误页（第四刀 Java→Kotlin 机械翻译）。
  * 翻译原则：零语义变更，行行可对照原 Java 版（git 历史 e5543ba 前）。
  */
-class WebViewActivity : AppCompatActivity() {
+class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
 
     companion object {
         /**
@@ -217,11 +219,16 @@ class WebViewActivity : AppCompatActivity() {
 
     private var quitOnNextBackpress = false
     private var reloadHandler: Handler? = null
-    internal var webapp: WebApp? = null
-    internal var urlOnFirstPageload = ""
+    override var webapp: WebApp? = null
+
+    // ===== WebViewSiteContext 实现（QA 基类抽取：站点行为经接口访问宿主） =====
+    override val siteContext: Context get() = this
+    override val webappId: Int get() = webappID
+
+    override var urlOnFirstPageload: String = ""
 
     // 错误页重试目标（onReceivedError 主框架失败时记录，webnative://retry 用它重新加载）
-    internal var retryUrl = ""
+    override var retryUrl: String = ""
 
     // 长按动态分流：系统是否已启动文本/链接选择 ActionMode（区分「有内容」vs「空白处」）
     private var actionModeActive = false
@@ -254,10 +261,60 @@ class WebViewActivity : AppCompatActivity() {
     internal fun showWebViewMenuSheet() = menuHelper.showWebViewMenuSheet()
 
     /** 委托：页面加载完成回调的缩放生效点保持零改动 */
-    internal fun applyPageZoom() = menuHelper.applyPageZoom()
+    override fun applyPageZoom() = menuHelper.applyPageZoom()
 
     /** 委托：onPageFinished 缓存统计入口保持零改动 */
-    internal fun recordCacheUsage() = menuHelper.recordCacheUsage()
+    override fun recordCacheUsage() = menuHelper.recordCacheUsage()
+
+    // ===== WebViewSiteContext 加载生命周期钩子（宿主侧：白屏检测/动物动画） =====
+
+    override fun onPageLoadStarted() {
+        // 新页面加载：重置白屏检测（进度从 0 重新计时）
+        pageLoadFinished = false
+        lastProgress = 0
+        lastProgressTime = System.currentTimeMillis()
+        // 加载动画计时起点（短暂显示窗口判定）
+        pageLoadStartTime2 = System.currentTimeMillis()
+        scheduleBlankScreenCheck()
+        // 网页事件 hook 注入（P5：仅配规则站，幂等脚本；未配站零开销）
+        wv?.let { webview ->
+            com.cylonid.nativealpha.webevent.WebeventRuntime.hookScriptFor(webappID)?.let { script ->
+                webview.evaluateJavascript(script, null)
+            }
+        }
+    }
+
+    override fun onPageLoadFinished() {
+        // 加载完成：取消白屏检测（避免误判）
+        pageLoadFinished = true
+        cancelBlankScreenCheck()
+        // 页面加载完成：隐藏加载页动物动画
+        stopLoadingAnimal()
+    }
+
+    override fun showCustomErrorPage(code: String?, desc: String?) {
+        loadCustomErrorPage(code, desc)
+    }
+
+    override fun onHttpAuthRequested(handler: HttpAuthHandler, authHost: String, realm: String) {
+        showHttpAuthDialog(handler, authHost, realm)
+    }
+
+    override fun refreshDarkModeOnMainThread() {
+        runOnUiThread { setDarkModeIfNeeded() }
+    }
+
+    override fun loadSiteUrl(view: WebView, url: String) {
+        loadURL(view, url)
+    }
+
+    override fun recordPageLoadDuration(durationMs: Long) {
+        StatsRecorder.recordPageLoaded(webappID, durationMs)
+    }
+
+    override fun recordPageError(errorType: String, code: String, desc: String) {
+        StatsRecorder.recordPageError(webappID, errorType, code, desc)
+    }
 
     /** 菜单「后退」入口：onBackPressed 为 protected，helper 经此转发（语义不变） */
     internal fun triggerBack() = onBackPressed()
@@ -265,7 +322,7 @@ class WebViewActivity : AppCompatActivity() {
     internal var pageLoadFinished = false
 
     // 统计埋点：页面加载开始时间（onPageStarted 到 onPageFinished 计算耗时）
-    internal var pageLoadStartTime = 0L
+    override var pageLoadStartTime: Long = 0L
 
     /** 菜单中页面缩放预览值（保存时写回 webapp） */
     private var mMenuPageZoom = 100
@@ -393,6 +450,8 @@ class WebViewActivity : AppCompatActivity() {
 
         // 必须在 setContentView 之后 findViewById——视图未建立时返回 null（886b145 回归修复）
         val webview = findViewById<WebView>(R.id.webview).also { wv = it }
+        // 网页事件桥注册（P5：仅配规则站；JS 侧经 hook 代理转发）
+        com.cylonid.nativealpha.webevent.WebeventRuntime.attachBridge(webview, webappID)
 
         // 仅 debug 包开启 WebView 远程调试（chrome://inspect + CDP 自动化验证）；
         // release 永不开启——远程调试是安全敏感面，不得泄漏到生产
@@ -400,20 +459,9 @@ class WebViewActivity : AppCompatActivity() {
             WebView.setWebContentsDebuggingEnabled(true)
         }
 
-        // 移除 WebView 字段名注入的 UA 尾巴（找不到字段时静默跳过，避免 NPE）；
-        // 反射结果进程内缓存（uaFieldName lazy）
-        val fieldName = uaFieldName
-        if (fieldName.isNotEmpty()) {
-            val uaString = webview.settings.userAgentString.replace("; " + fieldName, "")
-            webview.settings.userAgentString = uaString
-        }
-        if (app.isUseCustomUserAgent) {
-            val customUa = app.userAgent
-            if (!customUa.isNullOrEmpty()) {
-                webview.settings.userAgentString = customUa
-                    .replace("\u0000", "").replace("\n", "").replace("\r", "")
-            }
-        }
+        // UA 尾巴清理 + 按站自定义 UA（QA 抽取：WebViewSetup 统一入口，
+        // 反射结果进程内缓存 uaFieldName lazy）
+        WebViewSetup.applyUserAgent(webview, app, uaFieldName)
 
         if (app.isShowFullscreen) {
             this.hideSystemBars()
@@ -441,89 +489,11 @@ class WebViewActivity : AppCompatActivity() {
             }
         }
         webview.webViewClient = CustomBrowser(this)
-        // ===== 安全加固（WebApp 设置项，默认全开） =====
-        // 恶意网站防护：默认关（AGENTS.md 既有设计：用户可添加非 HTTPS 站点，按需开启）
-        webview.settings.safeBrowsingEnabled = app.isSafeBrowsing
-        // 禁用文件访问：防止恶意站点读取本地文件
-        webview.settings.allowFileAccess = !app.isFileAccessDisabled
-        // 禁用内容提供器访问：防止站点访问系统 content:// 资源
-        webview.settings.allowContentAccess = !app.isContentAccessDisabled
-        // 混合内容拦截：HTTPS 页面禁止加载 HTTP 子资源
-        webview.settings.mixedContentMode = if (app.isMixedContentBlocked)
-            WebSettings.MIXED_CONTENT_NEVER_ALLOW
-        else
-            WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-        // JS 弹窗限制：禁止页面自动 window.open（用户手势触发的弹窗仍可用）
-        webview.settings.javaScriptCanOpenWindowsAutomatically = !app.isJsPopupsRestricted
-        webview.settings.domStorageEnabled = true
-        webview.settings.databaseEnabled = true
-        webview.settings.blockNetworkLoads = false
-
-        // ===== 禁用浏览器自带滚动条（网页内容本身的自定义滚动条不受影响） =====
-        webview.isVerticalScrollBarEnabled = false
-        webview.isHorizontalScrollBarEnabled = false
-        webview.overScrollMode = View.OVER_SCROLL_NEVER
-        // 隐藏滚动条占位（WebView 默认 overlay 模式，但仍显式关闭占位）
-        webview.scrollBarStyle = View.SCROLLBARS_OUTSIDE_OVERLAY
-
-        // ===== PWA 高频文本流渲染优化（流式输出/长文档滚动场景） =====
-        // 渲染进程优先级（Chromium 官方推荐，替代废弃 setRenderPriority）：
-        // 渲染进程不可见时 WAIVED（可被系统回收减压），可见时正常渲染——
-        // 文本流场景前台渲染不受影响（minSdk 31 无版本分支）
-        webview.setRendererPriorityPolicy(
-            android.webkit.WebView.RENDERER_PRIORITY_WAIVED,
-            true
-        )
-        // 硬件加速强制（避免软件层合成拖慢流式更新）。minSdk=31，直接启用无需判断。
-        webview.setLayerType(View.LAYER_TYPE_NONE, null)
-        // 文字缩放（用户可调：50~200%，默认 100）
-        webview.settings.textZoom = app.textZoom
-        // 页面缩放（用户可调：50~200%，默认 100）：onPageFinished 里 zoomBy 应用
-        // 预栅格化：减少滚动时白块/抖动（流式长文本滚动流畅）
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.OFF_SCREEN_PRERASTER)) {
-            WebSettingsCompat.setOffscreenPreRaster(webview.settings, true)
-        }
-        // 缓存策略：默认模式，流式页面不强制离线/不缓存
-        webview.settings.cacheMode = WebSettings.LOAD_DEFAULT
-        // 布局算法：NORMAL 对文本流最稳（SINGLE_COLUMN 会触发整页重排，流式更新开销大）
-        webview.settings.layoutAlgorithm = WebSettings.LayoutAlgorithm.NORMAL
-        // 编码：UTF-8 显式声明（中文流式文本解析正确，避免编码重排）
-        webview.settings.defaultTextEncodingName = "UTF-8"
-        // 关闭边缘高亮减少合成开销
-        webview.overScrollMode = View.OVER_SCROLL_NEVER
-        // 滚动条优化（长文本流式滚动）
-        webview.scrollBarStyle = WebView.SCROLLBARS_OUTSIDE_OVERLAY
-        webview.isScrollbarFadingEnabled = true
-        // ===== PWA 渲染优化结束 =====
+        // 按站全量设置（安全加固/渲染优化/JS/Cookie/桌面 UA，QA 抽取统一入口；
+        // 语句顺序与原内联实现一致，深色模式在设置完成后应用）
+        WebViewSetup.applySiteSettings(webview, app)
 
         this.setDarkModeIfNeeded()
-
-        webview.settings.javaScriptEnabled = app.isAllowJs
-
-        CookieManager.getInstance().setAcceptCookie(app.isAllowCookies)
-        CookieManager.getInstance()
-            .setAcceptThirdPartyCookies(wv, app.isAllowThirdPartyCookies)
-
-        if (app.isBlockImages) {
-            webview.settings.blockNetworkImage = true
-        }
-
-        if (app.isRequestDesktop) {
-            webview.settings.userAgentString = Const.DESKTOP_USER_AGENT
-            webview.settings.useWideViewPort = true
-            webview.settings.loadWithOverviewMode = true
-
-            webview.settings.setSupportZoom(true)
-            webview.settings.builtInZoomControls = true
-            webview.settings.displayZoomControls = false
-
-            webview.scrollBarStyle = WebView.SCROLLBARS_OUTSIDE_OVERLAY
-            webview.isScrollbarFadingEnabled = false
-        }
-        if (app.isEnableZooming) {
-            webview.settings.setSupportZoom(true)
-            webview.settings.builtInZoomControls = true
-        }
 
         customHeaders = initCustomHeaders(app.isSendSavedataRequest)
         loadURL(webview, url)
@@ -837,8 +807,12 @@ class WebViewActivity : AppCompatActivity() {
         if (wv == null) return
 
         if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
-            // 页面不可见：仅暂停计时器（轻量、线程安全）
-            wv!!.pauseTimers()
+            // 页面不可见：仅暂停计时器（轻量、线程安全）。
+            // 豁免（P5-1）：配了生效事件规则的站不暂停——JS 停摆会让
+            // 「切走等通知」核心场景失效；代价=该站后台略耗电（入口行已告知）
+            if (!com.cylonid.nativealpha.webevent.WebeventRuntime.shouldKeepTimersRunning(webappID)) {
+                wv!!.pauseTimers()
+            }
         }
     }
 

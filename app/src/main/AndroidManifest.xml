@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 网页事件通知（P5）：按需场景化请求（保存首条 notify 规则时），非启动即弹 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.CAMERA" />
@@ -53,7 +55,24 @@
             android:launchMode="standard"
             android:documentLaunchMode="intoExisting"
             />
- 
+
+        <!-- 多窗矩阵（P4）：configChanges 与宿主 WebViewActivity 同口径（Q6 重建防护） -->
+        <activity
+            android:name=".matrix.MatrixActivity"
+            android:parentActivityName=".MainActivity"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|smallestScreenSize|density|screenLayout|uiMode|keyboard|keyboardHidden|navigation"
+            android:launchMode="standard"
+            />
+
+        <!-- 网页事件规则编辑器（P5） -->
+        <activity
+            android:name=".webevent.RuleEditorActivity"
+            android:parentActivityName=".WebAppSettingsActivity"
+            android:windowSoftInputMode="adjustResize"
+            android:launchMode="standard"
+            />
+
         <activity
             android:name="com.cylonid.nativealpha.SettingsActivity"
             android:parentActivityName=".MainActivity"

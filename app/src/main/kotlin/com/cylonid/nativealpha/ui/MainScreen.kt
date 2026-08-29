@@ -1,5 +1,6 @@
 package com.cylonid.nativealpha.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
@@ -83,6 +85,7 @@ fun MainScreen(
     onDeleteWebApp: (WebApp) -> Unit,
     onCopyUrl: (WebApp) -> Unit,
     onGlobalSettingsClick: () -> Unit,
+    onMatrixClick: () -> Unit,
 ) {
     // 搜索过滤：名称/URL 模糊匹配
     var searchQuery by remember { mutableStateOf("") }
@@ -146,6 +149,23 @@ fun MainScreen(
                     }
                 },
                 actions = {
+                    // 矩阵入口（E1：设置图标左侧；空站点 Toast 拦截不进矩阵）
+                    val hasActiveSites = webApps.any { it.isActiveEntry }
+                    val context = LocalContext.current
+                    val emptyHint = stringResource(R.string.matrix_empty_hint)
+                    IconButton(onClick = {
+                        if (hasActiveSites) {
+                            onMatrixClick()
+                        } else {
+                            Toast.makeText(context, emptyHint, Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
+                        Icon(
+                            Icons.Default.GridView,
+                            contentDescription = stringResource(R.string.matrix_entry_desc),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     IconButton(onClick = onGlobalSettingsClick) {
                         Icon(
                             Icons.Default.Settings,

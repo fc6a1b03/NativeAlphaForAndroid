@@ -15,6 +15,9 @@ class App : Application() {
         super.onCreate()
         context = applicationContext
 
+        // 网页事件运行时（P5）：规则库载入 + 通知 Channel 幂等创建 + 动作分发装配
+        com.cylonid.nativealpha.webevent.WebeventRuntime.init(context)
+
         // 全局未捕获异常兜底：记录应用错误日志（KEY_APP_ERRORS）后优雅重启，不弹系统"已停止"
         installUncaughtExceptionHandler()
 

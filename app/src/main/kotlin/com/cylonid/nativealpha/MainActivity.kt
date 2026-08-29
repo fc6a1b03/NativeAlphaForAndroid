@@ -83,6 +83,11 @@ class MainActivity : AppCompatActivity() {
                     },
                     onGlobalSettingsClick = {
                         startActivity(Intent(this, SettingsActivity::class.java))
+                    },
+                    onMatrixClick = {
+                        startActivity(
+                            Intent(this, com.cylonid.nativealpha.matrix.MatrixActivity::class.java)
+                        )
                     }
                 )
             }
@@ -172,5 +177,7 @@ class MainActivity : AppCompatActivity() {
         // 统一写收口：isActiveEntry 是绕过 DataManager 写方法的内存改动，
         // commitChanges 发射 flow（列表即时移除条目）+ 触发持久化
         DataManager.getInstance().commitChanges()
+        // 网页事件规则级联删除（P5-3）：站点没了规则不留死角
+        com.cylonid.nativealpha.webevent.WebeventRuntime.cascadeDeleteForSite(webApp.ID)
     }
 }

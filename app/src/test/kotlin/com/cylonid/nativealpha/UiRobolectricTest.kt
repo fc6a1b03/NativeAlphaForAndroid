@@ -36,7 +36,8 @@ class UiRobolectricTest {
                 MainScreen(
                     webApps = apps,
                     onAddClick = {}, onOpenWebApp = {}, onOpenSettings = {},
-                    onOpenStats = {}, onDeleteWebApp = {}, onCopyUrl = {}, onGlobalSettingsClick = {}
+                    onOpenStats = {}, onDeleteWebApp = {}, onCopyUrl = {}, onGlobalSettingsClick = {},
+                    onMatrixClick = {}
                 )
             }
         }
@@ -76,7 +77,8 @@ class UiRobolectricTest {
                 MainScreen(
                     webApps = filtered,
                     onAddClick = {}, onOpenWebApp = {}, onOpenSettings = {},
-                    onOpenStats = {}, onDeleteWebApp = {}, onCopyUrl = {}, onGlobalSettingsClick = {}
+                    onOpenStats = {}, onDeleteWebApp = {}, onCopyUrl = {}, onGlobalSettingsClick = {},
+                    onMatrixClick = {}
                 )
             }
         }
