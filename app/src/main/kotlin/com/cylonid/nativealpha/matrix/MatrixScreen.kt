@@ -141,35 +141,17 @@ internal fun MatrixScreen(
 
         when {
             deviceUnsupported -> DeviceUnsupportedPage()
-            // 原地放大（D4）：同一 WebView 实例单格铺满，顶栏隐藏
+            // 原地放大（D4）：同一 WebView 实例单格铺满，顶栏隐藏；
+            // 退出入口=工具条原放大按钮语义切换（放大↔收起），不另加控件
             zoomedIndex != null -> {
                 val index = zoomedIndex ?: 0
                 if (index < windowCount) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        MatrixCell(
-                            engine = engine,
-                            cellIndex = index,
-                            cell = cells.getOrNull(index) ?: MatrixCellUi(),
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        // 放大态唯一可见退出控件（顶栏已隐藏，仅靠系统返回
-                        // 手势不可发现——用户实测反馈）：右上悬浮收起按钮，
-                        // 半透明底避免压内容，IconButton 保证 48dp 命中
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
-                            shape = RoundedCornerShape(bottomStart = 16.dp),
-                            modifier = Modifier.align(Alignment.TopEnd)
-                        ) {
-                            IconButton(onClick = { engine.collapseZoom() }) {
-                                Icon(
-                                    Icons.Default.CloseFullscreen,
-                                    contentDescription = stringResource(R.string.matrix_collapse),
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-                    }
+                    MatrixCell(
+                        engine = engine,
+                        cellIndex = index,
+                        cell = cells.getOrNull(index) ?: MatrixCellUi(),
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
             }
             else -> MatrixGrid(
@@ -552,6 +534,8 @@ private fun ActiveContent(
     drag: MatrixCellDrag?
 ) {
     val context = LocalContext.current
+    val zoomedIndex by engine.zoomedCellIndex.collectAsStateWithLifecycle()
+    val isZoomed = zoomedIndex == cellIndex
     Column(modifier = Modifier.fillMaxSize()) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
             Row(
@@ -599,13 +583,25 @@ private fun ActiveContent(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                IconButton(onClick = { engine.enlargeCell(cellIndex) }) {
-                    Icon(
-                        Icons.Default.OpenInFull,
-                        contentDescription = stringResource(R.string.matrix_enlarge),
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                // 放大/收起同一按钮语义切换（避免放大态按钮成摆设——用户实测批评）
+                if (isZoomed) {
+                    IconButton(onClick = { engine.collapseZoom() }) {
+                        Icon(
+                            Icons.Default.CloseFullscreen,
+                            contentDescription = stringResource(R.string.matrix_collapse),
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    IconButton(onClick = { engine.enlargeCell(cellIndex) }) {
+                        Icon(
+                            Icons.Default.OpenInFull,
+                            contentDescription = stringResource(R.string.matrix_enlarge),
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 IconButton(onClick = { engine.closeCell(cellIndex) }) {
                     Icon(
