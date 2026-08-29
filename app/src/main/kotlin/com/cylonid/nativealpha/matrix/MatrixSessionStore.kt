@@ -3,6 +3,7 @@ package com.cylonid.nativealpha.matrix
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.JsonParseException
@@ -30,6 +31,13 @@ internal object MatrixSessionStore {
 
     private val KEY_SESSION = stringPreferencesKey("matrix_session_json")
 
+    /**
+     * 每窗边际成本（字节，设备端 EMA 校准值）。独立 key 不入
+     * MatrixSessionState 模型（规格 §4.2 字段集保持不动）——QB 入口预检
+     * 依赖跨会话的实测边际，否则进程重启清零、预检永远 fail-open 放行。
+     */
+    private val KEY_PER_CELL_BYTES = longPreferencesKey("matrix_per_cell_bytes")
+
     private val gson = com.google.gson.Gson()
 
     /** 会话状态流（损坏自动恢复默认值） */
@@ -49,6 +57,22 @@ internal object MatrixSessionStore {
     suspend fun write(context: Context, state: MatrixSessionState) {
         context.matrixDataStore.edit { prefs ->
             prefs[KEY_SESSION] = gson.toJson(state)
+        }
+    }
+
+    /** 读边际成本（≤0=无历史，闸门 fail-open 放行） */
+    suspend fun readPerCellBytes(context: Context): Long =
+        context.matrixDataStore.data
+            .catch { e ->
+                if (e is IOException) emit(emptyPreferences()) else throw e
+            }
+            .map { prefs -> prefs[KEY_PER_CELL_BYTES] ?: 0L }
+            .first()
+
+    /** 写边际成本（onPageFinished 回采校准后调用；协程内） */
+    suspend fun writePerCellBytes(context: Context, value: Long) {
+        context.matrixDataStore.edit { prefs ->
+            prefs[KEY_PER_CELL_BYTES] = value
         }
     }
 

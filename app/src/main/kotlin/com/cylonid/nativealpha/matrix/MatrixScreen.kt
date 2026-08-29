@@ -132,9 +132,9 @@ internal fun MatrixScreen(
 
         when {
             deviceUnsupported -> DeviceUnsupportedPage()
+            // 原地放大（D4）：同一 WebView 实例单格铺满，顶栏隐藏
             zoomedIndex != null -> {
-                // 原地放大（D4）：同一 WebView 实例单格铺满，顶栏隐藏
-                val index = zoomedIndex!!
+                val index = zoomedIndex ?: 0
                 if (index < windowCount) {
                     MatrixCell(
                         engine = engine,
@@ -420,7 +420,7 @@ private fun LoadingContent() {
     }
 }
 
-/** 活跃态：24dp 工具条（图标/标题/放大/关闭）+ WebView 满格 */
+/** 活跃态：工具条（surfaceContainer 底）+ WebView 满格 */
 @Composable
 private fun ActiveContent(engine: MatrixEngine, cellIndex: Int, cell: MatrixCellUi) {
     val context = LocalContext.current
@@ -429,7 +429,7 @@ private fun ActiveContent(engine: MatrixEngine, cellIndex: Int, cell: MatrixCell
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(24.dp),
+                    .height(40.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val webapp = cell.webapp
@@ -444,25 +444,21 @@ private fun ActiveContent(engine: MatrixEngine, cellIndex: Int, cell: MatrixCell
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(
-                    onClick = { engine.enlargeCell(cellIndex) },
-                    modifier = Modifier.size(24.dp)
-                ) {
+                // 触控目标 ≥48dp（§6 验收门）：IconButton 走 M3 默认最小
+                // 命中尺寸（48dp），视觉图标 18dp——外扩命中不压视觉
+                IconButton(onClick = { engine.enlargeCell(cellIndex) }) {
                     Icon(
                         Icons.Default.OpenInFull,
                         contentDescription = stringResource(R.string.matrix_enlarge),
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                IconButton(
-                    onClick = { engine.closeCell(cellIndex) },
-                    modifier = Modifier.size(24.dp)
-                ) {
+                IconButton(onClick = { engine.closeCell(cellIndex) }) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = stringResource(R.string.matrix_close_window),
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

@@ -118,6 +118,9 @@ internal class MatrixEngine(
     /** 崩溃退避（D3/A） */
     private val crashBackoff = MatrixCrashBackoff()
 
+    /** 崩溃风暴去抖任务（同一渲染进程死亡的多格回调合并为一次事件） */
+    private var burstSettleJob: Job? = null
+
     /** 警示条本会话已弹标记（忽略后本会话不弹） */
     private var memoryWarningShown = false
 
@@ -125,6 +128,12 @@ internal class MatrixEngine(
     private val persistQueue = MutableStateFlow<MatrixSessionState?>(null)
 
     init {
+        // QB 前置：跨会话载入已校准的每窗边际成本（首装 ≤0 → 预检 fail-open）
+        mainScope.launch {
+            perCellBytes = withContext(Dispatchers.IO) {
+                MatrixSessionStore.readPerCellBytes(appContext)
+            }
+        }
         mainScope.launch {
             persistQueue.collect { snapshot ->
                 if (snapshot != null) {
@@ -135,7 +144,6 @@ internal class MatrixEngine(
             }
         }
     }
-
     /** 主线程调度（引擎全部可变状态只在主线程触碰） */
     private val mainScope get() = lifecycleOwner.lifecycleScope
 
@@ -145,6 +153,8 @@ internal class MatrixEngine(
      * 从 DataStore 恢复布局：归一化 → 已删站点过滤 → 窗格回填 → 绑定格
      * 自动重载（D8：退出即释放，再进「布局在、页面重载」——重载走
      * pickSite 完整闸门/错峰链路，不绕过容量守卫）。已删站点格自动回占位。
+     * 恢复完成后跑 QB 入口预检（与闸门同一判定函数，fail-open）：预算连
+     * 首窗边际都盖不住 → 整页劝退，不让用户见空网格后逐格碰壁。
      */
     fun restoreSession() {
         mainScope.launch {
@@ -155,6 +165,13 @@ internal class MatrixEngine(
                 if (cell.isPlaceholder) MatrixCellUi() else MatrixCellUi(
                     webappId = cell.webappId
                 )
+            }
+            // QB 入口预检（边际未就绪时 readPerCellBytes 仍在异步载入——
+            // fail-open 语义下预检放行，真正的拦截由首窗闸门兜底）
+            val budget = withContext(Dispatchers.IO) { readBudget() }
+            if (MatrixCapacityGate.decide(0, budget) == MatrixCapacityGate.Decision.DeviceUnsupported) {
+                _deviceUnsupported.value = true
+                return@launch
             }
             restored.cells.forEachIndexed { index, cell ->
                 if (!cell.isPlaceholder) pickSite(index, cell.webappId)
@@ -376,6 +393,10 @@ internal class MatrixEngine(
                 perCellBytes = MatrixCapacityGate.calibratePerCell(
                     perCellBytes, pss / countBusyCells().coerceAtLeast(1)
                 )
+                // 校准值落盘（QB：跨会话供入口预检使用）
+                withContext(Dispatchers.IO) {
+                    MatrixSessionStore.writePerCellBytes(appContext, perCellBytes)
+                }
             }
         }
     }
@@ -398,28 +419,40 @@ internal class MatrixEngine(
 
     /**
      * 渲染进程崩溃（D3/A）：共享渲染进程全窗同死是平台事实——每个格的
-     * client 各收到一次回调，per-cell 只清理自己；批量静默恢复错误格；
-     * 退避生效时停手保持错误态 + 事件告知。
+     * client 各收到一次回调，per-cell 只清理自己。**崩溃风暴去抖**：一次
+     * 渲染进程死亡会引发 N 格串行回调（毫秒级连环到达），若逐回调计数会
+     * 把「一次崩溃 ×4 窗」误判成 4 次崩溃、瞬间触发退避——故以
+     * [CRASH_BURST_SETTLE_MS] 静默期合并为一次崩溃事件，静默期后统一
+     * 登记退避 + 批量静默恢复全部错误格。
      */
     internal fun onRenderGone(cellIndex: Int) {
         releaseCell(cellIndex)
         markCellError(cellIndex)
-        if (crashBackoff.onCrash(System.currentTimeMillis())) {
-            _cells.value.forEachIndexed { index, cell ->
-                if (cell.state == MatrixCellUiState.ERROR &&
-                    cell.webappId != MatrixCellState.PLACEHOLDER_WEBAPP_ID
-                ) {
-                    mainScope.launch {
-                        delay(STAGGER_LOAD_MS)
-                        // 期间可能已被用户重置：复核再恢复
-                        if (_cells.value.getOrNull(index)?.state == MatrixCellUiState.ERROR) {
-                            pickSite(index, cell.webappId)
-                        }
+        burstSettleJob?.cancel()
+        burstSettleJob = mainScope.launch {
+            delay(CRASH_BURST_SETTLE_MS)
+            if (crashBackoff.onCrash(System.currentTimeMillis())) {
+                reloadErrorCells()
+            } else {
+                _notices.tryEmit(MatrixNotice.CRASH_BACKOFF)
+            }
+        }
+    }
+
+    /** 批量静默恢复全部错误格（逐格错峰；恢复前复核状态防用户先动手） */
+    private fun reloadErrorCells() {
+        _cells.value.forEachIndexed { index, cell ->
+            if (cell.state == MatrixCellUiState.ERROR &&
+                cell.webappId != MatrixCellState.PLACEHOLDER_WEBAPP_ID
+            ) {
+                mainScope.launch {
+                    delay(STAGGER_LOAD_MS)
+                    // 期间可能已被用户重置：复核再恢复
+                    if (_cells.value.getOrNull(index)?.state == MatrixCellUiState.ERROR) {
+                        pickSite(index, cell.webappId)
                     }
                 }
             }
-        } else {
-            _notices.tryEmit(MatrixNotice.CRASH_BACKOFF)
         }
     }
 
@@ -565,5 +598,8 @@ internal class MatrixEngine(
     companion object {
         /** Q8 错峰间隔（~150ms 规格值；实测定参入口） */
         const val STAGGER_LOAD_MS = 150L
+
+        /** 崩溃风暴静默期：N 格回调在此窗口内到达视为同一渲染进程死亡 */
+        const val CRASH_BURST_SETTLE_MS = 600L
     }
 }
