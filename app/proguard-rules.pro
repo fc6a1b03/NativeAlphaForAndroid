@@ -7,6 +7,11 @@
 # release 实测恢复回退默认布局——精确 keep 两个 data 类，不宽化到包级
 -keep class com.cylonid.nativealpha.matrix.MatrixSessionState { *; }
 -keep class com.cylonid.nativealpha.matrix.MatrixCellState { *; }
+# 事件规则模型（P5）：Gson 反射同款 + JS 桥 @JavascriptInterface 成员
+-keep class com.cylonid.nativealpha.webevent.EventRule { *; }
+-keepclassmembers class com.cylonid.nativealpha.webevent.WebEventBridge {
+    public *;
+}
 -keepattributes Signature
 -keepattributes *Annotation*
 

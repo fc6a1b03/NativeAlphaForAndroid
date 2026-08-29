@@ -276,6 +276,12 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
         // 加载动画计时起点（短暂显示窗口判定）
         pageLoadStartTime2 = System.currentTimeMillis()
         scheduleBlankScreenCheck()
+        // 网页事件 hook 注入（P5：仅配规则站，幂等脚本；未配站零开销）
+        wv?.let { webview ->
+            com.cylonid.nativealpha.webevent.WebeventRuntime.hookScriptFor(webappID)?.let { script ->
+                webview.evaluateJavascript(script, null)
+            }
+        }
     }
 
     override fun onPageLoadFinished() {
@@ -444,6 +450,8 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
 
         // 必须在 setContentView 之后 findViewById——视图未建立时返回 null（886b145 回归修复）
         val webview = findViewById<WebView>(R.id.webview).also { wv = it }
+        // 网页事件桥注册（P5：仅配规则站；JS 侧经 hook 代理转发）
+        com.cylonid.nativealpha.webevent.WebeventRuntime.attachBridge(webview, webappID)
 
         // 仅 debug 包开启 WebView 远程调试（chrome://inspect + CDP 自动化验证）；
         // release 永不开启——远程调试是安全敏感面，不得泄漏到生产
@@ -799,8 +807,12 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
         if (wv == null) return
 
         if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
-            // 页面不可见：仅暂停计时器（轻量、线程安全）
-            wv!!.pauseTimers()
+            // 页面不可见：仅暂停计时器（轻量、线程安全）。
+            // 豁免（P5-1）：配了生效事件规则的站不暂停——JS 停摆会让
+            // 「切走等通知」核心场景失效；代价=该站后台略耗电（入口行已告知）
+            if (!com.cylonid.nativealpha.webevent.WebeventRuntime.shouldKeepTimersRunning(webappID)) {
+                wv!!.pauseTimers()
+            }
         }
     }
 
