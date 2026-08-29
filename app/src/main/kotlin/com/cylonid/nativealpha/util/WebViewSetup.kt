@@ -47,8 +47,12 @@ internal object WebViewSetup {
      * 按站全量设置：安全加固、滚动条、渲染进程优先级、文本流渲染优化、
      * JS/Cookie/图片、桌面 UA 与缩放。语句顺序与原内联实现一致；
      * 深色模式（涉及 Activity 主题）由调用方在设置完成后自行应用。
+     *
+     * @param enablePreRaster 离屏预栅格化开关（默认开，宿主单窗语义）；
+     * 矩阵多窗传 false——×4 份离屏栅格放大合成压力与内存（总纲 Q8/
+     * preraster 实测定参条款：多窗吃紧则矩阵内关闭）
      */
-    fun applySiteSettings(webview: WebView, app: WebApp) {
+    fun applySiteSettings(webview: WebView, app: WebApp, enablePreRaster: Boolean = true) {
         // ===== 安全加固（WebApp 设置项，默认全开） =====
         // 恶意网站防护：默认关（AGENTS.md 既有设计：用户可添加非 HTTPS 站点，按需开启）
         webview.settings.safeBrowsingEnabled = app.isSafeBrowsing
@@ -88,7 +92,7 @@ internal object WebViewSetup {
         webview.settings.textZoom = app.textZoom
         // 页面缩放（用户可调：50~200%，默认 100）：onPageFinished 里 zoomBy 应用
         // 预栅格化：减少滚动时白块/抖动（流式长文本滚动流畅）
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.OFF_SCREEN_PRERASTER)) {
+        if (enablePreRaster && WebViewFeature.isFeatureSupported(WebViewFeature.OFF_SCREEN_PRERASTER)) {
             WebSettingsCompat.setOffscreenPreRaster(webview.settings, true)
         }
         // 缓存策略：默认模式，流式页面不强制离线/不缓存

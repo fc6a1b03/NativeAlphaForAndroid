@@ -365,7 +365,9 @@ internal class MatrixEngine(
 
     private fun createCellWebView(cellIndex: Int, webapp: WebApp): WebView {
         val webview = WebView(appContext)
-        WebViewSetup.applySiteSettings(webview, webapp)
+        // 矩阵格关闭离屏预栅格化（preraster ×4 = 离屏栅格/合成压力放大，
+        // 实测 4 窗满载滚动 92.6% 卡顿帧 vs 单窗 10.6%——总纲定参条款落地）
+        WebViewSetup.applySiteSettings(webview, webapp, enablePreRaster = false)
         webview.webViewClient = MatrixCellClient(MatrixCellContext(this, cellIndex, webapp.ID))
         webview.webChromeClient = MatrixCellChromeClient(this, cellIndex)
         return webview
