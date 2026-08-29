@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -155,11 +156,21 @@ internal class MatrixEngine(
      * pickSite 完整闸门/错峰链路，不绕过容量守卫）。已删站点格自动回占位。
      * 恢复完成后跑 QB 入口预检（与闸门同一判定函数，fail-open）：预算连
      * 首窗边际都盖不住 → 整页劝退，不让用户见空网格后逐格碰壁。
+     *
+     * 竞态防护（release 实测）：站点过滤必须等 DataManager 首次加载完成
+     * （revision>0）——App.onCreate 预热是后台线程，R8 下 DataStore 读取
+     * 可能快于列表加载，拿空 items 过滤会把全部绑定格误清成占位。
      */
     fun restoreSession() {
         mainScope.launch {
             val session = withContext(Dispatchers.IO) { MatrixSessionStore.read(appContext) }
-            val restored = session.normalized().filteredByActiveSites(activeSiteIds())
+            val loaded = DataManager.getInstance().webAppsFlow
+                .first { it.revision > 0 }
+            val activeIds = loaded.items
+                .filter { it.isActiveEntry }
+                .map { it.ID }
+                .toSet()
+            val restored = session.normalized().filteredByActiveSites(activeIds)
             _windowCount.value = restored.windowCount
             _cells.value = restored.cells.map { cell ->
                 if (cell.isPlaceholder) MatrixCellUi() else MatrixCellUi(
@@ -242,6 +253,10 @@ internal class MatrixEngine(
                 cell
             }
         }
+        // 选站即落盘（D8 变更即写）：选器确认是布局变更，缺失会导致强停后
+        // 恢复丢失绑定（release 实测：pick 后强停，磁盘从未记录绑定 → 恢复
+        // 全占位——debug 此前未暴露因历史测试恰好有增窗操作代写）
+        persistSession()
         mainScope.launch {
             val budget = withContext(Dispatchers.IO) { readBudget() }
             when (MatrixCapacityGate.decide(countBusyCells(), budget)) {
@@ -560,11 +575,6 @@ internal class MatrixEngine(
         it.state == MatrixCellUiState.ACTIVE || it.state == MatrixCellUiState.LOADING
     }
 
-    private fun activeSiteIds(): Set<Int> =
-        DataManager.getInstance().webAppsFlow.value.items
-            .filter { it.isActiveEntry }
-            .map { it.ID }
-            .toSet()
 
     private fun readBudget(): MatrixCapacityGate.Budget? {
         val avail = MatrixMemorySampler.availMemBytes(appContext)

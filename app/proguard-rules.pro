@@ -3,6 +3,10 @@
 # === Gson 反射序列化（模型类必须保留字段） ===
 # WebApp/GlobalSettings 通过 Gson 反射读写，混淆会破坏 JSON 结构
 -keep class com.cylonid.nativealpha.model.** { *; }
+# 矩阵会话模型同款（P4）：@Keep 注解不足以保住 Gson 反射字段名，
+# release 实测恢复回退默认布局——精确 keep 两个 data 类，不宽化到包级
+-keep class com.cylonid.nativealpha.matrix.MatrixSessionState { *; }
+-keep class com.cylonid.nativealpha.matrix.MatrixCellState { *; }
 -keepattributes Signature
 -keepattributes *Annotation*
 
