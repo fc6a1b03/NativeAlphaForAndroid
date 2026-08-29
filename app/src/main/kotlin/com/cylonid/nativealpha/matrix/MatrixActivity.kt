@@ -87,6 +87,11 @@ internal class MatrixActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        // 全局定时器对称恢复（必须先于 releaseAll）：onStop 的 pauseTimers 是
+        // 进程全局开关，矩阵退出后残留会让之后单独打开的站点 JS/加载全面
+        // 停摆（真机实测：矩阵退出后新开站点无法加载+会话失效）。宿主仅在
+        // onNewIntent 复用路径 resumeTimers，新建实例无兜底——矩阵必须自愈
+        engine.resumeCellTimers()
         engine.releaseAll()
         super.onDestroy()
     }

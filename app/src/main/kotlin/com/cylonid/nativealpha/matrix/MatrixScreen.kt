@@ -6,6 +6,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,9 +27,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloseFullscreen
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,9 +50,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -90,6 +98,7 @@ internal fun MatrixScreen(
 
     var pendingReduceTarget by remember { mutableStateOf<Int?>(null) }
     var pickerCellIndex by remember { mutableStateOf<Int?>(null) }
+    var adjustCellIndex by remember { mutableStateOf<Int?>(null) }
 
     // BackHandler（规格：放大→网格→退出矩阵 两段语义，D4）
     BackHandler(enabled = true) {
@@ -136,19 +145,39 @@ internal fun MatrixScreen(
             zoomedIndex != null -> {
                 val index = zoomedIndex ?: 0
                 if (index < windowCount) {
-                    MatrixCell(
-                        engine = engine,
-                        cellIndex = index,
-                        cell = cells.getOrNull(index) ?: MatrixCellUi(),
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        MatrixCell(
+                            engine = engine,
+                            cellIndex = index,
+                            cell = cells.getOrNull(index) ?: MatrixCellUi(),
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        // 放大态唯一可见退出控件（顶栏已隐藏，仅靠系统返回
+                        // 手势不可发现——用户实测反馈）：右上悬浮收起按钮，
+                        // 半透明底避免压内容，IconButton 保证 48dp 命中
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(bottomStart = 16.dp),
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        ) {
+                            IconButton(onClick = { engine.collapseZoom() }) {
+                                Icon(
+                                    Icons.Default.CloseFullscreen,
+                                    contentDescription = stringResource(R.string.matrix_collapse),
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
             else -> MatrixGrid(
                 engine = engine,
                 cells = cells,
                 windowCount = windowCount,
-                onPickRequest = { pickerCellIndex = it }
+                onPickRequest = { pickerCellIndex = it },
+                onAdjustRequest = { adjustCellIndex = it }
             )
         }
     }
@@ -179,6 +208,14 @@ internal fun MatrixScreen(
                 pickerCellIndex = null
                 engine.pickSite(index, webappId)
             }
+        )
+    }
+
+    adjustCellIndex?.let { index ->
+        CellAdjustSheet(
+            engine = engine,
+            cellIndex = index,
+            onDismiss = { adjustCellIndex = null }
         )
     }
 }
@@ -280,8 +317,18 @@ private fun MatrixGrid(
     engine: MatrixEngine,
     cells: List<MatrixCellUi>,
     windowCount: Int,
-    onPickRequest: (Int) -> Unit
+    onPickRequest: (Int) -> Unit,
+    onAdjustRequest: (Int) -> Unit
 ) {
+    // 拖拽排序（按住标题换位）：手势在容器层检测（格交换时组合移动不断手势）；
+    // 拖动位移超阈值 → 与方向相邻格 swap；性能红线：手势 tick 只更新 offset，
+    // 数据交换一次一换、WebView 实例复用不重载
+    var dragUid by remember { mutableStateOf<Int?>(null) }
+    var dragOffset by remember { mutableStateOf(android.util.Pair(0f, 0f)) }
+    var dragOrigin by remember { mutableStateOf(-1) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val dragThresholdPx = remember { with(density) { 130.dp.toPx() } }
+
     val gap = 8.dp
     Column(
         modifier = Modifier
@@ -290,47 +337,120 @@ private fun MatrixGrid(
             .padding(top = gap),
         verticalArrangement = Arrangement.spacedBy(gap)
     ) {
+        fun cellAt(index: Int) = cells.getOrElse(index) { MatrixCellUi() }
+        fun dragArgs(index: Int): MatrixCellDrag =
+            MatrixCellDrag(
+                isDragging = dragUid == cellAt(index).uid,
+                dragOffsetPx = dragOffset,
+                thresholdPx = dragThresholdPx,
+                onDragStart = { uid ->
+                    dragUid = uid
+                    dragOrigin = index
+                    dragOffset = android.util.Pair(0f, 0f)
+                },
+                onDrag = { dx, dy ->
+                    if (dragOrigin >= 0) {
+                        val t = dragOffset
+                        dragOffset = android.util.Pair(t.first + dx, t.second + dy)
+                        val tx = dragOffset.first
+                        val ty = dragOffset.second
+                        if (kotlin.math.abs(tx) > dragThresholdPx) {
+                            val n = engine.neighborIndex(dragOrigin, tx, 0f)
+                            if (n >= 0) {
+                                engine.swapCells(dragOrigin, n)
+                                dragOrigin = n
+                                dragOffset = android.util.Pair(0f, 0f)
+                            } else {
+                                dragOffset = android.util.Pair(0f, ty)
+                            }
+                        } else if (kotlin.math.abs(ty) > dragThresholdPx) {
+                            val n = engine.neighborIndex(dragOrigin, 0f, ty)
+                            if (n >= 0) {
+                                engine.swapCells(dragOrigin, n)
+                                dragOrigin = n
+                                dragOffset = android.util.Pair(0f, 0f)
+                            } else {
+                                dragOffset = android.util.Pair(tx, 0f)
+                            }
+                        }
+                    }
+                },
+                onDragEnd = {
+                    dragUid = null
+                    dragOrigin = -1
+                    dragOffset = android.util.Pair(0f, 0f)
+                }
+            )
+
         when (windowCount) {
             2 -> {
-                MatrixCell(
-                    engine, 0, cells.getOrElse(0) { MatrixCellUi() },
-                    Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    onPickRequest
-                )
-                MatrixCell(
-                    engine, 1, cells.getOrElse(1) { MatrixCellUi() },
-                    Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    onPickRequest
-                )
+                DragCell(engine, 0, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f).fillMaxWidth())
+                DragCell(engine, 1, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f).fillMaxWidth())
             }
             3 -> {
                 Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(gap)) {
-                    MatrixCell(engine, 0, cells.getOrElse(0) { MatrixCellUi() }, Modifier.weight(1f), onPickRequest)
-                    MatrixCell(engine, 1, cells.getOrElse(1) { MatrixCellUi() }, Modifier.weight(1f), onPickRequest)
+                    DragCell(engine, 0, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                    DragCell(engine, 1, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
                 }
-                MatrixCell(
-                    engine, 2, cells.getOrElse(2) { MatrixCellUi() },
-                    Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    onPickRequest
-                )
+                DragCell(engine, 2, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f).fillMaxWidth())
             }
             else -> {
                 Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(gap)) {
-                    MatrixCell(engine, 0, cells.getOrElse(0) { MatrixCellUi() }, Modifier.weight(1f), onPickRequest)
-                    MatrixCell(engine, 1, cells.getOrElse(1) { MatrixCellUi() }, Modifier.weight(1f), onPickRequest)
+                    DragCell(engine, 0, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                    DragCell(engine, 1, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
                 }
                 Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(gap)) {
-                    MatrixCell(engine, 2, cells.getOrElse(2) { MatrixCellUi() }, Modifier.weight(1f), onPickRequest)
-                    MatrixCell(engine, 3, cells.getOrElse(3) { MatrixCellUi() }, Modifier.weight(1f), onPickRequest)
+                    DragCell(engine, 2, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                    DragCell(engine, 3, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
                 }
             }
         }
+    }
+}
+
+/** 拖拽参数聚合（避免 6 参回调链） */
+internal class MatrixCellDrag(
+    val isDragging: Boolean,
+    val dragOffsetPx: android.util.Pair<Float, Float>,
+    val thresholdPx: Float,
+    val onDragStart: (Int) -> Unit,
+    val onDrag: (Float, Float) -> Unit,
+    val onDragEnd: () -> Unit
+)
+
+/** 带 uid key 与拖拽/调节能力的窗格包装：交换时按 key 移动组合，WebView 实例复用 */
+@Composable
+private fun DragCell(
+    engine: MatrixEngine,
+    index: Int,
+    cellAt: (Int) -> MatrixCellUi,
+    dragArgs: (Int) -> MatrixCellDrag,
+    onPickRequest: (Int) -> Unit,
+    onAdjustRequest: (Int) -> Unit,
+    modifier: Modifier
+) {
+    val cell = cellAt(index)
+    val args = dragArgs(index)
+    androidx.compose.runtime.key(cell.uid) {
+        MatrixCell(
+            engine = engine,
+            cellIndex = index,
+            cell = cell,
+            modifier = modifier.graphicsLayer {
+                if (args.isDragging) {
+                    translationX = args.dragOffsetPx.first
+                    translationY = args.dragOffsetPx.second
+                    alpha = 0.85f
+                } else {
+                    translationX = 0f
+                    translationY = 0f
+                    alpha = 1f
+                }
+            },
+            onPickRequest = onPickRequest,
+            onAdjustRequest = onAdjustRequest,
+            drag = args
+        )
     }
 }
 
@@ -344,7 +464,9 @@ private fun MatrixCell(
     cellIndex: Int,
     cell: MatrixCellUi,
     modifier: Modifier = Modifier,
-    onPickRequest: (Int) -> Unit = {}
+    onPickRequest: (Int) -> Unit = {},
+    onAdjustRequest: (Int) -> Unit = {},
+    drag: MatrixCellDrag? = null
 ) {
     val shape = RoundedCornerShape(12.dp)
     Box(
@@ -357,7 +479,7 @@ private fun MatrixCell(
                 onClick = { onPickRequest(cellIndex) }
             )
             MatrixCellUiState.LOADING -> LoadingContent()
-            MatrixCellUiState.ACTIVE -> ActiveContent(engine, cellIndex, cell)
+            MatrixCellUiState.ACTIVE -> ActiveContent(engine, cellIndex, cell, onAdjustRequest, drag)
             MatrixCellUiState.ERROR -> ErrorContent(
                 message = stringResource(R.string.matrix_window_crashed),
                 onClick = { engine.retryCell(cellIndex) }
@@ -422,14 +544,37 @@ private fun LoadingContent() {
 
 /** 活跃态：工具条（surfaceContainer 底）+ WebView 满格 */
 @Composable
-private fun ActiveContent(engine: MatrixEngine, cellIndex: Int, cell: MatrixCellUi) {
+private fun ActiveContent(
+    engine: MatrixEngine,
+    cellIndex: Int,
+    cell: MatrixCellUi,
+    onAdjustRequest: (Int) -> Unit,
+    drag: MatrixCellDrag?
+) {
     val context = LocalContext.current
     Column(modifier = Modifier.fillMaxSize()) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(40.dp),
+                    .height(40.dp)
+                    .then(
+                        if (drag != null) {
+                            Modifier.pointerInput(cell.uid) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { drag.onDragStart(cell.uid) },
+                                    onDrag = { change, amount ->
+                                        change.consume()
+                                        drag.onDrag(amount.x, amount.y)
+                                    },
+                                    onDragEnd = { drag.onDragEnd() },
+                                    onDragCancel = { drag.onDragEnd() }
+                                )
+                            }
+                        } else {
+                            Modifier
+                        }
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val webapp = cell.webapp
@@ -446,6 +591,14 @@ private fun ActiveContent(engine: MatrixEngine, cellIndex: Int, cell: MatrixCell
                 )
                 // 触控目标 ≥48dp（§6 验收门）：IconButton 走 M3 默认最小
                 // 命中尺寸（48dp），视觉图标 18dp——外扩命中不压视觉
+                IconButton(onClick = { onAdjustRequest(cellIndex) }) {
+                    Icon(
+                        Icons.Default.Tune,
+                        contentDescription = stringResource(R.string.matrix_adjust),
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 IconButton(onClick = { engine.enlargeCell(cellIndex) }) {
                     Icon(
                         Icons.Default.OpenInFull,

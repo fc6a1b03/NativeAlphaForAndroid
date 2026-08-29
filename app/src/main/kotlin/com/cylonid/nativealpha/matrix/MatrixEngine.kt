@@ -46,9 +46,15 @@ internal enum class MatrixCellUiState {
 
 /** 窗格 UI 快照（StateFlow 驱动，Compose 只读渲染零决策） */
 internal data class MatrixCellUi(
+    /** 会话内唯一身份（拖拽排序的 Compose key；磁盘不存，进程内自增） */
+    val uid: Int = 0,
     val state: MatrixCellUiState = MatrixCellUiState.PLACEHOLDER,
     val webappId: Int = MatrixCellState.PLACEHOLDER_WEBAPP_ID,
-    val title: String = ""
+    val title: String = "",
+    /** 页面缩放 %（Q1 反转：格子视口小默认 80%，格内可调并持久化） */
+    val zoomPercent: Int = MatrixCellState.DEFAULT_ZOOM_PERCENT,
+    /** 字体缩放 %（相对站点 textZoom；默认 90%「小一级」） */
+    val textZoomPercent: Int = MatrixCellState.DEFAULT_TEXT_ZOOM_PERCENT
 ) {
     /** 绑定站点快照（工具条标题/favicon 用；占位为 null） */
     val webapp: WebApp?
@@ -104,7 +110,7 @@ internal class MatrixEngine(
     val windowCount: StateFlow<Int> = _windowCount.asStateFlow()
 
     private val _cells =
-        MutableStateFlow(List(MatrixSessionState.DEFAULT_WINDOW_COUNT) { MatrixCellUi() })
+        MutableStateFlow(List(MatrixSessionState.DEFAULT_WINDOW_COUNT) { MatrixCellUi(uid = newCellUid()) })
     val cells: StateFlow<List<MatrixCellUi>> = _cells.asStateFlow()
 
     /** 宿主窗格持有的 WebView（下标对齐 cells；占位为 null） */
@@ -121,6 +127,11 @@ internal class MatrixEngine(
 
     /** 崩溃风暴去抖任务（同一渲染进程死亡的多格回调合并为一次事件） */
     private var burstSettleJob: Job? = null
+
+    /** 格会话身份自增（拖拽排序的稳定 Compose key） */
+    private var cellUidSeq = 0
+
+    private fun newCellUid(): Int = ++cellUidSeq
 
     /** 警示条本会话已弹标记（忽略后本会话不弹） */
     private var memoryWarningShown = false
@@ -173,8 +184,11 @@ internal class MatrixEngine(
             val restored = session.normalized().filteredByActiveSites(activeIds)
             _windowCount.value = restored.windowCount
             _cells.value = restored.cells.map { cell ->
-                if (cell.isPlaceholder) MatrixCellUi() else MatrixCellUi(
-                    webappId = cell.webappId
+                MatrixCellUi(
+                    uid = newCellUid(),
+                    webappId = cell.webappId,
+                    zoomPercent = cell.zoomPercent,
+                    textZoomPercent = cell.textZoomPercent
                 )
             }
             // QB 入口预检（边际未就绪时 readPerCellBytes 仍在异步载入——
@@ -199,7 +213,7 @@ internal class MatrixEngine(
     fun addWindow() {
         if (_windowCount.value >= MatrixSessionState.MAX_WINDOW_COUNT) return
         _windowCount.value += 1
-        _cells.value = _cells.value + MatrixCellUi()
+        _cells.value = _cells.value + MatrixCellUi(uid = newCellUid())
         persistSession()
     }
 
@@ -241,14 +255,15 @@ internal class MatrixEngine(
         if (webapp.baseUrl.startsWith("http://") && !webapp.isAllowHttp) {
             // 明文站点未授权：矩阵内不静默放宽安全设置（与宿主 loadURL 同源语义）
             _cells.value = _cells.value.mapIndexed { i, cell ->
-                if (i == cellIndex) MatrixCellUi() else cell
+                if (i == cellIndex) MatrixCellUi(uid = newCellUid()) else cell
             }
             _notices.tryEmit(MatrixNotice.HTTP_BLOCKED)
             return
         }
         _cells.value = _cells.value.mapIndexed { i, cell ->
             if (i == cellIndex) {
-                MatrixCellUi(state = MatrixCellUiState.LOADING, webappId = webappId)
+                cell.copy(uid = cell.uid.takeIf { it != 0 } ?: newCellUid(),
+                    state = MatrixCellUiState.LOADING, webappId = webappId)
             } else {
                 cell
             }
@@ -264,7 +279,7 @@ internal class MatrixEngine(
                 MatrixCapacityGate.Decision.DeviceUnsupported -> {
                     _deviceUnsupported.value = true
                     _cells.value = _cells.value.mapIndexed { i, cell ->
-                        if (i == cellIndex) MatrixCellUi() else cell
+                        if (i == cellIndex) MatrixCellUi(uid = newCellUid()) else cell
                     }
                 }
                 MatrixCapacityGate.Decision.LimitCell -> {
@@ -325,13 +340,86 @@ internal class MatrixEngine(
     fun resetCell(cellIndex: Int) {
         releaseCell(cellIndex)
         _cells.value = _cells.value.mapIndexed { i, cell ->
-            if (i == cellIndex) MatrixCellUi() else cell
+            if (i == cellIndex) MatrixCellUi(uid = newCellUid()) else cell
         }
         persistSession()
     }
 
     /** 关闭窗格回占位（工具条 close）：releaseCell 确定性释放 */
     fun closeCell(cellIndex: Int) = resetCell(cellIndex)
+
+    // ===== 拖拽排序（按住标题换位） =====
+
+    /**
+     * 交换两格的语义位置：cells 数据、WebView 实例、挂起加载任务三者
+     * 同步交换——UI 以 cell.uid 为 Compose key，交换后组合按 key 移动/
+     * 重建，AndroidView 重新 attach 交换后的实例（WebView 不销毁不重载，
+     * 仅换宿主位置——拖拽性能红线：手势期间零 IO，松手一次交换）。
+     */
+    fun swapCells(a: Int, b: Int) {
+        val count = _windowCount.value
+        if (a == b || a !in 0 until count || b !in 0 until count) return
+        val list = _cells.value.toMutableList()
+        val tmpUi = list[a]
+        list[a] = list[b]
+        list[b] = tmpUi
+        _cells.value = list
+
+        val tmpWv = cellWebViews[a]
+        cellWebViews[a] = cellWebViews[b]
+        cellWebViews[b] = tmpWv
+
+        val tmpJob = staggeredLoadJobs[a]
+        staggeredLoadJobs[a] = staggeredLoadJobs[b]
+        staggeredLoadJobs[b] = tmpJob
+
+        persistSession()
+    }
+
+    /** 目标格映射：direction(dx,dy 主方向) 下按当前布局的相邻格；越界返回 -1 */
+    fun neighborIndex(index: Int, dx: Float, dy: Float): Int {
+        val count = _windowCount.value
+        val horizontal = kotlin.math.abs(dx) >= kotlin.math.abs(dy)
+        return when (count) {
+            2 -> when {
+                dy < 0 -> index - 1
+                dy > 0 -> index + 1
+                else -> -1
+            }.takeIf { it in 0 until count } ?: -1
+            3 -> when {
+                horizontal && dx > 0 -> if (index == 0) 1 else -1
+                horizontal && dx < 0 -> if (index == 1) 0 else -1
+                !horizontal && dy > 0 -> if (index <= 1) 2 else -1
+                !horizontal && dy < 0 -> if (index == 2) 0 else -1
+                else -> -1
+            }
+            else -> when {
+                horizontal && dx > 0 -> if (index % 2 == 0) index + 1 else -1
+                horizontal && dx < 0 -> if (index % 2 == 1) index - 1 else -1
+                !horizontal && dy > 0 -> if (index <= 1) index + 2 else -1
+                !horizontal && dy < 0 -> if (index >= 2) index - 2 else -1
+                else -> -1
+            }
+        }
+    }
+
+    /** 格内显示调节（工具条调节 sheet 实时应用 + 持久化） */
+    fun applyCellAdjust(cellIndex: Int, zoomPercent: Int, textZoomPercent: Int) {
+        val old = _cells.value.getOrNull(cellIndex) ?: return
+        _cells.value = _cells.value.mapIndexed { i, cell ->
+            if (i == cellIndex) cell.copy(zoomPercent = zoomPercent, textZoomPercent = textZoomPercent) else cell
+        }
+        // 实时应用：字体 textZoom 相对站点基准；页面缩放按新旧比例 zoomBy
+        cellWebViews.getOrNull(cellIndex)?.let { webview ->
+            val webapp = old.webapp
+            webview.settings.textZoom =
+                ((webapp?.textZoom ?: 100) * textZoomPercent / 100f).toInt().coerceIn(50, 300)
+            if (old.zoomPercent in 1..1000) {
+                webview.zoomBy(zoomPercent.toFloat() / old.zoomPercent.toFloat())
+            }
+        }
+        persistSession()
+    }
 
     // ===== 原地放大（D4） =====
 
@@ -381,8 +469,22 @@ internal class MatrixEngine(
     private fun createCellWebView(cellIndex: Int, webapp: WebApp): WebView {
         val webview = WebView(appContext)
         // 矩阵格关闭离屏预栅格化（preraster ×4 = 离屏栅格/合成压力放大，
-        // 实测 4 窗满载滚动 92.6% 卡顿帧 vs 单窗 10.6%——总纲定参条款落地）
-        WebViewSetup.applySiteSettings(webview, webapp, enablePreRaster = false)
+        // 实测 4 窗满载滚动 92.6% 卡顿帧 vs 单窗 10.6%——总纲定参条款落地）；
+        // 不写全局 Cookie 接受开关（矩阵 D1 只读共享，防污染宿主站点）
+        WebViewSetup.applySiteSettings(
+            webview, webapp,
+            enablePreRaster = false, configureGlobalCookieAccept = false
+        )
+        // Q1 反转（用户实测格子视口小）：启用捏合缩放；字体按格子留存值
+        // 相对站点 textZoom 缩放（默认 90%「小一级」）
+        webview.settings.setSupportZoom(true)
+        webview.settings.builtInZoomControls = true
+        webview.settings.displayZoomControls = false
+        val cell = _cells.value.getOrNull(cellIndex)
+        if (cell != null) {
+            webview.settings.textZoom =
+                ((webapp.textZoom) * cell.textZoomPercent / 100f).toInt().coerceIn(50, 300)
+        }
         webview.webViewClient = MatrixCellClient(MatrixCellContext(this, cellIndex, webapp.ID))
         webview.webChromeClient = MatrixCellChromeClient(this, cellIndex)
         return webview
@@ -401,6 +503,11 @@ internal class MatrixEngine(
         if (current.state != MatrixCellUiState.LOADING) return
         _cells.value = _cells.value.mapIndexed { i, cell ->
             if (i == cellIndex) cell.copy(state = MatrixCellUiState.ACTIVE) else cell
+        }
+        // 页面缩放应用：新文档加载后 WebView 重置 100%，按格子留存值缩放
+        cellWebViews.getOrNull(cellIndex)?.let { webview ->
+            val target = (_cells.value.getOrNull(cellIndex)?.zoomPercent ?: 100) / 100f
+            if (target != 1f) webview.zoomBy(target)
         }
         mainScope.launch {
             val pss = withContext(Dispatchers.IO) {
@@ -589,7 +696,7 @@ internal class MatrixEngine(
     private fun persistSession() {
         val snapshot = MatrixSessionState(
             windowCount = _windowCount.value,
-            cells = _cells.value.map { MatrixCellState(it.webappId) }
+            cells = _cells.value.map { MatrixCellState(it.webappId, it.zoomPercent, it.textZoomPercent) }
         )
         // 单写者队列：连续变更（如 Slider 一次跨两档）只保留最新快照且按序
         // 落盘——各自发射独立协程在 Dispatchers.IO 上不保序，旧快照可能

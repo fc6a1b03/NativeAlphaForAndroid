@@ -342,6 +342,13 @@
     <string name="matrix_window_crashed">Window recovered, tap to re-pick</string>
     <string name="matrix_loading">Loading…</string>
     <string name="matrix_enlarge">Enlarge</string>
+    <string name="matrix_collapse">Exit enlarged view</string>
+    <string name="matrix_adjust">Adjust display</string>
+    <string name="matrix_zoom_page">Page zoom</string>
+    <string name="matrix_zoom_page_value">%1$d%%</string>
+    <string name="matrix_zoom_text">Text size</string>
+    <string name="matrix_zoom_text_value">%1$d%%</string>
+    <string name="matrix_drag_hint">Long-press title to rearrange windows</string>
     <string name="matrix_close_window">Close window</string>
     <string name="matrix_search_hint">Search sites</string>
     <string name="matrix_picker_empty">No matching sites</string>

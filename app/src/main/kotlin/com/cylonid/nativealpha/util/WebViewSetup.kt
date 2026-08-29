@@ -51,8 +51,17 @@ internal object WebViewSetup {
      * @param enablePreRaster 离屏预栅格化开关（默认开，宿主单窗语义）；
      * 矩阵多窗传 false——×4 份离屏栅格放大合成压力与内存（总纲 Q8/
      * preraster 实测定参条款：多窗吃紧则矩阵内关闭）
+     * @param configureGlobalCookieAccept 是否按站改写全局 Cookie 接受开关
+     * （默认 true 宿主语义）。**矩阵必须传 false**：setAcceptCookie 是
+     * 全局单例开关，矩阵多站/退出后会污染宿主站点的 Cookie 行为（P0
+     * 回归防御；矩阵 D1 语义=只读共享当前全局环境）
      */
-    fun applySiteSettings(webview: WebView, app: WebApp, enablePreRaster: Boolean = true) {
+    fun applySiteSettings(
+        webview: WebView,
+        app: WebApp,
+        enablePreRaster: Boolean = true,
+        configureGlobalCookieAccept: Boolean = true
+    ) {
         // ===== 安全加固（WebApp 设置项，默认全开） =====
         // 恶意网站防护：默认关（AGENTS.md 既有设计：用户可添加非 HTTPS 站点，按需开启）
         webview.settings.safeBrowsingEnabled = app.isSafeBrowsing
@@ -110,9 +119,11 @@ internal object WebViewSetup {
 
         webview.settings.javaScriptEnabled = app.isAllowJs
 
-        // Cookie 全局开关 + 按站第三方 Cookie（CookieManager 全局单例，
-        // 矩阵多窗共享同一全局环境——D1 决策的既有事实基础）
-        android.webkit.CookieManager.getInstance().setAcceptCookie(app.isAllowCookies)
+        // Cookie：全局接受开关仅宿主可写（参数防御）；第三方 Cookie 是
+        // per-WebView 属性，多窗环境按站设置无污染
+        if (configureGlobalCookieAccept) {
+            android.webkit.CookieManager.getInstance().setAcceptCookie(app.isAllowCookies)
+        }
         android.webkit.CookieManager.getInstance()
             .setAcceptThirdPartyCookies(webview, app.isAllowThirdPartyCookies)
 
