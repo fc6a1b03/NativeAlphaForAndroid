@@ -84,9 +84,24 @@ object UpdateChecker {
         /** 已是最新 */
         data class NoUpdate(val currentVersion: String) : Result()
 
-        /** 检查失败（网络/解析等） */
-        data class Error(val throwable: Throwable, val displayMessage: String) : Result()
+        /**
+         * 检查失败。
+         *
+         * @property kind 失败类别——[KIND_NETWORK]（GitHub API 不可达/空响应，
+         * 大陆网络常态）**不应写入错误日志**（非应用缺陷，环境性高频事件，
+         * ERROR+堆栈只会污染日志）；[KIND_NO_ASSET]/[KIND_UNEXPECTED] 才值得留档
+         */
+        data class Error(
+            val kind: String,
+            val detail: String,
+            val displayMessage: String
+        ) : Result()
     }
+
+    // 失败类别（network_unavailable=环境常态，调用方不应写错误日志）
+    const val KIND_NETWORK = "network_unavailable"
+    const val KIND_NO_ASSET = "no_apk_asset"
+    const val KIND_UNEXPECTED = "unexpected"
 
     /**
      * 语义化版本比较：a > b 返回 1，a == b 返回 0，a < b 返回 -1。
@@ -152,10 +167,13 @@ object UpdateChecker {
                 val current = currentVersionName(context)
                 when {
                     latestTag.isEmpty() -> {
+                        // GitHub API 不可达/空响应：网络环境常态（大陆直连被墙），
+                        // 降级为 network_unavailable——不携带异常堆栈、不写错误日志
                         withContext(Dispatchers.Main) {
                             onResult(
                                 Result.Error(
-                                    IllegalStateException("Empty latest tag from GitHub API"),
+                                    KIND_NETWORK,
+                                    "GitHub API unreachable or empty response",
                                     context.getString(R.string.update_check_failed)
                                 )
                             )
@@ -165,7 +183,8 @@ object UpdateChecker {
                         withContext(Dispatchers.Main) {
                             onResult(
                                 Result.Error(
-                                    IllegalStateException("No APK asset found for $latestTag"),
+                                    KIND_NO_ASSET,
+                                    "No APK asset found for $latestTag",
                                     context.getString(R.string.update_check_failed)
                                 )
                             )
@@ -186,7 +205,8 @@ object UpdateChecker {
                 withContext(Dispatchers.Main) {
                     onResult(
                         Result.Error(
-                            e,
+                            KIND_UNEXPECTED,
+                            e.message ?: "unexpected",
                             context.getString(R.string.update_check_failed)
                         )
                     )

@@ -53,8 +53,8 @@
 打 tag 自动触发 GitHub Actions 发版（签名 APK + AAB → GitHub Release）：
 
 ```bash
-git tag -a v2.2.2 -m "v2.2.2"
-git push origin v2.2.2
+git tag -a v2.2.3 -m "v2.2.3"
+git push origin v2.2.3
 ```
 
 首次需在仓库 Settings → Secrets 配置：`KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`。
