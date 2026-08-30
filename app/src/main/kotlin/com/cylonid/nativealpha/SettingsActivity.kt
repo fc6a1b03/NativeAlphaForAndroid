@@ -188,7 +188,11 @@ class SettingsActivity : AppCompatActivity() {
                     )
                 }
                 is UpdateChecker.Result.Error -> {
-                    logUpdateCheckError(result.throwable)
+                    // 网络不可达（大陆直连 GitHub 常态）不写错误日志——环境性
+                    // 高频事件，ERROR+堆栈只会污染日志；仅应用侧真实异常留档
+                    if (result.kind != UpdateChecker.KIND_NETWORK) {
+                        logUpdateCheckError(result)
+                    }
                     NotificationUtils.showInfoSnackbar(
                         this,
                         result.displayMessage,
@@ -261,19 +265,17 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /** 记录更新检查错误到应用错误日志 */
-    private fun logUpdateCheckError(throwable: Throwable) {
+    private fun logUpdateCheckError(result: UpdateChecker.Result.Error) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 AppErrorLogRepository.append(
                     applicationContext,
                     AppErrorEntry(
                         time = System.currentTimeMillis(),
-                        level = AppErrorEntry.LEVEL_ERROR,
+                        level = AppErrorEntry.LEVEL_WARNING,
                         tag = "UpdateChecker",
-                        message = "Update check failed: ${throwable.message}",
-                        stackTrace = AppErrorEntry.truncateStackTrace(
-                            throwable.stackTraceToString(), 30
-                        )
+                        message = "Update check failed (${result.kind}): ${result.detail}",
+                        stackTrace = ""
                     )
                 )
             } catch (_: Exception) {
