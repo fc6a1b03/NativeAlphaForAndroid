@@ -2,10 +2,12 @@ package com.cylonid.nativealpha.util
 
 import android.annotation.SuppressLint
 import android.app.Application
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.os.Process
 import android.util.Log
 import com.cylonid.nativealpha.model.AppErrorEntry
+import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.model.AppErrorLogRepository
 import com.cylonid.nativealpha.model.DataManager
 
@@ -44,6 +46,33 @@ class App : Application() {
         // 收益 1-2s 冷启动提速 vs 实机崩溃风险——取稳定性，移除预热。
     }
 
+    /**
+     * 内存压力记录（错误收集定位：内存异常/占用过高属应用自身问题，收录）。
+     *
+     * 分级去重：RUNNING_LOW 首次记 WARNING；升级到 COMPLETE/CRITICAL 再记
+     * （同级别系统会连续回调，不去重会刷屏）。附 Java 堆快照辅助定位。
+     */
+    private var loggedTrimLevel = 0
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level < ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) return
+        if (level <= loggedTrimLevel) return
+        loggedTrimLevel = level
+        val runtime = Runtime.getRuntime()
+        val heapMb = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024)
+        val levelName = when (level) {
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> "RUNNING_LOW"
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> "RUNNING_CRITICAL"
+            ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> "COMPLETE"
+            else -> "LEVEL_$level"
+        }
+        ErrorReporter.report(
+            this, "Memory", "memory pressure: $levelName (java heap used ${heapMb}MB)",
+            level = AppErrorEntry.LEVEL_WARNING
+        )
+    }
+
     companion object {
         /**
          * Application 上下文。
@@ -66,13 +95,19 @@ class App : Application() {
             val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
             Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
                 try {
-                    // 写应用错误日志（同步兜底，尽力而为）
+                    // 写应用错误日志（同步兜底，尽力而为）。
+                    // 错误收集定位（用户定调）：崩溃/OOM/内存异常是错误日志
+                    // 的核心收录对象——OOM 类自动标注便于与普通崩溃区分
                     val stack = Log.getStackTraceString(throwable)
+                    val isOom = throwable is OutOfMemoryError
+                    val crashTag = if (isOom) "OOM/" + thread.name else thread.name
+                    val crashMessage =
+                        (if (isOom) "[OutOfMemory] " else "") + throwable.message.toString()
                     val entry = AppErrorEntry(
                         System.currentTimeMillis(),
                         AppErrorEntry.LEVEL_CRASH,
-                        thread.name,
-                        throwable.message.toString(),
+                        crashTag,
+                        crashMessage,
                         stack
                     )
                     // 防死锁：崩溃线程若是协程 IO 线程（DataStore 底层 DefaultDispatcher），

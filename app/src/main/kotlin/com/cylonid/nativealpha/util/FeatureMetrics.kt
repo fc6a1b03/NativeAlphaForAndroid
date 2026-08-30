@@ -1,5 +1,6 @@
 package com.cylonid.nativealpha.util
 
+import com.cylonid.nativealpha.model.AppErrorEntry
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -75,9 +76,15 @@ object FeatureMetrics {
      * 功能错误上报：透传宿主 ErrorReporter（tag 前缀 module:）。
      * 永不抛异常（观测逻辑不得影响主功能）。
      */
-    fun reportError(module: String, where: String, message: String, error: Throwable? = null) {
+    fun reportError(
+        module: String,
+        where: String,
+        message: String,
+        error: Throwable? = null,
+        level: String = AppErrorEntry.LEVEL_ERROR
+    ) {
         try {
-            ErrorReporter.report(App.getAppContext(), "$module:$where", message, error)
+            ErrorReporter.report(App.getAppContext(), "$module:$where", message, error, level)
         } catch (ignored: Exception) {
             // 上报失败静默（观测通道永不阻塞主功能）
         }

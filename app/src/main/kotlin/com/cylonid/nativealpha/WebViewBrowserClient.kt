@@ -18,6 +18,7 @@ import androidx.core.net.toUri
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.NotificationUtils
@@ -138,8 +139,12 @@ internal abstract class SiteWebViewClient(
     ): Boolean {
         // 渲染进程崩溃/OOM：统计埋点后交由子类清理（宿主 finish / 矩阵格错误态）
         site.recordPageError(ErrorType.RENDER.name, ErrorType.RENDER.code, "Render process gone")
-        // 观测门面接线（P6）：功能级渲染崩溃计数，matrix/webevent 同范式复用
-        FeatureMetrics.reportError("webview", "RenderGone", "render process gone")
+        // 观测门面接线（P6）：渲染进程崩溃属可恢复资源事件（矩阵已可单窗
+        // 恢复/宿主提示重建）——WARNING 级留档，非应用致命缺陷
+        FeatureMetrics.reportError(
+            "webview", "RenderGone", "render process gone",
+            level = AppErrorEntry.LEVEL_WARNING
+        )
         return onRenderCrashCleanup(view)
     }
 
