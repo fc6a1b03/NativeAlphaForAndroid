@@ -51,13 +51,17 @@ class App : Application() {
      *
      * 分级去重：RUNNING_LOW 首次记 WARNING；升级到 COMPLETE/CRITICAL 再记
      * （同级别系统会连续回调，不去重会刷屏）。附 Java 堆快照辅助定位。
+     *
+     * UI_HIDDEN（20）不算压力：那是「退后台 UI 不可见」的正常生命周期回调，
+     * 每次退后台都会触发（真机日志 15 条 LEVEL_20、heap 仅 6-21MB 的教训）；
+     * 且它会污染 [loggedTrimLevel] 单调门槛——20 记过后，此后真正的
+     * RUNNING_LOW(10) 因 10<20 永远记不上。判定收口到纯函数可单测。
      */
     private var loggedTrimLevel = 0
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level < ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) return
-        if (level <= loggedTrimLevel) return
+        if (!shouldLogMemoryPressure(level, loggedTrimLevel)) return
         loggedTrimLevel = level
         val runtime = Runtime.getRuntime()
         val heapMb = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024)
@@ -74,6 +78,16 @@ class App : Application() {
     }
 
     companion object {
+        /**
+         * 内存压力记录判定（纯函数，可单测）：剔除 UI_HIDDEN 伪压力 +
+         * 低于 RUNNING_LOW 的回调；同级别及以下已被记录过则去重。
+         */
+        internal fun shouldLogMemoryPressure(level: Int, lastLoggedLevel: Int): Boolean {
+            if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) return false
+            if (level < ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) return false
+            return level > lastLoggedLevel
+        }
+
         /**
          * Application 上下文。
          * 注：持有的是 Application Context（与 Application 生命周期一致），非 Activity/Service Context，
