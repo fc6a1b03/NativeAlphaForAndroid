@@ -193,6 +193,39 @@ class MatrixGuardTest {
         assertTrue(within.clampToMaxWindows(6) === within)
     }
 
+    // ===== 适应宽度缩放（fit zoom） =====
+
+    /** 半格适配：168px 格子 / 360px 单屏 → 47%→收敛 30 下限之上取整口径 */
+    @Test
+    fun fitZoom_halfCellOnFullWidth() {
+        assertEquals(46, MatrixEngine.fitZoomPercent(cellWidthCss = 168, hostWidthCss = 360))
+    }
+
+    /** 全宽格（放大态/单列布局）：fit=100 与宿主同源；窄到极限收敛 30 下限 */
+    @Test
+    fun fitZoom_clampsBothEnds() {
+        assertEquals(100, MatrixEngine.fitZoomPercent(cellWidthCss = 360, hostWidthCss = 360))
+        assertEquals(100, MatrixEngine.fitZoomPercent(cellWidthCss = 400, hostWidthCss = 360))
+        assertEquals(30, MatrixEngine.fitZoomPercent(cellWidthCss = 90, hostWidthCss = 360))
+    }
+
+    /** 非法输入回退 100（同源），不产生 0/负缩放 */
+    @Test
+    fun fitZoom_invalidInputsFallBackToSameSource() {
+        assertEquals(100, MatrixEngine.fitZoomPercent(cellWidthCss = 0, hostWidthCss = 360))
+        assertEquals(100, MatrixEngine.fitZoomPercent(cellWidthCss = 168, hostWidthCss = -1))
+    }
+
+    /** 列数判定：2 窗/4-6 窗均 2 列；3 窗上 2 列下 1 列 */
+    @Test
+    fun columnCount_layoutAware() {
+        assertEquals(2, MatrixEngine.columnCountOf(2, 0))
+        assertEquals(2, MatrixEngine.columnCountOf(3, 0))
+        assertEquals(1, MatrixEngine.columnCountOf(3, 2))
+        assertEquals(2, MatrixEngine.columnCountOf(4, 3))
+        assertEquals(2, MatrixEngine.columnCountOf(6, 5))
+    }
+
     // ===== 主帧加载失败转错误态（onCellLoadFailed 状态机） =====
 
     /** LOADING/ACTIVE 都可转 ERROR（缓存/重定向时序下 finished 先置 ACTIVE，error 后到） */

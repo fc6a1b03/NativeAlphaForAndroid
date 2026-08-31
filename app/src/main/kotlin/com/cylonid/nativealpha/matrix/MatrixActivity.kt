@@ -102,7 +102,6 @@ internal class MatrixActivity : ComponentActivity() {
             val message = when (notice) {
                 MatrixNotice.DEGRADED -> getString(R.string.matrix_notice_degraded)
                 MatrixNotice.CRASH_BACKOFF -> getString(R.string.matrix_notice_backoff)
-                MatrixNotice.HTTP_BLOCKED -> getString(R.string.matrix_notice_http_blocked)
             }
             snackbarHostState.showSnackbar(message)
         }.launchIn(activity.lifecycleScope)

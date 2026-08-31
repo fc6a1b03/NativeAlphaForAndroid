@@ -67,7 +67,7 @@ internal data class MatrixCellUi(
 }
 
 /** 引擎一次性事件（UI 映射为 Snackbar 文案；extraBufferCapacity 防丢） */
-internal enum class MatrixNotice { DEGRADED, CRASH_BACKOFF, HTTP_BLOCKED }
+internal enum class MatrixNotice { DEGRADED, CRASH_BACKOFF }
 
 /**
  * 多窗矩阵引擎（P4 编排层，activity 作用域）。
@@ -268,14 +268,9 @@ internal class MatrixEngine(
     fun pickSite(cellIndex: Int, webappId: Int) {
         if (cellIndex >= _windowCount.value) return
         val webapp = DataManager.getInstance().getWebApp(webappId) ?: return
-        if (webapp.baseUrl.startsWith("http://") && !webapp.isAllowHttp) {
-            // 明文站点未授权：矩阵内不静默放宽安全设置（与宿主 loadURL 同源语义）
-            _cells.value = _cells.value.mapIndexed { i, cell ->
-                if (i == cellIndex) MatrixCellUi(uid = newCellUid()) else cell
-            }
-            _notices.tryEmit(MatrixNotice.HTTP_BLOCKED)
-            return
-        }
+        // HTTP 明文站点矩阵内默认放行（用户定调：不弹「未允许打开 HTTP
+        // 页面」提示）——明文能力本就由 usesCleartextTraffic 应用级开关
+        // 放开，宿主的逐站确认属单屏交互，矩阵内不做二次拦截
         _cells.value = _cells.value.mapIndexed { i, cell ->
             if (i == cellIndex) {
                 cell.copy(uid = cell.uid.takeIf { it != 0 } ?: newCellUid(),
@@ -364,6 +359,19 @@ internal class MatrixEngine(
     /** 关闭窗格回占位（工具条 close）：releaseCell 确定性释放 */
     fun closeCell(cellIndex: Int) = resetCell(cellIndex)
 
+    /**
+     * 加载取消（用户点「取消加载」）：销毁在途 WebView 回占位，可重新
+     * 选站。LOADING 守卫防与 onPageFinished 竞态——完成先到则格子已
+     * ACTIVE、按钮已消失；取消先到则 finished 回调被状态检查挡住且
+     * releaseCell 已清 cellWebViews（evaluateJavascript 空引用安全）。
+     * 错峰任务由 releaseCell 一并取消，不存在「取消后延迟到点又开窗」。
+     */
+    fun cancelLoading(cellIndex: Int) {
+        if (_cells.value.getOrNull(cellIndex)?.state == MatrixCellUiState.LOADING) {
+            resetCell(cellIndex)
+        }
+    }
+
     // ===== 拖拽排序（按住标题换位） =====
 
     /**
@@ -397,11 +405,12 @@ internal class MatrixEngine(
         val count = _windowCount.value
         val horizontal = kotlin.math.abs(dx) >= kotlin.math.abs(dy)
         return when (count) {
+            // 2 窗=左右分栏（用户定调默认并排）：横向换位
             2 -> when {
-                dy < 0 -> index - 1
-                dy > 0 -> index + 1
+                horizontal && dx > 0 -> if (index == 0) 1 else -1
+                horizontal && dx < 0 -> if (index == 1) 0 else -1
                 else -> -1
-            }.takeIf { it in 0 until count } ?: -1
+            }
             3 -> when {
                 horizontal && dx > 0 -> if (index == 0) 1 else -1
                 horizontal && dx < 0 -> if (index == 1) 0 else -1
@@ -452,16 +461,14 @@ internal class MatrixEngine(
         _cells.value = _cells.value.mapIndexed { i, cell ->
             if (i == cellIndex) cell.copy(zoomPercent = zoomPercent, textZoomPercent = textZoomPercent) else cell
         }
-        // 实时应用：字体 textZoom 相对站点基准；页面缩放走 CSS zoom——
-        // WebView.zoomBy 对带 viewport meta 的页面实测无效（用户反馈
-        // 「完全无效」），CSS zoom 注入是可靠路径（导航后在 onPageFinished 重放）
+        // 实时应用：字体 textZoom 相对站点基准；页面缩放走 View 级适配
+        // （UI 层按 zoomPercent 缩放渲染 + WebView 布局宽等比放大）——
+        // CSS zoom 注入已废弃：实测它只缩放渲染不改变布局视口
+        // （innerWidth 恒为格子宽，fixed/100vh 布局错乱且无法「按单屏布局」）
         cellWebViews.getOrNull(cellIndex)?.let { webview ->
             val webapp = old.webapp
             webview.settings.textZoom =
                 ((webapp?.textZoom ?: 100) * textZoomPercent / 100f).toInt().coerceIn(50, 300)
-            webview.evaluateJavascript(
-                "try{document.documentElement.style.zoom='$zoomPercent%'}catch(e){}", null
-            )
         }
         persistSession()
     }
@@ -549,13 +556,8 @@ internal class MatrixEngine(
         _cells.value = _cells.value.mapIndexed { i, cell ->
             if (i == cellIndex) cell.copy(state = MatrixCellUiState.ACTIVE) else cell
         }
-        // 页面缩放重放：新文档的 CSS zoom 被 DOM 重建清除，按格子留存值重注
-        cellWebViews.getOrNull(cellIndex)?.let { webview ->
-            val target = _cells.value.getOrNull(cellIndex)?.zoomPercent ?: 100
-            webview.evaluateJavascript(
-                "try{document.documentElement.style.zoom='$target%'}catch(e){}", null
-            )
-        }
+        // 页面缩放为 View 级（MatrixScreen 按 zoomPercent 缩放渲染），新文档
+        // 无需重放注入；textZoom 是 WebSettings 属性，导航后自动生效
         mainScope.launch {
             val pss = withContext(Dispatchers.IO) {
                 MatrixMemorySampler.rendererPssBytes(appContext)
@@ -790,5 +792,26 @@ internal class MatrixEngine(
          */
         internal fun isFailureTransitional(state: MatrixCellUiState): Boolean =
             state == MatrixCellUiState.LOADING || state == MatrixCellUiState.ACTIVE
+
+        /**
+         * 「适应宽度」缩放（纯函数，可单测）：格子物理宽度只有半屏时，
+         * width=device-width 页面按格子宽（~168px）布局导致挤压换行——
+         * 缩小 zoom 让布局视口 ≈ 单屏宽，页面按单屏布局整体缩进格子
+         * （显示效果与单屏一致，代价是等比缩小的字号，用户可再调）。
+         *
+         * @param cellWidthCss 格子 CSS 宽（px）
+         * @param hostWidthCss 宿主单屏 CSS 宽（px）
+         */
+        internal fun fitZoomPercent(cellWidthCss: Int, hostWidthCss: Int): Int {
+            if (cellWidthCss <= 0 || hostWidthCss <= 0) return 100
+            return (cellWidthCss.toFloat() / hostWidthCss * 100).toInt().coerceIn(30, 100)
+        }
+
+        /** 该格所在布局的列数（fit 计算用；3 窗为上 2 列/下 1 列特殊结构） */
+        internal fun columnCountOf(windowCount: Int, cellIndex: Int): Int = when {
+            windowCount == 3 -> if (cellIndex < 2) 2 else 1
+            windowCount == 2 -> 2
+            else -> 2 // 4=2×2、5=上3下2、6=2×3——均为 2 列网格
+        }.coerceIn(1, windowCount)
     }
 }

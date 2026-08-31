@@ -339,10 +339,12 @@
     <string name="matrix_reduce_confirm_body">窗口内容将被丢弃。</string>
     <string name="matrix_memory_warning">内存紧张，建议减少窗口</string>
     <string name="matrix_window_crashed">窗口已恢复，点击重新选择</string>
+        <string name="matrix_cancel_loading">取消加载</string>
     <string name="matrix_loading">正在加载…</string>
     <string name="matrix_enlarge">放大查看</string>
     <string name="matrix_collapse">退出放大</string>
     <string name="matrix_adjust">调节显示</string>
+        <string name="matrix_fit_width">适应页面宽度</string>
     <string name="matrix_zoom_page">页面缩放</string>
     <string name="matrix_zoom_page_value">%1$d%%</string>
     <string name="matrix_zoom_text">字体大小</string>
@@ -355,7 +357,6 @@
     <string name="matrix_device_underpowered">设备性能较低，多窗功能无法支持。</string>
     <string name="matrix_notice_degraded">因内存压力已减少为两个窗口</string>
     <string name="matrix_notice_backoff">窗口连续崩溃，自动恢复已暂停。点击窗口可重试。</string>
-    <string name="matrix_notice_http_blocked">该站点未被允许打开 HTTP 页面</string>
 
     <!-- ===== 网页事件规则（P5） ===== -->
     <string name="webevent_channel_name">网页事件提醒</string>
