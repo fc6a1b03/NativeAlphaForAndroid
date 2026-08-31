@@ -69,14 +69,7 @@ internal class MatrixCellContext(
     }
 
     override fun loadSiteUrl(view: WebView, url: String) {
-        val app = webapp
-        if (app != null && url.startsWith("http://") && !app.isAllowHttp) {
-            // SPA 内跳明文链接：与宿主同源提示（不持久化放宽，仅本次放行）
-            MatrixDialogs.showHttpConfirmDialog(siteContext) { proceed ->
-                if (proceed) view.loadUrl(url)
-            }
-            return
-        }
+        // HTTP 明文导航矩阵内默认放行（与 pickSite 同口径，用户定调不拦截）
         view.loadUrl(url)
     }
 
@@ -117,19 +110,6 @@ internal object MatrixDialogs {
             .setMessage(context.getString(com.cylonid.nativealpha.R.string.ssl_error_msg_line1))
             .setPositiveButton(android.R.string.cancel) { _, _ -> handler.cancel() }
             .setOnCancelListener { handler.cancel() }
-            .show()
-    }
-
-    /** 明文 http 确认：与宿主 no_https 对话框同源文案，仅本次放行 */
-    fun showHttpConfirmDialog(context: Context, onResult: (Boolean) -> Unit) {
-        AlertDialog.Builder(context)
-            .setTitle(context.getString(com.cylonid.nativealpha.R.string.no_https_dialog_title))
-            .setMessage(context.getString(com.cylonid.nativealpha.R.string.no_https_dialog_msg))
-            .setPositiveButton(android.R.string.cancel) { _, _ -> onResult(false) }
-            .setNegativeButton(context.getString(com.cylonid.nativealpha.R.string.load_anyway)) { _, _ ->
-                onResult(true)
-            }
-            .setOnCancelListener { onResult(false) }
             .show()
     }
 }

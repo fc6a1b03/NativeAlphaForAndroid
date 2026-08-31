@@ -67,7 +67,7 @@ internal data class MatrixCellUi(
 }
 
 /** 引擎一次性事件（UI 映射为 Snackbar 文案；extraBufferCapacity 防丢） */
-internal enum class MatrixNotice { DEGRADED, CRASH_BACKOFF, HTTP_BLOCKED }
+internal enum class MatrixNotice { DEGRADED, CRASH_BACKOFF }
 
 /**
  * 多窗矩阵引擎（P4 编排层，activity 作用域）。
@@ -268,14 +268,9 @@ internal class MatrixEngine(
     fun pickSite(cellIndex: Int, webappId: Int) {
         if (cellIndex >= _windowCount.value) return
         val webapp = DataManager.getInstance().getWebApp(webappId) ?: return
-        if (webapp.baseUrl.startsWith("http://") && !webapp.isAllowHttp) {
-            // 明文站点未授权：矩阵内不静默放宽安全设置（与宿主 loadURL 同源语义）
-            _cells.value = _cells.value.mapIndexed { i, cell ->
-                if (i == cellIndex) MatrixCellUi(uid = newCellUid()) else cell
-            }
-            _notices.tryEmit(MatrixNotice.HTTP_BLOCKED)
-            return
-        }
+        // HTTP 明文站点矩阵内默认放行（用户定调：不弹「未允许打开 HTTP
+        // 页面」提示）——明文能力本就由 usesCleartextTraffic 应用级开关
+        // 放开，宿主的逐站确认属单屏交互，矩阵内不做二次拦截
         _cells.value = _cells.value.mapIndexed { i, cell ->
             if (i == cellIndex) {
                 cell.copy(uid = cell.uid.takeIf { it != 0 } ?: newCellUid(),

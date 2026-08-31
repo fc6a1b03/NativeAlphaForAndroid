@@ -356,7 +356,6 @@
     <string name="matrix_device_underpowered">设备性能较低，多窗功能无法支持。</string>
     <string name="matrix_notice_degraded">因内存压力已减少为两个窗口</string>
     <string name="matrix_notice_backoff">窗口连续崩溃，自动恢复已暂停。点击窗口可重试。</string>
-    <string name="matrix_notice_http_blocked">该站点未被允许打开 HTTP 页面</string>
 
     <!-- ===== 网页事件规则（P5） ===== -->
     <string name="webevent_channel_name">网页事件提醒</string>

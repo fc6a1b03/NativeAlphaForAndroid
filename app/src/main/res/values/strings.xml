@@ -359,7 +359,6 @@
     <string name="matrix_device_underpowered">Device performance is too low for multi-window rendering.</string>
     <string name="matrix_notice_degraded">Reduced to two windows due to memory pressure</string>
     <string name="matrix_notice_backoff">Windows keep crashing; auto-reload paused. Tap a window to retry.</string>
-    <string name="matrix_notice_http_blocked">This site has not been allowed to open HTTP pages</string>
 
     <!-- ===== Web event rules (P5) ===== -->
     <string name="webevent_channel_name">Web event notifications</string>
