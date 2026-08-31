@@ -657,10 +657,37 @@ private fun ActiveContent(
                 }
             }
         }
-        // WebView 槽位：引擎持有的实例原地复用（放大往返不重载，D4）
+        // WebView 槽位：引擎持有的实例原地复用（放大往返不重载，D4）。
+        // 页面缩放为 View 级适配：FitFrameLayout 把 WebView 按 1/ratio
+        // 测量布局（页面真实按更宽的布局视口渲染，innerWidth 随之变宽），
+        // 再由 View scale 缩回格子——CSS zoom 只缩渲染不改布局视口（实测
+        // innerWidth 恒为格子宽），无法做到「按单屏宽度布局」故废弃。
         AndroidView(
-            factory = { engine.attachCellWebView(cellIndex) },
-            update = { },
+            factory = { ctx ->
+                FitFrameLayout(ctx).apply {
+                    clipChildren = false
+                    clipToPadding = false
+                    addView(
+                        engine.attachCellWebView(cellIndex),
+                        android.widget.FrameLayout.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    )
+                }
+            },
+            update = { container ->
+                val webview = container.getChildAt(0) ?: return@AndroidView
+                val ratio = cell.zoomPercent / 100f
+                if (container.fitRatio != ratio) {
+                    container.fitRatio = ratio
+                    webview.scaleX = ratio
+                    webview.scaleY = ratio
+                    webview.pivotX = 0f
+                    webview.pivotY = 0f
+                    container.requestLayout()
+                }
+            },
             modifier = Modifier.fillMaxSize()
         )
     }
@@ -829,6 +856,48 @@ private fun CellPickerSheet(
                 )
             }
         }
+    }
+}
+
+/**
+ * WebView 的 View 级缩放容器：按 fitRatio（zoomPercent/100）以 1/ratio
+ * 尺寸测量子 WebView（页面布局视口真实变宽，innerWidth 随之变大=「按
+ * 单屏宽度布局」），子 View 自身 scaleX/scaleY=ratio 缩回格子渲染。
+ *
+ * 关键实现点：Compose AndroidView 每个布局 pass 都会用格子约束强制
+ * re-measure 本容器，因此比例逻辑必须放在 onMeasure/onLayout 覆写里
+ * （update 里手动 measure 会被下一 pass 覆盖导致布局闪烁回跳）；
+ * ratio>=1 时走 FrameLayout 原路径（放大态/同源 100% 零开销直通）。
+ */
+internal class FitFrameLayout(context: android.content.Context) :
+    android.widget.FrameLayout(context) {
+
+    var fitRatio = 1f
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val pw = android.view.View.MeasureSpec.getSize(widthMeasureSpec)
+        val ph = android.view.View.MeasureSpec.getSize(heightMeasureSpec)
+        if (fitRatio >= 0.999f || childCount == 0) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+            return
+        }
+        val child = getChildAt(0)
+        val cw = (pw / fitRatio).toInt()
+        val ch = (ph / fitRatio).toInt()
+        setMeasuredDimension(pw, ph)
+        child.measure(
+            android.view.View.MeasureSpec.makeMeasureSpec(cw, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec.makeMeasureSpec(ch, android.view.View.MeasureSpec.EXACTLY)
+        )
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        if (fitRatio >= 0.999f || childCount == 0) {
+            super.onLayout(changed, left, top, right, bottom)
+            return
+        }
+        val child = getChildAt(0)
+        child.layout(0, 0, child.measuredWidth, child.measuredHeight)
     }
 }
 

@@ -347,6 +347,7 @@
     <string name="matrix_enlarge">Enlarge</string>
     <string name="matrix_collapse">Exit enlarged view</string>
     <string name="matrix_adjust">Adjust display</string>
+        <string name="matrix_fit_width">Fit page width</string>
     <string name="matrix_zoom_page">Page zoom</string>
     <string name="matrix_zoom_page_value">%1$d%%</string>
     <string name="matrix_zoom_text">Text size</string>

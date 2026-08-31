@@ -461,16 +461,14 @@ internal class MatrixEngine(
         _cells.value = _cells.value.mapIndexed { i, cell ->
             if (i == cellIndex) cell.copy(zoomPercent = zoomPercent, textZoomPercent = textZoomPercent) else cell
         }
-        // 实时应用：字体 textZoom 相对站点基准；页面缩放走 CSS zoom——
-        // WebView.zoomBy 对带 viewport meta 的页面实测无效（用户反馈
-        // 「完全无效」），CSS zoom 注入是可靠路径（导航后在 onPageFinished 重放）
+        // 实时应用：字体 textZoom 相对站点基准；页面缩放走 View 级适配
+        // （UI 层按 zoomPercent 缩放渲染 + WebView 布局宽等比放大）——
+        // CSS zoom 注入已废弃：实测它只缩放渲染不改变布局视口
+        // （innerWidth 恒为格子宽，fixed/100vh 布局错乱且无法「按单屏布局」）
         cellWebViews.getOrNull(cellIndex)?.let { webview ->
             val webapp = old.webapp
             webview.settings.textZoom =
                 ((webapp?.textZoom ?: 100) * textZoomPercent / 100f).toInt().coerceIn(50, 300)
-            webview.evaluateJavascript(
-                "try{document.documentElement.style.zoom='$zoomPercent%'}catch(e){}", null
-            )
         }
         persistSession()
     }
@@ -558,13 +556,8 @@ internal class MatrixEngine(
         _cells.value = _cells.value.mapIndexed { i, cell ->
             if (i == cellIndex) cell.copy(state = MatrixCellUiState.ACTIVE) else cell
         }
-        // 页面缩放重放：新文档的 CSS zoom 被 DOM 重建清除，按格子留存值重注
-        cellWebViews.getOrNull(cellIndex)?.let { webview ->
-            val target = _cells.value.getOrNull(cellIndex)?.zoomPercent ?: 100
-            webview.evaluateJavascript(
-                "try{document.documentElement.style.zoom='$target%'}catch(e){}", null
-            )
-        }
+        // 页面缩放为 View 级（MatrixScreen 按 zoomPercent 缩放渲染），新文档
+        // 无需重放注入；textZoom 是 WebSettings 属性，导航后自动生效
         mainScope.launch {
             val pss = withContext(Dispatchers.IO) {
                 MatrixMemorySampler.rendererPssBytes(appContext)
@@ -799,5 +792,26 @@ internal class MatrixEngine(
          */
         internal fun isFailureTransitional(state: MatrixCellUiState): Boolean =
             state == MatrixCellUiState.LOADING || state == MatrixCellUiState.ACTIVE
+
+        /**
+         * 「适应宽度」缩放（纯函数，可单测）：格子物理宽度只有半屏时，
+         * width=device-width 页面按格子宽（~168px）布局导致挤压换行——
+         * 缩小 zoom 让布局视口 ≈ 单屏宽，页面按单屏布局整体缩进格子
+         * （显示效果与单屏一致，代价是等比缩小的字号，用户可再调）。
+         *
+         * @param cellWidthCss 格子 CSS 宽（px）
+         * @param hostWidthCss 宿主单屏 CSS 宽（px）
+         */
+        internal fun fitZoomPercent(cellWidthCss: Int, hostWidthCss: Int): Int {
+            if (cellWidthCss <= 0 || hostWidthCss <= 0) return 100
+            return (cellWidthCss.toFloat() / hostWidthCss * 100).toInt().coerceIn(30, 100)
+        }
+
+        /** 该格所在布局的列数（fit 计算用；3 窗为上 2 列/下 1 列特殊结构） */
+        internal fun columnCountOf(windowCount: Int, cellIndex: Int): Int = when {
+            windowCount == 3 -> if (cellIndex < 2) 2 else 1
+            windowCount == 2 -> 2
+            else -> 2 // 4=2×2、5=上3下2、6=2×3——均为 2 列网格
+        }.coerceIn(1, windowCount)
     }
 }

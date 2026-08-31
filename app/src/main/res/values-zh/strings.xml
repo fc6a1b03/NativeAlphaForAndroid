@@ -344,6 +344,7 @@
     <string name="matrix_enlarge">放大查看</string>
     <string name="matrix_collapse">退出放大</string>
     <string name="matrix_adjust">调节显示</string>
+        <string name="matrix_fit_width">适应页面宽度</string>
     <string name="matrix_zoom_page">页面缩放</string>
     <string name="matrix_zoom_page_value">%1$d%%</string>
     <string name="matrix_zoom_text">字体大小</string>
