@@ -342,6 +342,7 @@
     <string name="matrix_reduce_confirm_body">The window content will be discarded.</string>
     <string name="matrix_memory_warning">Memory low, fewer windows advised</string>
     <string name="matrix_window_crashed">Window recovered, tap to re-pick</string>
+        <string name="matrix_cancel_loading">Cancel loading</string>
     <string name="matrix_loading">Loading…</string>
     <string name="matrix_enlarge">Enlarge</string>
     <string name="matrix_collapse">Exit enlarged view</string>

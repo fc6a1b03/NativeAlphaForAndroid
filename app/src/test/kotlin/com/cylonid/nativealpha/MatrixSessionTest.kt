@@ -117,7 +117,7 @@ class MatrixSessionTest {
         assertEquals(MatrixCellState.DEFAULT_ZOOM_PERCENT, filtered.cells[1].zoomPercent)
     }
 
-    /** 占位格默认值契约：webappId=-1（PLACEHOLDER）、页面缩放 80%、字体 90% */
+    /** 占位格默认值契约：webappId=-1（PLACEHOLDER）、页面/字体缩放默认 100%（与宿主同源） */
     @Test
     fun placeholderCell_defaults() {
         val cell = MatrixCellState()

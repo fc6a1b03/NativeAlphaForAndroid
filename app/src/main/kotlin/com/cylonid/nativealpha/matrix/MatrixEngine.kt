@@ -364,6 +364,19 @@ internal class MatrixEngine(
     /** 关闭窗格回占位（工具条 close）：releaseCell 确定性释放 */
     fun closeCell(cellIndex: Int) = resetCell(cellIndex)
 
+    /**
+     * 加载取消（用户点「取消加载」）：销毁在途 WebView 回占位，可重新
+     * 选站。LOADING 守卫防与 onPageFinished 竞态——完成先到则格子已
+     * ACTIVE、按钮已消失；取消先到则 finished 回调被状态检查挡住且
+     * releaseCell 已清 cellWebViews（evaluateJavascript 空引用安全）。
+     * 错峰任务由 releaseCell 一并取消，不存在「取消后延迟到点又开窗」。
+     */
+    fun cancelLoading(cellIndex: Int) {
+        if (_cells.value.getOrNull(cellIndex)?.state == MatrixCellUiState.LOADING) {
+            resetCell(cellIndex)
+        }
+    }
+
     // ===== 拖拽排序（按住标题换位） =====
 
     /**
@@ -397,11 +410,12 @@ internal class MatrixEngine(
         val count = _windowCount.value
         val horizontal = kotlin.math.abs(dx) >= kotlin.math.abs(dy)
         return when (count) {
+            // 2 窗=左右分栏（用户定调默认并排）：横向换位
             2 -> when {
-                dy < 0 -> index - 1
-                dy > 0 -> index + 1
+                horizontal && dx > 0 -> if (index == 0) 1 else -1
+                horizontal && dx < 0 -> if (index == 1) 0 else -1
                 else -> -1
-            }.takeIf { it in 0 until count } ?: -1
+            }
             3 -> when {
                 horizontal && dx > 0 -> if (index == 0) 1 else -1
                 horizontal && dx < 0 -> if (index == 1) 0 else -1

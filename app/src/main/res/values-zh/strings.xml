@@ -339,6 +339,7 @@
     <string name="matrix_reduce_confirm_body">窗口内容将被丢弃。</string>
     <string name="matrix_memory_warning">内存紧张，建议减少窗口</string>
     <string name="matrix_window_crashed">窗口已恢复，点击重新选择</string>
+        <string name="matrix_cancel_loading">取消加载</string>
     <string name="matrix_loading">正在加载…</string>
     <string name="matrix_enlarge">放大查看</string>
     <string name="matrix_collapse">退出放大</string>

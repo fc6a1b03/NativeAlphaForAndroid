@@ -367,8 +367,12 @@ private fun MatrixGrid(
 
         when (windowCount) {
             2 -> {
-                DragCell(engine, 0, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f).fillMaxWidth())
-                DragCell(engine, 1, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f).fillMaxWidth())
+                // 左右分栏（用户定调：双窗默认并排——视频等高内容场景
+                // 每格全高优于全宽半高）；拖拽换位随邻接表改横向
+                Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    DragCell(engine, 0, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                    DragCell(engine, 1, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                }
             }
             3 -> {
                 Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(gap)) {
@@ -482,7 +486,9 @@ private fun MatrixCell(
             MatrixCellUiState.PLACEHOLDER -> PlaceholderContent(
                 onClick = { onPickRequest(cellIndex) }
             )
-            MatrixCellUiState.LOADING -> LoadingContent()
+            MatrixCellUiState.LOADING -> LoadingContent(
+                onCancel = { engine.cancelLoading(cellIndex) }
+            )
             MatrixCellUiState.ACTIVE -> ActiveContent(engine, cellIndex, cell, onAdjustRequest, drag)
             MatrixCellUiState.ERROR -> ErrorContent(
                 message = stringResource(R.string.matrix_window_crashed),
@@ -529,20 +535,36 @@ private fun PlaceholderContent(onClick: () -> Unit) {
 }
 
 @Composable
-private fun LoadingContent() {
-    // 最低消耗加载指示（纯 Compose 绘制；不用宿主 animal_walk 动画）
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.matrix_loading),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+private fun LoadingContent(onCancel: () -> Unit) {
+    // 最低消耗加载指示（纯 Compose 绘制；不用宿主 animal_walk 动画）。
+    // 工具条在 LOADING 态即渲染（用户定调：任何状态都可操作，白屏/
+    // 卡死格必须始终有关闭出口——close=取消加载销毁回占位）
+    Column(modifier = Modifier.fillMaxSize()) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(40.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.matrix_loading),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp)
+                )
+                IconButton(onClick = onCancel) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = stringResource(R.string.matrix_close_window),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+        }
     }
 }
 

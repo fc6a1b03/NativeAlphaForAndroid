@@ -73,10 +73,10 @@ data class MatrixSessionState(
  * 单个矩阵窗格的持久化状态。
  *
  * @property webappId 绑定站点（-1=占位）；同站可选多窗（多窗对照）
- * @property zoomPercent 页面缩放留存（Q1 反转后启用：格子视口小，默认
- * 80% 起步，用户可在格内调节并持久化）
+ * @property zoomPercent 页面缩放留存（默认 100% 与宿主同源；用户可在
+ * 格内调节并持久化，CSS zoom 注入实现）
  * @property textZoomPercent 字体缩放留存（相对站点 textZoom 的百分比，
- * 默认 90%「小一级」——用户实测格子内默认字体偏大）
+ * 默认 100% 同源，调节保留）
  */
 @Keep
 data class MatrixCellState(
@@ -91,10 +91,15 @@ data class MatrixCellState(
     companion object {
         const val PLACEHOLDER_WEBAPP_ID = -1
 
-        /** 格子视口小于全屏，页面等比渲染偏大——用户拍板默认 80% */
-        const val DEFAULT_ZOOM_PERCENT = 80
+        /**
+         * 渲染与宿主单屏同源（用户定调：矩阵单格显示效果要与单屏一致，
+         * 大小差异靠格子尺寸+手动缩放调节）——默认 100%，不注入缩放；
+         * 早先的 80%「小一级」默认会改变页面布局行为（zoom 下视口 CSS
+         * 像素数变化，fixed/100vh 布局错乱，Kimi 输入框异常实测），作废。
+         */
+        const val DEFAULT_ZOOM_PERCENT = 100
 
-        /** 字体「小一级」：相对站点 textZoom 的 90% */
-        const val DEFAULT_TEXT_ZOOM_PERCENT = 90
+        /** 字体同源：默认 100%（不相对站点 textZoom 额外缩小），调节保留 */
+        const val DEFAULT_TEXT_ZOOM_PERCENT = 100
     }
 }
