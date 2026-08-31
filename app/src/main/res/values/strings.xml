@@ -221,6 +221,8 @@
     <string name="permission_go_to_settings">Open settings</string>
     <string name="export_app_errors">Export error logs (last 3 days)</string>
     <string name="desc_export_app_errors">Export the app\'s own error logs of the last 3 days for debugging.</string>
+    <string name="stat_log_network_errors">Log network errors in site stats</string>
+    <string name="desc_stat_log_network_errors">When off, connection-level page errors (offline, DNS failure) are excluded from per-site stats.</string>
     <string name="app_errors_export_success">Error logs exported</string>
     <string name="app_errors_export_failed">Failed to export error logs</string>
     <string name="app_errors_none">No error logs in the last 3 days</string>

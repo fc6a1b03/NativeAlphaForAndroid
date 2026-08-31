@@ -83,6 +83,14 @@ class DataManagerGsonContractTest {
         assertEquals("about:blank", loaded.globalWebApp.baseUrl)
     }
 
+    /** 网络类统计降噪开关：旧备份缺字段时默认关闭（网络类默认不记录的口径锁） */
+    @Test
+    fun globalSettings_missingStatLogNetworkErrorsField_defaultsToOff() {
+        val legacyJson = """{"themeId":1}"""
+        val loaded = gson.fromJson(legacyJson, GlobalSettings::class.java)
+        assertFalse(loaded.statLogNetworkErrors)
+    }
+
     /** 全局合并链路：copySettings 复制 textZoom；DataManager 合并后再覆盖回自身外观值 */
     @Test
     fun copySettings_globalMerge_keepsAppearanceAndStats() {

@@ -3,6 +3,7 @@ package com.cylonid.nativealpha.util
 import android.content.Context
 import android.util.Log
 import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.model.PageErrorRepository
 import com.cylonid.nativealpha.model.WebApp
 import kotlinx.coroutines.CoroutineScope
@@ -110,6 +111,7 @@ object StatsRecorder {
      */
     fun recordPageError(webappId: Int, type: String, code: String, description: String) {
         record {
+            if (!shouldRecordPageError(type, isNetworkLoggingEnabled())) return@record
             updateStats(webappId) { w ->
                 w.statErrors++
                 w.statLastError = "$type($code): $description"
@@ -121,6 +123,25 @@ object StatsRecorder {
             }
         }
     }
+
+    /**
+     * 页面错误记录判定（纯函数，可单测）。
+     * 网络类默认不记录：断网/DNS 失败属环境观测非站点缺陷（用户定调为噪音），
+     * 开启 statLogNetworkErrors 后恢复完整记录。
+     */
+    internal fun shouldRecordPageError(type: String, networkLoggingEnabled: Boolean): Boolean {
+        if (type == ErrorType.NETWORK.name && !networkLoggingEnabled) return false
+        return true
+    }
+
+    /** 后台线程读取设置（executor 内调用，与 updateStats 同范式） */
+    private fun isNetworkLoggingEnabled(): Boolean =
+        try {
+            DataManager.getInstance().settings.statLogNetworkErrors
+        } catch (e: Exception) {
+            // 设置未初始化等异常：按默认口径（不记录网络类），不阻塞埋点
+            false
+        }
 
     /**
      * 记录快捷键发送次数（统计反馈：面板/统计页显示使用频率）。

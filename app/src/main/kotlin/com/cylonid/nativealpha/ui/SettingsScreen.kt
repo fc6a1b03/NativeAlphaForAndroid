@@ -327,6 +327,14 @@ fun GlobalSettingsScreen(
                     onClick = onExportAppErrors
                 )
                 HorizontalDivider()
+                // 网络类页面错误记录开关（默认关：断网/DNS 失败属环境观测非站点缺陷）
+                SettingsSwitchRow(
+                    title = stringResource(R.string.stat_log_network_errors),
+                    checked = modified.statLogNetworkErrors,
+                    onCheckedChange = { modified = modified.copy(statLogNetworkErrors = it) },
+                    description = stringResource(R.string.desc_stat_log_network_errors)
+                )
+                HorizontalDivider()
                 SettingsActionRow(
                     icon = { Icon(Icons.Default.SystemUpdate, contentDescription = null) },
                     title = if (updateChecking) stringResource(R.string.update_checking)
