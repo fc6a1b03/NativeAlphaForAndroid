@@ -9,6 +9,7 @@ import androidx.lifecycle.lifecycleScope
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.FeatureMetrics
+import com.cylonid.nativealpha.util.SiteReconnectSupervisor
 import com.cylonid.nativealpha.util.LocaleUtils
 import com.cylonid.nativealpha.util.WebViewSetup
 import kotlinx.coroutines.Dispatchers
@@ -135,6 +136,34 @@ internal class MatrixEngine(
 
     /** 容量闸门输入：每窗边际成本 EMA（onPageFinished 回采校准） */
     private var perCellBytes = 0L
+
+    /** 断线自动恢复监督者（连接治理：探测可达后自动 pickSite 重载） */
+    private val reconnectSupervisors =
+        arrayOfNulls<SiteReconnectSupervisor>(MatrixSessionState.MAX_WINDOW_COUNT)
+
+    /** 启动指定格的断线探测（目标=站点 baseUrl，恢复=pickSite 完整链路） */
+    internal fun startCellReconnect(cellIndex: Int) {
+        val cell = _cells.value.getOrNull(cellIndex) ?: return
+        val webappId = cell.webappId
+        // 占位=PLACEHOLDER_WEBAPP_ID(-1)；webappId=0 是合法 ID（首个站点）
+        if (webappId < 0) return
+        val baseUrl = DataManager.getInstance().getWebApp(webappId)?.baseUrl ?: return
+        stopCellReconnect(cellIndex)
+        val supervisor = SiteReconnectSupervisor(appContext, mainScope)
+        reconnectSupervisors[cellIndex] = supervisor
+        supervisor.start(baseUrl) {
+            mainScope.launch {
+                if (_cells.value.getOrNull(cellIndex)?.state == MatrixCellUiState.ERROR) {
+                    pickSite(cellIndex, webappId)
+                }
+            }
+        }
+    }
+
+    internal fun stopCellReconnect(cellIndex: Int) {
+        reconnectSupervisors.getOrNull(cellIndex)?.stop()
+        reconnectSupervisors[cellIndex] = null
+    }
 
     /** 崩溃退避（D3/A） */
     private val crashBackoff = MatrixCrashBackoff()
@@ -556,6 +585,9 @@ internal class MatrixEngine(
         _cells.value = _cells.value.mapIndexed { i, cell ->
             if (i == cellIndex) cell.copy(state = MatrixCellUiState.ACTIVE) else cell
         }
+        // 重载成功：断线探测闭环完成，停止监视（失败页的 finished 走
+        // onCellLoadFailed 已转 ERROR，不会进入这里）
+        stopCellReconnect(cellIndex)
         // 页面缩放为 View 级（MatrixScreen 按 zoomPercent 缩放渲染），新文档
         // 无需重放注入；textZoom 是 WebSettings 属性，导航后自动生效
         mainScope.launch {
@@ -727,6 +759,7 @@ internal class MatrixEngine(
      * destroy。重用一律新实例，不做对象池（总纲「不做预热池」）。
      */
     private fun releaseCell(cellIndex: Int) {
+        stopCellReconnect(cellIndex)
         staggeredLoadJobs.getOrNull(cellIndex)?.cancel()
         staggeredLoadJobs[cellIndex] = null
         val webview = cellWebViews.getOrNull(cellIndex) ?: return
