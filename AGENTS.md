@@ -18,7 +18,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
 - **主要语言**：100% Kotlin，仓库内已无 `.java` 源文件（`WebViewActivity` 等最后一批 Java 文件已在近期迁移完成）
-- **主要场景**：把 Kimi Code Web 等网站作为独立应用运行，提供全屏沉浸、手势导航、按站配置、Cookie 隔离、统计图表、多窗矩阵（同屏 2-4 站点）、网页事件提醒（网页事件 → 系统通知/Toast）等能力。
+- **主要场景**：把 Kimi Code Web 等网站作为独立应用运行，提供全屏沉浸、手势导航、按站配置、Cookie 隔离、统计图表、多窗矩阵（同屏 2-6 站点，档位按设备内存动态分档）、网页事件提醒（网页事件 → 系统通知/Toast）等能力。
 
 ---
 
@@ -140,7 +140,7 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── MatrixEngine.kt          # 核心：五态机/交换/缩放注入/崩溃批量恢复/会话持久化
 │   ├── MatrixSessionState.kt    # @Keep 会话模型（webappId/zoomPercent/textZoomPercent）
 │   ├── MatrixSessionStore.kt    # 自持 DataStore matrix_session + 单写者 conflate 队列
-│   ├── MatrixCapacityGate.kt    # 容量闸门：PSS 预计算边际，渲染前拦截，严格 fail-open
+│   ├── MatrixCapacityGate.kt    # 容量闸门（逐窗拦截 fail-open）+ 设备档位 decideMaxWindows（3/4/6 动态上限）
 │   ├── MatrixCrashBackoff.kt    # 崩溃退避状态机（手动重试重置）
 │   ├── MatrixDegrade.kt         # 强制降级纯函数（保留槽位内活跃格）
 │   └── ...                      # CellAdjustSheet/CellClient/ChromeClient/MemorySampler/Codec

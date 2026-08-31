@@ -1,11 +1,13 @@
 package com.cylonid.nativealpha
 
 import com.cylonid.nativealpha.matrix.MatrixCapacityGate
+import com.cylonid.nativealpha.matrix.MatrixCellState
 import com.cylonid.nativealpha.matrix.MatrixCellUi
 import com.cylonid.nativealpha.matrix.MatrixCellUiState
 import com.cylonid.nativealpha.matrix.MatrixCrashBackoff
 import com.cylonid.nativealpha.matrix.MatrixDegrade
 import com.cylonid.nativealpha.matrix.MatrixEngine
+import com.cylonid.nativealpha.matrix.MatrixSessionState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -135,6 +137,60 @@ class MatrixGuardTest {
         assertEquals(listOf(1, 2, 3), MatrixDegrade.releaseIndices(cells, targetCount = 2))
         // 规则一致性：非活跃槽位无论 target 取值都在释放集（LOADING 格不豁免）
         assertEquals(listOf(1), MatrixDegrade.releaseIndices(cells, targetCount = 4))
+    }
+
+    // ===== 设备呈现档位（动态窗口数上限） =====
+
+    private val gb = 1024L * 1024 * 1024
+
+    /** 低端收缩：官方低内存标志或 MemTotal < 3.5GB → 3 窗（预读机器资源决定呈现） */
+    @Test
+    fun maxWindows_lowRamShrinksTo3() {
+        assertEquals(3, MatrixCapacityGate.decideMaxWindows(totalRamBytes = 2 * gb, isLowRamDevice = false))
+        assertEquals(3, MatrixCapacityGate.decideMaxWindows(totalRamBytes = 3584L * 1024 * 1024 - 1, isLowRamDevice = false))
+        assertEquals(3, MatrixCapacityGate.decideMaxWindows(totalRamBytes = 8 * gb, isLowRamDevice = true))
+    }
+
+    /** 基准 4 窗：3.5GB..7GB 宽档（4GB 机型 ~3.7GB、6GB 机型 ~5.5GB 均落此档，留余量） */
+    @Test
+    fun maxWindows_baselineAndExtended() {
+        assertEquals(4, MatrixCapacityGate.decideMaxWindows(totalRamBytes = 3584L * 1024 * 1024, isLowRamDevice = false))
+        assertEquals(4, MatrixCapacityGate.decideMaxWindows(totalRamBytes = 4 * gb, isLowRamDevice = false))
+        assertEquals(4, MatrixCapacityGate.decideMaxWindows(totalRamBytes = 6 * gb, isLowRamDevice = false))
+        // 6.9GB（MemTotal 刻度）不进扩展档——阈值留余量不压线
+        assertEquals(4, MatrixCapacityGate.decideMaxWindows(totalRamBytes = 7 * gb - 1, isLowRamDevice = false))
+        assertEquals(6, MatrixCapacityGate.decideMaxWindows(totalRamBytes = 7 * gb, isLowRamDevice = false))
+        assertEquals(6, MatrixCapacityGate.decideMaxWindows(totalRamBytes = 16 * gb, isLowRamDevice = false))
+    }
+
+    /** 探测无效（读数失败/非法值）：保守取基准 4 窗，不上浮不误缩 */
+    @Test
+    fun maxWindows_invalidProbeFallsBackToBaseline() {
+        assertEquals(4, MatrixCapacityGate.decideMaxWindows(totalRamBytes = 0, isLowRamDevice = false))
+        assertEquals(4, MatrixCapacityGate.decideMaxWindows(totalRamBytes = -1, isLowRamDevice = false))
+    }
+
+    /** 强制降级目标：「自动降 2 窗」按当前档位缩放 */
+    @Test
+    fun degradeTarget_scalesWithCurrentCount() {
+        assertEquals(4, MatrixDegrade.degradeTarget(6))
+        assertEquals(3, MatrixDegrade.degradeTarget(5))
+        assertEquals(2, MatrixDegrade.degradeTarget(4))
+        assertEquals(2, MatrixDegrade.degradeTarget(3))
+        assertEquals(2, MatrixDegrade.degradeTarget(2))
+    }
+
+    /** 会话恢复设备钳制：高配机存的 6 窗在低配机收敛到本机档位 */
+    @Test
+    fun sessionClampToDeviceMaxWindows() {
+        val highEndSaved = MatrixSessionState(windowCount = 6, cells = List(6) { MatrixCellState() })
+        val clamped = highEndSaved.clampToMaxWindows(4)
+        assertEquals(4, clamped.windowCount)
+        assertEquals(4, clamped.cells.size)
+
+        // 档位内会话原样返回（不重建对象）
+        val within = MatrixSessionState(windowCount = 3, cells = List(3) { MatrixCellState() })
+        assertTrue(within.clampToMaxWindows(6) === within)
     }
 
     // ===== 主帧加载失败转错误态（onCellLoadFailed 状态机） =====

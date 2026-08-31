@@ -14,18 +14,32 @@ import androidx.annotation.Keep
  */
 @Keep
 data class MatrixSessionState(
-    /** 同屏窗口数（Slider 2..4，D2）；越界值经 [normalized] 收敛 */
+    /** 同屏窗口数（结构上限 6，设备呈现档位由资源探测动态决定）；越界值经 [normalized] 收敛 */
     val windowCount: Int = DEFAULT_WINDOW_COUNT,
     /** 窗格状态列表，长度与 windowCount 对齐（不足补占位、超出截断） */
     val cells: List<MatrixCellState> = emptyList()
 ) {
 
     /**
-     * 结构归一化：windowCount 收敛到 2..4，cells 补占位/截断对齐。
+     * 结构归一化：windowCount 收敛到 2..6，cells 补占位/截断对齐。
      * 重启恢复管线第一步（DataStore 读出的历史/损坏数据在此收敛）。
      */
     fun normalized(): MatrixSessionState {
         val count = windowCount.coerceIn(MIN_WINDOW_COUNT, MAX_WINDOW_COUNT)
+        val alignedCells = cells.take(count) + List((count - cells.size).coerceAtLeast(0)) {
+            MatrixCellState()
+        }
+        return copy(windowCount = count, cells = alignedCells)
+    }
+
+    /**
+     * 设备档位钳制（normalized 之后第二步）：高配机存的 6 窗会话在低配机
+     * 恢复时收敛到本机 [MatrixCapacityGate.decideMaxWindows] 给出的上限
+     * （≥2 保证结构合法；cells 随之截断/补位对齐）。
+     */
+    fun clampToMaxWindows(deviceMax: Int): MatrixSessionState {
+        val count = windowCount.coerceIn(MIN_WINDOW_COUNT, deviceMax.coerceAtLeast(MIN_WINDOW_COUNT))
+        if (count == windowCount) return this
         val alignedCells = cells.take(count) + List((count - cells.size).coerceAtLeast(0)) {
             MatrixCellState()
         }
@@ -44,7 +58,13 @@ data class MatrixSessionState(
 
     companion object {
         const val MIN_WINDOW_COUNT = 2
-        const val MAX_WINDOW_COUNT = 4
+
+        /**
+         * 绝对结构上限（布局/数组/持久化收敛口径）。注意这不是设备呈现
+         * 上限——实际 Slider 上限由 [MatrixCapacityGate.decideMaxWindows]
+         * 按设备真实资源动态决定（3/4/6 三档），恢复时按设备二次钳制。
+         */
+        const val MAX_WINDOW_COUNT = 6
         const val DEFAULT_WINDOW_COUNT = 2
     }
 }

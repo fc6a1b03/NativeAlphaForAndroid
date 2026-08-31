@@ -117,6 +117,7 @@ internal fun MatrixScreen(
         if (zoomedIndex == null) {
             MatrixTopBar(
                 windowCount = windowCount,
+                maxWindows = engine.maxWindows,
                 onBack = onBack,
                 onCountCommit = { target ->
                     when {
@@ -202,10 +203,11 @@ internal fun MatrixScreen(
     }
 }
 
-/** 顶栏（64dp）：返回 + 标题 + Slider（2..4，~120dp）+ 数字实时值 */
+/** 顶栏（64dp）：返回 + 标题 + Slider（2..设备档位上限，~120dp）+ 数字实时值 */
 @Composable
 private fun MatrixTopBar(
     windowCount: Int,
+    maxWindows: Int,
     onBack: () -> Unit,
     onCountCommit: (Int) -> Unit
 ) {
@@ -239,9 +241,8 @@ private fun MatrixTopBar(
             value = sliderValue,
             onValueChange = { sliderValue = it },
             onValueChangeFinished = { onCountCommit(sliderValue.toInt()) },
-            valueRange = MatrixSessionState.MIN_WINDOW_COUNT.toFloat()..
-                MatrixSessionState.MAX_WINDOW_COUNT.toFloat(),
-            steps = MatrixSessionState.MAX_WINDOW_COUNT - MatrixSessionState.MIN_WINDOW_COUNT - 1,
+            valueRange = MatrixSessionState.MIN_WINDOW_COUNT.toFloat()..maxWindows.toFloat(),
+            steps = maxWindows - MatrixSessionState.MIN_WINDOW_COUNT - 1,
             modifier = Modifier
                 .width(120.dp)
                 .padding(horizontal = 8.dp)
@@ -376,7 +377,7 @@ private fun MatrixGrid(
                 }
                 DragCell(engine, 2, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f).fillMaxWidth())
             }
-            else -> {
+            4 -> {
                 Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(gap)) {
                     DragCell(engine, 0, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
                     DragCell(engine, 1, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
@@ -384,6 +385,27 @@ private fun MatrixGrid(
                 Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(gap)) {
                     DragCell(engine, 2, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
                     DragCell(engine, 3, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                }
+            }
+            5 -> {
+                // 上 3 下 2（与 3 窗「上 2 下 1」同构的行分割）
+                Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    DragCell(engine, 0, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                    DragCell(engine, 1, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                    DragCell(engine, 2, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                }
+                Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    DragCell(engine, 3, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                    DragCell(engine, 4, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                }
+            }
+            else -> {
+                // 6 窗 = 2×3 网格（设备档位上限 6 时可用；配合原地放大单格细读）
+                repeat(3) { row ->
+                    Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        DragCell(engine, row * 2, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                        DragCell(engine, row * 2 + 1, ::cellAt, ::dragArgs, onPickRequest, onAdjustRequest, Modifier.weight(1f))
+                    }
                 }
             }
         }

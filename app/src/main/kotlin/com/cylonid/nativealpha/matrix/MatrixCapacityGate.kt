@@ -61,4 +61,34 @@ internal object MatrixCapacityGate {
         previous <= 0 -> measured
         else -> (previous * 3 + measured) / 4
     }
+
+    // ===== 设备呈现档位（动态窗口数上限） =====
+
+    /** 低档设备：官方低内存标志或 MemTotal < 3GB——矩阵上限收缩到 3 窗 */
+    const val LOW_MAX_WINDOWS = 3
+
+    /** 基准档：主流设备矩阵上限 4 窗（原始 D2 档位） */
+    const val BASELINE_MAX_WINDOWS = 4
+
+    /** 扩展档：MemTotal ≥ 6GB 设备放开到 6 窗（2×3 网格，逐窗闸门继续兜底） */
+    const val EXTENDED_MAX_WINDOWS = 6
+
+    fun decideMaxWindows(totalRamBytes: Long, isLowRamDevice: Boolean): Int = when {
+        // 探测无效：保守取基准档（不上浮不收缩，呈现与历史一致）
+        totalRamBytes <= 0L -> BASELINE_MAX_WINDOWS
+        // 官方低内存标志或 MemTotal < 3.5GB：低端收缩 3 窗（3=上2下1，仍有完整布局）
+        isLowRamDevice || totalRamBytes < LOW_RAM_THRESHOLD_BYTES -> LOW_MAX_WINDOWS
+        // 旗舰：MemTotal ≥ 7GB 才放开 6 窗（实机与模拟器有差异，刻意留余量——
+        // 标称 6~7GB 机型落基准档，不做压线判定）
+        totalRamBytes >= HIGH_RAM_THRESHOLD_BYTES -> EXTENDED_MAX_WINDOWS
+        else -> BASELINE_MAX_WINDOWS
+    }
+
+    // 阈值刻度说明：totalMem 是内核报告值，比标称 RAM 低约 7-10%
+    // （4GB 机型实测 ~3.7GB、8GB 机型 ~7.3GB）。阈值刻意留余量、不贴
+    // 标称边界：LOW 3.5GB（标称 4GB 的低配机型多数落入收缩档，用户定调
+    // 低端少开）、HIGH 7GB（标称 8GB+ 旗舰才放开 6 档，标称 6-7GB 机型
+    // 留在基准档——档位宁可保守，呈现档位错误比少一档更伤信任）。
+    val LOW_RAM_THRESHOLD_BYTES = 3584L * 1024 * 1024
+    val HIGH_RAM_THRESHOLD_BYTES = 7L * 1024 * 1024 * 1024
 }

@@ -1,5 +1,6 @@
 package com.cylonid.nativealpha.matrix
 
+import android.app.ActivityManager
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.webkit.WebView
@@ -119,6 +120,19 @@ internal class MatrixEngine(
     /** 错峰串行加载任务（格释放/窗口收缩时取消，防竞态） */
     private val staggeredLoadJobs = arrayOfNulls<Job>(MatrixSessionState.MAX_WINDOW_COUNT)
 
+    /**
+     * 设备呈现档位（本机 Slider 上限）：按真实资源探测一次——RAM < 4GB
+     * 或官方低内存设备收缩 3 窗，≥ 8GB 放开 6 窗，其余基准 4 窗（阈值
+     * 纪律见 [MatrixCapacityGate.decideMaxWindows]）。这是「预读机器资源
+     * 做矩阵呈现计算」的呈现侧：加窗/恢复钳制都以此为准。
+     */
+    val maxWindows: Int = run {
+        val am = appContext.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        val info = ActivityManager.MemoryInfo()
+        am?.getMemoryInfo(info)
+        MatrixCapacityGate.decideMaxWindows(info.totalMem, am != null && am.isLowRamDevice)
+    }
+
     /** 容量闸门输入：每窗边际成本 EMA（onPageFinished 回采校准） */
     private var perCellBytes = 0L
 
@@ -181,7 +195,9 @@ internal class MatrixEngine(
                 .filter { it.isActiveEntry }
                 .map { it.ID }
                 .toSet()
-            val restored = session.normalized().filteredByActiveSites(activeIds)
+            val restored = session.normalized()
+                .clampToMaxWindows(maxWindows)
+                .filteredByActiveSites(activeIds)
             _windowCount.value = restored.windowCount
             _cells.value = restored.cells.map { cell ->
                 MatrixCellUi(
@@ -211,7 +227,7 @@ internal class MatrixEngine(
      * 不做容量预检——占位格不占渲染内存，加载时才过闸门。
      */
     fun addWindow() {
-        if (_windowCount.value >= MatrixSessionState.MAX_WINDOW_COUNT) return
+        if (_windowCount.value >= maxWindows) return
         _windowCount.value += 1
         _cells.value = _cells.value + MatrixCellUi(uid = newCellUid())
         persistSession()
@@ -393,11 +409,38 @@ internal class MatrixEngine(
                 !horizontal && dy < 0 -> if (index == 2) 0 else -1
                 else -> -1
             }
+            // 5 = 上 3 下 2（上排行内 0-1-2、下排行内 3-4；纵向 0↔3、1↔4）
+            5 -> when {
+                horizontal && dx > 0 -> when (index) {
+                    0 -> 1
+                    1 -> 2
+                    3 -> 4
+                    else -> -1
+                }
+                horizontal && dx < 0 -> when (index) {
+                    1 -> 0
+                    2 -> 1
+                    4 -> 3
+                    else -> -1
+                }
+                !horizontal && dy > 0 -> when (index) {
+                    0 -> 3
+                    1 -> 4
+                    else -> -1
+                }
+                !horizontal && dy < 0 -> when (index) {
+                    3 -> 0
+                    4 -> 1
+                    else -> -1
+                }
+                else -> -1
+            }
+            // 4（2×2）与 6（2×3）同构：每行 2 列，纵向 ±一整行
             else -> when {
                 horizontal && dx > 0 -> if (index % 2 == 0) index + 1 else -1
                 horizontal && dx < 0 -> if (index % 2 == 1) index - 1 else -1
-                !horizontal && dy > 0 -> if (index <= 1) index + 2 else -1
-                !horizontal && dy < 0 -> if (index >= 2) index - 2 else -1
+                !horizontal && dy > 0 -> if (index / 2 < count / 2 - 1) index + 2 else -1
+                !horizontal && dy < 0 -> if (index / 2 > 0) index - 2 else -1
                 else -> -1
             }
         }
@@ -606,11 +649,11 @@ internal class MatrixEngine(
     /**
      * onTrimMemory 分级响应（规格 §4.2）：
      * ≥ RUNNING_LOW 顶栏警示条（忽略后本会话不弹）；
-     * ≥ COMPLETE 自动降 2 窗 + Snackbar 告知（系统行为不询问）。
+     * ≥ COMPLETE 自动降档 + Snackbar 告知（系统行为不询问）。
      */
     fun onTrimMemory(level: Int) {
         if (level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE) {
-            forceDegradeToTwoWindows()
+            forceDegrade()
         } else if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
             if (!memoryWarningShown) {
                 memoryWarningShown = true
@@ -625,18 +668,21 @@ internal class MatrixEngine(
     }
 
     /**
-     * 强制降级（D9）：2 窗网格只有槽位 0/1——槽位内的活跃格保留，其余
-     * 一切格（含槽位 2+ 的活跃格，物理上无槽位可容纳）释放收敛为占位。
-     * 保留/释放规则抽为纯函数 [MatrixDegrade.keptCells]/[MatrixDegrade.releaseIndices]
+     * 强制降级（D9）：内存告急自动减 2 窗（6→4/5→3/4→2/3→2，纯函数
+     * [MatrixDegrade.degradeTarget]）——减窗幅度与原「4→2」决策同源，
+     * 按当前档位缩放。槽位收缩后：槽位内活跃格保留，其余格（含槽位外
+     * 活跃格，物理上无槽位可容纳）释放收敛为占位。保留/释放规则抽为
+     * 纯函数 [MatrixDegrade.keptCells]/[MatrixDegrade.releaseIndices]
      * （确定性，可单测）。
      */
-    private fun forceDegradeToTwoWindows() {
-        if (_windowCount.value <= MatrixSessionState.MIN_WINDOW_COUNT) return
+    private fun forceDegrade() {
+        val target = MatrixDegrade.degradeTarget(_windowCount.value)
+        if (target >= _windowCount.value) return
         val current = _cells.value
-        MatrixDegrade.releaseIndices(current, MatrixSessionState.MIN_WINDOW_COUNT)
+        MatrixDegrade.releaseIndices(current, target)
             .forEach { releaseCell(it) }
-        _windowCount.value = MatrixSessionState.MIN_WINDOW_COUNT
-        _cells.value = MatrixDegrade.keptCells(current, MatrixSessionState.MIN_WINDOW_COUNT)
+        _windowCount.value = target
+        _cells.value = MatrixDegrade.keptCells(current, target)
         _zoomedCellIndex.value = null
         _memoryWarningVisible.value = false
         _notices.tryEmit(MatrixNotice.DEGRADED)
