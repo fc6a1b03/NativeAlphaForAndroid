@@ -537,11 +537,22 @@ internal class MatrixEngine(
         }
     }
 
-    /** 主框架加载失败（非崩溃）：格回错误态（点击重新选择） */
+    /**
+     * 主框架加载失败（非崩溃）：格转错误态（点击重新选择）。
+     * LOADING 与 ACTIVE 都要转：Chromium 对缓存命中/重定向链会先回调
+     * onPageFinished（把格置 ACTIVE）再回调主帧 onReceivedError——只认
+     * LOADING 会让真实失败被状态守卫挡掉，WebView 内置错误页残留在格内
+     * （飞行模式实测复现）。子资源错误在 client 层已被 isForMainFrame
+     * 过滤，ACTIVE 态到达必是页面级失败；CAPACITY_LIMITED 是闸门语义
+     * 不覆盖，占位/错误态幂等不动。
+     */
     internal fun onCellLoadFailed(cellIndex: Int) {
-        if (_cells.value.getOrNull(cellIndex)?.state == MatrixCellUiState.LOADING) {
+        val state = _cells.value.getOrNull(cellIndex)?.state ?: return
+        if (isFailureTransitional(state)) {
             releaseCell(cellIndex)
             markCellError(cellIndex)
+            // 放大格失败：退出放大视图让错误态正常渲染（与减窗路径同款联动）
+            if (_zoomedCellIndex.value == cellIndex) _zoomedCellIndex.value = null
         }
     }
 
@@ -724,5 +735,14 @@ internal class MatrixEngine(
 
         /** 崩溃风暴静默期：N 格回调在此窗口内到达视为同一渲染进程死亡 */
         const val CRASH_BURST_SETTLE_MS = 600L
+
+        /**
+         * 主帧加载失败可转错误态的状态集合（纯函数，可单测）：
+         * LOADING=经典时序（error 先于 finished）；ACTIVE=缓存/重定向时序
+         * （finished 先把格置 ACTIVE，主帧 error 后到——飞行模式实测复现）。
+         * CAPACITY_LIMITED（闸门语义不覆盖）/占位/错误态不在列。
+         */
+        internal fun isFailureTransitional(state: MatrixCellUiState): Boolean =
+            state == MatrixCellUiState.LOADING || state == MatrixCellUiState.ACTIVE
     }
 }

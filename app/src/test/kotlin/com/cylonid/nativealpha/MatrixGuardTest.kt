@@ -5,6 +5,7 @@ import com.cylonid.nativealpha.matrix.MatrixCellUi
 import com.cylonid.nativealpha.matrix.MatrixCellUiState
 import com.cylonid.nativealpha.matrix.MatrixCrashBackoff
 import com.cylonid.nativealpha.matrix.MatrixDegrade
+import com.cylonid.nativealpha.matrix.MatrixEngine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -134,5 +135,22 @@ class MatrixGuardTest {
         assertEquals(listOf(1, 2, 3), MatrixDegrade.releaseIndices(cells, targetCount = 2))
         // 规则一致性：非活跃槽位无论 target 取值都在释放集（LOADING 格不豁免）
         assertEquals(listOf(1), MatrixDegrade.releaseIndices(cells, targetCount = 4))
+    }
+
+    // ===== 主帧加载失败转错误态（onCellLoadFailed 状态机） =====
+
+    /** LOADING/ACTIVE 都可转 ERROR（缓存/重定向时序下 finished 先置 ACTIVE，error 后到） */
+    @Test
+    fun failureTransitional_coversLoadingAndActive() {
+        assertTrue(MatrixEngine.isFailureTransitional(MatrixCellUiState.LOADING))
+        assertTrue(MatrixEngine.isFailureTransitional(MatrixCellUiState.ACTIVE))
+    }
+
+    /** 占位/容量受限/错误态不可转：闸门语义不被覆盖，错误态幂等 */
+    @Test
+    fun failureTransitional_excludesPlaceholderCapacityAndError() {
+        assertFalse(MatrixEngine.isFailureTransitional(MatrixCellUiState.PLACEHOLDER))
+        assertFalse(MatrixEngine.isFailureTransitional(MatrixCellUiState.CAPACITY_LIMITED))
+        assertFalse(MatrixEngine.isFailureTransitional(MatrixCellUiState.ERROR))
     }
 }
