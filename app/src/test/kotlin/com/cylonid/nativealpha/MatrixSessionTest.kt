@@ -64,10 +64,10 @@ class MatrixSessionTest {
         }
     }
 
-    /** 归一化：windowCount 收敛到 2..4（D2 Slider 边界，损坏数据兜底） */
+    /** 归一化：windowCount 收敛到 2..6（结构上限；设备档位钳制走 clampToMaxWindows） */
     @Test
     fun normalized_clampsWindowCount() {
-        assertEquals(4, MatrixSessionState(windowCount = 99).normalized().windowCount)
+        assertEquals(6, MatrixSessionState(windowCount = 99).normalized().windowCount)
         assertEquals(2, MatrixSessionState(windowCount = 0).normalized().windowCount)
         assertEquals(2, MatrixSessionState(windowCount = -5).normalized().windowCount)
         assertEquals(3, MatrixSessionState(windowCount = 3).normalized().windowCount)

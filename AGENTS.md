@@ -13,12 +13,12 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.1.36`（`versionCode 2136`）
+- **当前版本**：`2.2.5`（`versionCode 2205`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
 - **主要语言**：100% Kotlin，仓库内已无 `.java` 源文件（`WebViewActivity` 等最后一批 Java 文件已在近期迁移完成）
-- **主要场景**：把 Kimi Code Web 等网站作为独立应用运行，提供全屏沉浸、手势导航、按站配置、Cookie 隔离、统计图表等能力。
+- **主要场景**：把 Kimi Code Web 等网站作为独立应用运行，提供全屏沉浸、手势导航、按站配置、Cookie 隔离、统计图表、多窗矩阵（同屏 2-6 站点，档位按设备内存动态分档）、网页事件提醒（网页事件 → 系统通知/Toast）等能力。
 
 ---
 
@@ -33,6 +33,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 - **数据持久化**：
     - `SharedPreferences` + Gson：WebApp 列表、全局设置、元信息
     - `DataStore`（Preferences）：错误日志、统计明细、Cookie 隔离快照
+    - 功能包自持 DataStore（不参与宿主备份）：`matrix_session`（矩阵会话）、`webevent_rules`（事件规则）
 - **主要依赖库**：
     - Gson（JSON 序列化）
     - JSoup（favicon / 标题自动识别）
@@ -115,6 +116,8 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 ├── WebAppSettingsActivity.kt    # 单个 WebApp 设置页（Compose）
 ├── WebAppStatsActivity.kt       # 单个 WebApp 统计页（Compose）
 ├── WebViewActivity.kt           # 渲染核心（Kotlin + XML 布局 + WebView）
+├── WebViewSiteContext.kt        # 站点行为解耦接口（宿主/矩阵共用，防 Activity 强引用）
+├── WebViewBrowserClient.kt      # WebViewClient 模板方法基类（SiteWebViewClient）+ 宿主子类
 ├── model/                       # 数据模型与数据中枢
 │   ├── DataManager.kt           # 单例：WebApp 列表/全局设置的加载、持久化、备份导入导出
 │   ├── WebApp.kt                # WebApp 数据类（含设置字段、统计字段、快捷键）
@@ -131,8 +134,26 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── ShortcutRecreateDialog.kt# 重新创建快捷方式弹窗
 │   ├── ShortcutMenuOverlay.kt   # 快捷方式菜单浮层
 │   └── WebViewMenuOverlay.kt    # WebView 页面菜单浮层
+├── matrix/                      # 多窗矩阵（独立包，MainActivity 直达 MatrixActivity，实现内聚）
+│   ├── MatrixActivity.kt        # UI 宿主：生命周期接线（onDestroy 先 resumeTimers 再 release）
+│   ├── MatrixScreen.kt          # 五态窗格渲染 + 拖拽排序 + 放大/收起 + 调节 sheet
+│   ├── MatrixEngine.kt          # 核心：五态机/交换/缩放注入/崩溃批量恢复/会话持久化
+│   ├── MatrixSessionState.kt    # @Keep 会话模型（webappId/zoomPercent/textZoomPercent）
+│   ├── MatrixSessionStore.kt    # 自持 DataStore matrix_session + 单写者 conflate 队列
+│   ├── MatrixCapacityGate.kt    # 容量闸门（逐窗拦截 fail-open）+ 设备档位 decideMaxWindows（3/4/6 动态上限）
+│   ├── MatrixCrashBackoff.kt    # 崩溃退避状态机（手动重试重置）
+│   ├── MatrixDegrade.kt         # 强制降级纯函数（保留槽位内活跃格）
+│   └── ...                      # CellAdjustSheet/CellClient/ChromeClient/MemorySampler/Codec
+├── webevent/                    # 网页事件插件（独立包，入口 WebeventRuntime，实现 internal）
+│   ├── EventRule.kt             # 规则模型（@Keep + proguard 显式 keep）
+│   ├── EventRuleEngine.kt       # 三触发器引擎（跳变沿/冷却/500ms 合并）
+│   ├── EventRuleStore.kt        # 自持 DataStore webevent_rules（rules + muted_sites 双 key）
+│   ├── JsHookScript.kt          # 注入脚本（T1 Notification 拦截 + T3 标题劫持双路径 + T2 observer）
+│   ├── WebEventBridge.kt        # @JavascriptInterface 桥（L4 纯抽取 → 主线程 post）
+│   ├── WebeventRuntime.kt       # 初始化/注入判定/级联删除接线
+│   └── ...                      # RuleEditorActivity/RuleEditorScreen/RuleWizardSheet/Notifier/EventsEntrySection
 ├── util/                        # 工具类与统一能力层
-│   ├── App.kt                   # Application：崩溃兜底、主题初始化
+│   ├── App.kt                   # Application：崩溃兜底（OOM 标注）、主题初始化、内存压力记录
 │   ├── AppStorage.kt            # DataStore 统一封装
 │   ├── AppTheme.kt / ThemeUtils.kt / ColorUtils.kt  # 主题/颜色/状态栏
 │   ├── Const.kt                 # 全局常量
@@ -141,7 +162,9 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── IconGenerator.kt         # 渐变首字母图标生成
 │   ├── WebAppDataFetcher.kt     # 添加向导：标题/favicon/start_url 识别
 │   ├── WebViewLauncher.kt       # 启动 WebViewActivity 的封装
+│   ├── WebViewSetup.kt          # WebView 创建配置纯函数（宿主/矩阵同源，禁双路径漂移）
 │   ├── StatsRecorder.kt         # 加载耗时/缓存等统计记录
+│   ├── FeatureMetrics.kt        # 功能观测门面：计数聚合 + 阈值批量落盘
 │   ├── NotificationUtils.kt     # 通知/Toast 等
 │   ├── UrlUtils.kt              # URL 规范化、校验、host 提取
 │   ├── DateUtils.kt             # 日期格式化
@@ -167,6 +190,8 @@ Profile 等。
     - **WebApp ID 同时是数组下标**——删除不真正移除条目，而是将 `isActiveEntry` 置为 `false`（`markInactive`）
     - `GlobalSettings` 同样以 JSON 存于 `SharedPreferences`
 - **`AppStorage` DataStore** 用于错误日志、页面错误、统计快照、Cookie 隔离快照
+- **功能包自持 DataStore**：`matrix_session`（矩阵会话）/ `webevent_rules`（事件规则）独立文件，
+  **不参与宿主备份**（换机/清数据会丢，属已知取舍）
 - **备份格式**：版本化 JSON，结构为 `{ checksum, data: { version, websites, settings } }`，SHA-256 校验
     - 当前 `BACKUP_FORMAT_VERSION = 2`
     - 导入导出通过 SAF（Storage Access Framework）
@@ -188,7 +213,7 @@ Profile 等。
 
 ## 安全与隐私
 
-- **权限最小化**：仅声明 `INTERNET`、位置、相机、录音、修改音频设置；均为按需向用户申请
+- **权限最小化**：仅声明 `INTERNET`、`POST_NOTIFICATIONS`（网页事件通知，保存首条 notify 规则时场景化申请）、位置、相机、录音、修改音频设置；均为按需向用户申请
 - **WebView 默认加固**（全局 + 每站两级，默认开启）：
     - 禁用文件访问（`setAllowFileAccess(false)`）
     - 禁用内容提供器访问（`setAllowContentAccess(false)`）
@@ -227,6 +252,12 @@ Profile 等。
 8. **Cookie 隔离入口唯一**：`CookieSessionManager`；不要直接在 `WebViewActivity` 里操作 `CookieManager` 做隔离逻辑。
 9. **本地构建需 JDK 17+**：Gradle 9.7 不再支持 JDK 8。
 10. **Release 签名回退**：没有 `key.properties` 时 release build 会使用 debug 签名，产物可安装但无法覆盖正式签名包。
+11. **`@Keep` 不保 Gson 字段名**（R8 实锤）：反射序列化的模型类必须在 `proguard-rules.pro` 显式 keep
+    （matrix/webevent 模型已有先例），仅加 `@Keep` 注解在 release 会丢字段。
+12. **`pauseTimers()` 是进程全局开关**：多 WebView 场景（矩阵）必须严格配对恢复——`MatrixActivity.onDestroy`
+    先 `resumeTimers` 再 release，否则残留会杀死之后所有页面加载（v2.2.1 P0 修复）。
+13. **`WebView.zoomBy` 对带 viewport meta 的页面不可靠**：页面缩放用 CSS zoom 注入
+    （`documentElement.style.zoom`，`onPageFinished` 重放）；getter 必须读真实 DOM（闭包缓存值会被 SPA 绕过）。
 
 ---
 
@@ -246,4 +277,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-08-25（基于仓库当前实际内容整理，版本 2.1.33）。*
+*最后更新：2026-08-31（基于仓库当前实际内容整理，版本 2.2.5）。*

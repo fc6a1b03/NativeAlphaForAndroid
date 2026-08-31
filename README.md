@@ -17,6 +17,8 @@
 * **中英双语**：默认中文，设置内一键切换（跟随系统 / 中文 / English）
 * **全屏沉浸**：edge-to-edge，状态栏/导航栏与页面融合
 * **每站独立设置**：JavaScript、Cookies、桌面 UA、深色模式、自动刷新等按 Web App 单独配置
+* **多窗矩阵**：同屏 2-6 个站点并行（按设备内存动态分档），拖拽排序、单窗原地放大、格内页面/字体缩放；崩溃自动批量恢复、内存不足自动降级，页面加载前预计算设备容量防崩溃
+* **网页事件提醒**：把网页事件转成手机系统通知/Toast——网页通知拦截、标题变化、元素出现三类触发器，三步大白话向导配置，支持按站静音；例：AI 任务完成自动提醒
 * **多手势导航**：双指前进/后退、双指下滑刷新、三指切换
 * **安全加固**：文件/内容访问、混合内容、JS 弹窗、Safe Browsing 五重防护（全局+每站两级，默认全开）
 * **按站统计**：打开次数、加载耗时分布、缓存占用、错误日志——独立统计页（KPI 卡 + 图表），支持导入/导出
@@ -53,8 +55,8 @@
 打 tag 自动触发 GitHub Actions 发版（签名 APK + AAB → GitHub Release）：
 
 ```bash
-git tag -a v2.2.4 -m "v2.2.4"
-git push origin v2.2.4
+git tag -a v2.2.5 -m "v2.2.5"
+git push origin v2.2.5
 ```
 
 首次需在仓库 Settings → Secrets 配置：`KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`。

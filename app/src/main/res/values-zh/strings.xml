@@ -222,6 +222,8 @@
     <string name="permission_go_to_settings">前往设置</string>
     <string name="export_app_errors">导出错误日志（近 3 天）</string>
     <string name="desc_export_app_errors">导出应用自身最近 3 天的错误日志，供开发排查。</string>
+    <string name="stat_log_network_errors">站点统计记录网络错误</string>
+    <string name="desc_stat_log_network_errors">关闭后，断网、DNS 解析失败等网络类页面错误不记入站点统计。</string>
     <string name="app_errors_export_success">错误日志已导出</string>
     <string name="app_errors_export_failed">错误日志导出失败</string>
     <string name="app_errors_none">近 3 天无错误日志</string>
