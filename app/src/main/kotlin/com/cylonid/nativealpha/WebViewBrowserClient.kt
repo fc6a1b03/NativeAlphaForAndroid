@@ -114,6 +114,9 @@ internal abstract class SiteWebViewClient(
             // 记录重试目标 + 加载自定义错误页（不显示系统默认白屏）
             site.retryUrl = request.url?.toString() ?: site.urlOnFirstPageload
             site.showCustomErrorPage(code, desc)
+            // 断线自动恢复：启动探测监视，站点可达后自动重载（不再依赖
+            // 用户手动 Try again——网络恢复/站点恢复的下半场闭环）
+            site.startReconnectWatch()
         }
     }
 

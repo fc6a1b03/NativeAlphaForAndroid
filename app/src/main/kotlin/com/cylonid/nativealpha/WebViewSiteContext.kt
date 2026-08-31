@@ -78,4 +78,14 @@ internal interface WebViewSiteContext {
      * 矩阵实现为 FeatureMetrics 计数（QC 决策）。
      */
     fun recordPageError(errorType: String, code: String, desc: String)
+
+    /**
+     * 断线自动恢复：主帧加载失败后启动探测监视（先探测站点可达再自动
+     * 重载，避免盲目重试与无出口等待）；探测目标为站点 baseUrl，恢复
+     * 动作由实现方注入（宿主 reload retryUrl / 矩阵 pickSite 重载）。
+     */
+    fun startReconnectWatch()
+
+    /** 停止断线监视（页面加载成功或宿主/窗格销毁时调用） */
+    fun stopReconnectWatch()
 }

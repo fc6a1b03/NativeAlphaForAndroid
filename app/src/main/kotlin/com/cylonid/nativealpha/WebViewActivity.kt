@@ -69,6 +69,7 @@ import androidx.annotation.Nullable
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
 import androidx.core.app.ShareCompat
@@ -86,6 +87,7 @@ import com.cylonid.nativealpha.helper.WebViewShortcutInjectHelper
 import com.cylonid.nativealpha.helper.WebViewMenuHelper
 import com.cylonid.nativealpha.helper.WebViewPermissionHelper
 import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.util.SiteReconnectSupervisor
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.Const
@@ -271,6 +273,8 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
     override fun onPageLoadStarted() {
         // 新页面加载：重置白屏检测（进度从 0 重新计时）
         pageLoadFinished = false
+        // 主帧失败标记清除（新导航开始——错误页 finished 不再误判成功）
+        lastMainFrameFailed = false
         lastProgress = 0
         lastProgressTime = System.currentTimeMillis()
         // 加载动画计时起点（短暂显示窗口判定）
@@ -290,6 +294,9 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
         cancelBlankScreenCheck()
         // 页面加载完成：隐藏加载页动物动画
         stopLoadingAnimal()
+        // 成功加载即停止断线探测（恢复闭环完成）；失败页的 finished
+        // 不算成功（lastMainFrameFailed），监视继续等探测通过
+        if (!lastMainFrameFailed) stopReconnectWatch()
     }
 
     override fun showCustomErrorPage(code: String?, desc: String?) {
@@ -316,10 +323,38 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
         StatsRecorder.recordPageError(webappID, errorType, code, desc)
     }
 
+    /**
+     * 断线自动恢复（连接治理下半场）：加载失败后原生探测站点可达性，
+     * 恢复后自动 reload retryUrl（与错误页 Try again 同目标同语义）。
+     * 探测目标用站点 baseUrl——子路径可能 404 但站点本身活着。
+     */
+    private val reconnectSupervisor by lazy {
+        SiteReconnectSupervisor(applicationContext, lifecycleScope)
+    }
+
+    override fun startReconnectWatch() {
+        val baseUrl = DataManager.getInstance().getWebApp(webappID)?.baseUrl ?: return
+        reconnectSupervisor.start(baseUrl) { _ ->
+            runOnUiThread {
+                val target = retryUrl.ifBlank { baseUrl }
+                val wv = wv ?: return@runOnUiThread
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                loadURL(wv, target)
+            }
+        }
+    }
+
+    override fun stopReconnectWatch() {
+        reconnectSupervisor.stop()
+    }
+
     /** 菜单「后退」入口：onBackPressed 为 protected，helper 经此转发（语义不变） */
     internal fun triggerBack() = onBackPressed()
     private val blankScreenCheck = Runnable { handleBlankScreen() }
     internal var pageLoadFinished = false
+
+    /** 上次主帧是否失败（错误页 finished 与真成功的区分依据） */
+    private var lastMainFrameFailed = false
 
     // 统计埋点：页面加载开始时间（onPageStarted 到 onPageFinished 计算耗时）
     override var pageLoadStartTime: Long = 0L
@@ -860,6 +895,7 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
         CookieSessionManager.saveSnapshot(this, webappID, webappTabIndex)
         // 显式销毁 WebView，释放渲染进程与内存（低损耗目标）
         cancelBlankScreenCheck()
+        stopReconnectWatch()
         if (wv != null) {
             (wv!!.parent as? ViewGroup)?.removeView(wv)
             wv!!.removeAllViews()
@@ -1028,6 +1064,9 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
      */
     internal fun loadCustomErrorPage(code: String?, desc: String?) {
         if (wv == null) return
+        // 主帧失败标记：错误页自身也会回调 onPageFinished——finished 时
+        // 据此区分「真成功」与「失败页完成」，避免误停断线监视
+        lastMainFrameFailed = true
         try {
             // 缩放跟随生效配置（原固定 130 独立配置已废弃）
             if (webapp != null) {

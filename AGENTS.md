@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.2.6`（`versionCode 2206`）
+- **当前版本**：`2.2.7`（`versionCode 2207`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -213,7 +213,7 @@ Profile 等。
 
 ## 安全与隐私
 
-- **权限最小化**：仅声明 `INTERNET`、`POST_NOTIFICATIONS`（网页事件通知，保存首条 notify 规则时场景化申请）、位置、相机、录音、修改音频设置；均为按需向用户申请
+- **权限最小化**：仅声明 `INTERNET`、`ACCESS_NETWORK_STATE`（矩阵/宿主断线自动恢复的网络探测）、`POST_NOTIFICATIONS`（网页事件通知，保存首条 notify 规则时场景化申请）、位置、相机、录音、修改音频设置；均为按需向用户申请
 - **WebView 默认加固**（全局 + 每站两级，默认开启）：
     - 禁用文件访问（`setAllowFileAccess(false)`）
     - 禁用内容提供器访问（`setAllowContentAccess(false)`）
@@ -256,8 +256,16 @@ Profile 等。
     （matrix/webevent 模型已有先例），仅加 `@Keep` 注解在 release 会丢字段。
 12. **`pauseTimers()` 是进程全局开关**：多 WebView 场景（矩阵）必须严格配对恢复——`MatrixActivity.onDestroy`
     先 `resumeTimers` 再 release，否则残留会杀死之后所有页面加载（v2.2.1 P0 修复）。
-13. **`WebView.zoomBy` 对带 viewport meta 的页面不可靠**：页面缩放用 CSS zoom 注入
-    （`documentElement.style.zoom`，`onPageFinished` 重放）；getter 必须读真实 DOM（闭包缓存值会被 SPA 绕过）。
+13. **`WebView.zoomBy`/CSS zoom 均已废弃**：zoomBy 对带 viewport meta 的页面无效；
+    CSS zoom（`documentElement.style.zoom`）只缩放渲染**不改变布局视口**（CDP 实测
+    innerWidth 恒为格子宽，fixed/100vh 布局错乱）——现行方案是 View 级视口适配
+    （`FitFrameLayout` 按 1/ratio 测量 WebView + View scale 缩回，innerWidth 真实变宽）。
+    注意 Compose AndroidView 每布局 pass 会用容器约束强制 re-measure 子 View，
+    自定义测量必须写在 onMeasure/onLayout 覆写里（update 里手动 measure 会被覆盖）。
+14. **runTest 禁止对「恒失败重试」协程用 advanceUntilIdle**：无限退避=虚拟时间无限
+    推进=测试挂死（UncompletedCoroutinesError）——用 advanceTimeBy(N) 只推进首轮。
+15. **单测调 android.util.Log 会抛 not mocked**：协程内的 Log 调用会静默杀死协程
+    （表现为断言 count=0 而非异常），插桩诊断用后必须删除。
 
 ---
 
@@ -277,4 +285,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-08-31（基于仓库当前实际内容整理，版本 2.2.6）。*
+*最后更新：2026-08-31（基于仓库当前实际内容整理，版本 2.2.7）。*
