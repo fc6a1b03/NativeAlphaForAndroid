@@ -25,6 +25,8 @@ internal object WebeventRuntime {
         appContext = context.applicationContext
         EventRuleStore.init(context.applicationContext)
         WebeventNotifier.ensureChannel(context.applicationContext)
+        // C1：规则纳入备份——分区适配器装配（幂等，先于任何备份 UI 可达）
+        WebeventBackupCodec.installAdapter()
         EventRuleEngine.actionDispatcher =
             object : EventRuleEngine.ActionDispatcher {
                 override fun dispatch(rule: EventRule, event: WebEvent, hitCount: Int) {

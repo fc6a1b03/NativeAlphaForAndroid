@@ -5,9 +5,10 @@ import androidx.annotation.Keep
 /**
  * 网页事件规则（P5 数据模型，规格 §5.2）。
  *
- * 持久化契约：经 Gson 落入自持 DataStore `webevent_rules`（不参与宿主
- * 备份）+ proguard-rules.pro 显式 keep——release 实测 @Keep 不足以保住
- * Gson 反射字段名（P4 教训），字段改名 = 用户规则丢失。
+ * 持久化契约：经 Gson 落入自持 DataStore `webevent_rules`（磁盘自持；
+ * C1 起规则/mutedSites 随宿主备份导出导入——WebeventBackupCodec 同一
+ * Gson 契约）+ proguard-rules.pro 显式 keep——release 实测 @Keep 不足以
+ * 保住 Gson 反射字段名（P4 教训），字段改名 = 用户规则丢失。
  *
  * 触发器/动作取值约定（字符串而非枚举序列化，规格原文）：
  * - trigger: notification | title | selector
