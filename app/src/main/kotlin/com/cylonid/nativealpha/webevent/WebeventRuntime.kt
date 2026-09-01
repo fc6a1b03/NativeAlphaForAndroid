@@ -25,6 +25,8 @@ internal object WebeventRuntime {
         appContext = context.applicationContext
         EventRuleStore.init(context.applicationContext)
         WebeventNotifier.ensureChannel(context.applicationContext)
+        // C1：规则纳入备份——分区适配器装配（幂等，先于任何备份 UI 可达）
+        WebeventBackupCodec.installAdapter()
         EventRuleEngine.actionDispatcher =
             object : EventRuleEngine.ActionDispatcher {
                 override fun dispatch(rule: EventRule, event: WebEvent, hitCount: Int) {
@@ -84,7 +86,22 @@ internal object WebeventRuntime {
     fun cascadeDeleteForSite(webappId: Int) {
         EventRuleStore.cascadeDeleteForSite(webappId)
         EventRuleEngine.forgetSite(webappId)
+        hookAliveBySite.remove(webappId)
     }
+
+    /**
+     * hook 存活探针记账（宿主 onPageFinished 回传）：注入过的幂等标记
+     * 是否在当前文档存活。会话内内存态——null=本会话未探测过（未知）。
+     * 站点改版导致注入失败/标记丢失时，规则入口卡据此显示「可能失效」。
+     */
+    fun onHookProbe(webappId: Int, alive: Boolean) {
+        hookAliveBySite[webappId] = alive
+    }
+
+    /** 该站 hook 存活性：null=未知（未探测/未配规则），false=疑似失效 */
+    fun hookLiveness(webappId: Int): Boolean? = hookAliveBySite[webappId]
+
+    private val hookAliveBySite = HashMap<Int, Boolean>()
 
     private fun summarize(event: WebEvent, hitCount: Int): String {
         val context = appContext ?: return event.title

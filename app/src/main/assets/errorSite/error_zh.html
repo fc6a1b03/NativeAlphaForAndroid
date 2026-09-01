@@ -47,6 +47,11 @@
       var params = new URLSearchParams(location.search);
       var code = params.get('code');
       var desc = params.get('desc');
+      var reason = params.get('reason');
+      var sub = document.getElementById('sub');
+      if (reason && reason !== 'null' && sub) {
+        sub.textContent = reason;
+      }
       var detail = document.getElementById('detail');
       if (code) {
         detail.textContent = desc && desc !== 'null' ? code + ' · ' + desc : code;

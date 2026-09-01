@@ -40,6 +40,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
     - Vico Compose M3（统计页图表）
     - Markwon（Markdown 渲染，用于更新日志等）
     - AndroidX ProfileInstaller（Baseline Profile，启动提速）
+    - ZXing core（站点分享二维码生成；纯 Java，无 GMS/Android 传递依赖）
 - **版本管理**：所有依赖版本集中在 `gradle/libs.versions.toml`（Version Catalog），build 文件禁止硬编码版本号
 
 ---
@@ -196,7 +197,7 @@ Profile 等。
 - **功能包自持 DataStore**：`matrix_session`（矩阵会话）/ `webevent_rules`（事件规则）独立文件，
   **不参与宿主备份**（换机/清数据会丢，属已知取舍）
 - **备份格式**：版本化 JSON，结构为 `{ checksum, data: { version, websites, settings } }`，SHA-256 校验
-    - 当前 `BACKUP_FORMAT_VERSION = 2`
+    - 当前 `BACKUP_FORMAT_VERSION = 3`（v3 起携带 webevent 规则分区，仍可导入 v2 备份）
     - 导入导出通过 SAF（Storage Access Framework）
 - **无旧版数据兼容**：v2.0 起不再保留 legacy converter/deserializer；模型字段即 schema，重命名会改变持久化 JSON
 

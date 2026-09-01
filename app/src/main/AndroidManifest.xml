@@ -42,6 +42,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- 站点分享深链（C-分享）：系统相机扫码/点击 webnative://add 唤起；
+                 安全校验收口在 SiteShareCodec（fail-closed），manifest 只声明形态 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="webnative" android:host="add" />
+            </intent-filter>
         </activity>
 
 <!--        Make sure to also copy changes to WebViewActivity in build.gradle-->

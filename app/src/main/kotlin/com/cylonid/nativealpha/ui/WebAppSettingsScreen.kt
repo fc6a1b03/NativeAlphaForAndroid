@@ -73,6 +73,11 @@ fun WebAppSettingsScreen(
             neverEqualPolicy()
         )
     }
+    // 站点分享对话框（C-分享：二维码+深链）
+    var showShareDialog by remember { mutableStateOf(false) }
+    if (showShareDialog) {
+        SiteShareDialog(webApp = webapp, onDismiss = { showShareDialog = false })
+    }
     // 统一修改入口（名称/URL 等 WebApp 自身字段）：不改变覆盖状态
     fun update(block: WebApp.() -> Unit) {
         val copy = WebApp(modified.baseUrl, modified.ID, modified.order).apply {
@@ -156,6 +161,7 @@ fun WebAppSettingsScreen(
                     updateSettings = ::updateSettings,
                     syncFromGlobal = ::syncFromGlobal,
                     onRecreateShortcut = onRecreateShortcut,
+                    onShareSite = { showShareDialog = true },
                 )
             }
             // 安全与隐私

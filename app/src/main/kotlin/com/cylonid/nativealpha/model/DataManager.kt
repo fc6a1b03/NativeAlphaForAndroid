@@ -45,6 +45,12 @@ class DataManager private constructor() {
     class WebAppsSnapshot(val items: List<WebApp>, val revision: Long)
 
     private var websites = ArrayList<WebApp>()
+
+    /**
+     * webevent 备份分区适配器（C1）：WebeventRuntime.init 装配。
+     * 接口倒置——model 层不反向依赖 webevent 包。
+     */
+    var webeventBackup: WebeventBackup? = null
     private var maxAssignedId = -1
     private var appdata: SharedPreferences? = null
 
@@ -395,6 +401,8 @@ class DataManager private constructor() {
                 backup["exportedAt"] = System.currentTimeMillis()
                 backup[BACKUP_KEY_WEBSITES] = websites
                 backup[BACKUP_KEY_SETTINGS] = _settings
+                // C1：webevent 规则分区（适配器未装配时省略 key，导入端兼容）
+                webeventBackup?.let { backup[BACKUP_KEY_WEBEVENTS] = it.exportJson() }
 
                 val json = GSON.toJson(backup)
                 val checksum = sha256Hex(json)
@@ -445,7 +453,9 @@ class DataManager private constructor() {
                     return false // 数据体不完整
                 }
                 val version = dataObj.get(BACKUP_KEY_VERSION).asInt
-                if (version != BACKUP_FORMAT_VERSION) {
+                // v2=无 webevent 分区的旧备份；v3=含规则分区。二者均可导入
+                // （仅向后兼容一版，超龄版本仍拒绝——无旧版数据兼容政策）
+                if (version != BACKUP_FORMAT_VERSION && version != BACKUP_FORMAT_VERSION - 1) {
                     throw InvalidChecksumException(
                         "Unsupported backup format version: " + version
                     )
@@ -466,6 +476,14 @@ class DataManager private constructor() {
                 if (loadedSettings != null) {
                     _settings = loadedSettings
                     saveGlobalSettings()
+                }
+                // C1：v3 备份恢复规则分区（缺失/损坏降级为不恢复，不阻断）
+                if (version >= BACKUP_FORMAT_VERSION &&
+                    dataObj.has(BACKUP_KEY_WEBEVENTS)
+                ) {
+                    webeventBackup?.importJson(
+                        dataObj.get(BACKUP_KEY_WEBEVENTS).asJsonObject
+                    )
                 }
                 result = true
             }
@@ -535,7 +553,7 @@ class DataManager private constructor() {
         private const val SHARED_PREF_GLOBAL_SETTINGS_JSON = "globalSettingsStoredAsJson"
 
         /** 备份格式版本（D15：版本化 JSON，不兼容旧版） */
-        private const val BACKUP_FORMAT_VERSION = 2
+        private const val BACKUP_FORMAT_VERSION = 3
 
         // 备份 JSON 键（导出/导入两侧共用——内联字符串一旦写读不一致即数据丢失）
         private const val BACKUP_KEY_CHECKSUM = "checksum"
@@ -543,6 +561,7 @@ class DataManager private constructor() {
         private const val BACKUP_KEY_VERSION = "version"
         private const val BACKUP_KEY_WEBSITES = "websites"
         private const val BACKUP_KEY_SETTINGS = "settings"
+        private const val BACKUP_KEY_WEBEVENTS = "webevents"
 
         /** 共享 Gson 实例（线程安全）——避免每次读写都新建（saveWebAppData 为热路径） */
         private val GSON = Gson()

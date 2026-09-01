@@ -96,6 +96,7 @@ import com.cylonid.nativealpha.util.DateUtils
 import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.util.EntryPointUtils
 import com.cylonid.nativealpha.util.LocaleUtils
+import com.cylonid.nativealpha.util.LoadFailureClassifier
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.StatsRecorder
 import com.cylonid.nativealpha.util.WebViewSetup
@@ -297,6 +298,22 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
         // 成功加载即停止断线探测（恢复闭环完成）；失败页的 finished
         // 不算成功（lastMainFrameFailed），监视继续等探测通过
         if (!lastMainFrameFailed) stopReconnectWatch()
+        // hook 存活探针：规则失效显式提示的数据源——注入过的幂等标记在
+        // SPA 换文档/站点改版后是否仍在（站点改版致 hook 挂载失败时，
+        // 规则入口卡显示「可能失效」而非静默无效）
+        if (!lastMainFrameFailed &&
+            com.cylonid.nativealpha.webevent.EventRuleStore.hasActiveRules(webappID)
+        ) {
+            wv?.evaluateJavascript(
+                "String(window." +
+                    com.cylonid.nativealpha.webevent.JsHookScript.IDEMPOTENCY_FLAG +
+                    " === true)"
+            ) { result ->
+                com.cylonid.nativealpha.webevent.WebeventRuntime.onHookProbe(
+                    webappID, result?.contains("true") == true
+                )
+            }
+        }
     }
 
     override fun showCustomErrorPage(code: String?, desc: String?) {
@@ -1076,11 +1093,20 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
             val lang = LocaleUtils.fileEnding
             val safeCode = code ?: ""
             val safeDesc = desc ?: ""
+            // 本地化原因行（分类驱动）：证书/地址类终态给出可行动提示，
+            // 瞬态失败给「会自动恢复」预期
+            val reasonRes = when (LoadFailureClassifier.classify(safeCode, safeDesc)) {
+                LoadFailureClassifier.Kind.SECURITY -> R.string.load_failure_hint_security
+                LoadFailureClassifier.Kind.BAD_ADDRESS -> R.string.load_failure_hint_bad_address
+                LoadFailureClassifier.Kind.RETRYABLE -> R.string.load_failure_hint_retryable
+            }
+            val encodedReason = java.net.URLEncoder.encode(getString(reasonRes), "UTF-8")
             // URL 编码 desc（含空格/特殊字符安全）
             val encodedDesc = java.net.URLEncoder.encode(safeDesc, "UTF-8")
             wv!!.loadUrl(
                 "file:///android_asset/errorSite/error_" + lang
                     + ".html?code=" + safeCode + "&desc=" + encodedDesc
+                    + "&reason=" + encodedReason
             )
         } catch (ignored: Exception) {
             // 错误页加载失败静默（保持现状）

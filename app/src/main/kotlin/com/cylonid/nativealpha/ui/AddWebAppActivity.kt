@@ -109,13 +109,27 @@ class AddWebAppActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         // 状态栏/虚拟键跟随主题（切换主题后刷新颜色）
         ThemeUtils.applySystemBarColors(this)
+        // 分享深链预填（C-分享）：URL/名称由 MainActivity 经 SiteShareCodec
+        // 校验后传入——本页只消费，不再做安全判定
+        val prefillUrl = intent.getStringExtra(EXTRA_PREFILL_URL) ?: ""
+        val prefillName = intent.getStringExtra(EXTRA_PREFILL_NAME) ?: ""
         setContent {
             AppMaterialTheme {
                 AddWebAppScreen(
-                    onBack = { finish() }
+                    onBack = { finish() },
+                    initialUrl = prefillUrl,
+                    initialName = prefillName
                 )
             }
         }
+    }
+
+    companion object {
+        /** 分享深链导入的预填 URL（已通过 SiteShareCodec fail-closed 校验） */
+        const val EXTRA_PREFILL_URL = "extra_prefill_url"
+
+        /** 分享深链导入的预填名称 */
+        const val EXTRA_PREFILL_NAME = "extra_prefill_name"
     }
 }
 
@@ -123,10 +137,12 @@ class AddWebAppActivity : AppCompatActivity() {
 @Composable
 private fun AddWebAppScreen(
     onBack: () -> Unit,
+    initialUrl: String = "",
+    initialName: String = "",
 ) {
     var step by remember { mutableIntStateOf(1) }
-    var urlText by remember { mutableStateOf("") }
-    var nameText by remember { mutableStateOf("") }
+    var urlText by remember { mutableStateOf(initialUrl) }
+    var nameText by remember { mutableStateOf(initialName) }
     var urlError by remember { mutableStateOf<String?>(null) }
     var isFetching by remember { mutableStateOf(false) }
     var fetchedTitle by remember { mutableStateOf<String?>(null) }

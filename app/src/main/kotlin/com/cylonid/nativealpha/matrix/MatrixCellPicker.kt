@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.util.SiteHealthRegistry
 import com.cylonid.nativealpha.util.UrlUtils
 import com.cylonid.nativealpha.util.WebAppIconManager
 import androidx.compose.runtime.getValue
@@ -135,6 +136,14 @@ internal fun CellPickerSheet(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
+                                // 站点健康：本会话加载失败过 → 选站前先知道
+                                if (SiteHealthRegistry.statusOf(site.ID) == false) {
+                                    Text(
+                                        text = stringResource(R.string.site_health_recent_failure),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
                             }
                         }
                     }

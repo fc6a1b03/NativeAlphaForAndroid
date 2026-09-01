@@ -137,6 +137,13 @@ internal object EventRuleStore {
         }
     }
 
+    /** 备份导入恢复（C1）：整体替换内存态并落盘（走单写者队列保持纪律） */
+    fun restoreForBackup(rules: List<EventRule>, mutedSites: Set<Int>) {
+        _rules.value = rules.sortedBy { it.createdAt }
+        _mutedSites.value = mutedSites
+        enqueuePersist()
+    }
+
     private fun enqueuePersist() {
         persistQueue.value = Snapshot(_rules.value.toList(), _mutedSites.value.toSet())
     }

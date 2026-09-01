@@ -66,6 +66,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.util.SiteHealthRegistry
 import com.cylonid.nativealpha.util.WebAppIconManager
 import android.graphics.Bitmap
 
@@ -366,6 +367,16 @@ private fun WebAppCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                // 站点健康（presence 语义）：本会话加载失败过才显示——
+                // null=未观测、true=健康均不占视觉（诚实且零噪音）
+                if (SiteHealthRegistry.statusOf(webApp.ID) == false) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(R.string.site_health_recent_failure),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
 
             // 更多菜单

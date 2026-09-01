@@ -43,6 +43,9 @@ internal fun EventsEntrySection(webApp: WebApp) {
     val count = rules.count { it.webappId == webApp.ID }
     val context = androidx.compose.ui.platform.LocalContext.current
     val entrySubtitle = stringResource(R.string.webevent_entry_subtitle)
+    // hook 失效显式提示：本会话探针回传 false（站点改版致 hook 未挂载）
+    // 时给出警示——失效可见，而非静默无效
+    val hookStale = WebeventRuntime.hookLiveness(webApp.ID) == false
 
     Row(
         modifier = Modifier
@@ -82,6 +85,13 @@ internal fun EventsEntrySection(webApp: WebApp) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (count > 0 && hookStale) {
+                Text(
+                    text = stringResource(R.string.webevent_hook_stale),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
         if (count > 0) {
             Badge { Text(count.toString()) }
