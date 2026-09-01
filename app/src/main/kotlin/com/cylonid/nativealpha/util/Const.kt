@@ -15,8 +15,6 @@ object Const {
     /** 扫码临时浏览：携带原始 URL 直接进页面（不注册站点，ID 恒为负） */
     const val INTENT_RAW_URL = "raw_url"
 
-    const val NO_CONTAINER = -1
-
     const val PERMISSION_RC_LOCATION = 123
     const val PERMISSION_CAMERA = 100
     const val PERMISSION_AUDIO = 101

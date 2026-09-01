@@ -51,7 +51,7 @@ class DataManagerGsonContractTest {
         assertEquals(7, obj.get("statLaunches").asInt)
     }
 
-    /** GlobalSettings 持久化字段名不漂移（含 snake_case 历史契约 clear_cookies） */
+    /** GlobalSettings 持久化字段名不漂移（v2.2.13 审计删除死字段 clear_cookies） */
     @Test
     fun globalSettingsJsonFieldNames_stayStable() {
         val settings = GlobalSettings()
@@ -63,7 +63,6 @@ class DataManagerGsonContractTest {
 
         assertTrue(obj.has("themeId"))
         assertTrue(obj.has("globalWebApp"))
-        assertTrue(obj.has("clear_cookies")) // snake_case 历史契约，禁止顺手改名
         assertTrue(obj.has("isTwoFingerMultitouch"))
         assertEquals(2, obj.get("themeId").asInt)
     }

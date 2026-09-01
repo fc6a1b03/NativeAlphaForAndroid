@@ -399,18 +399,6 @@ internal fun MiscSection(
             value = modified.pageZoom,
             onValueChange = { updateSettings { pageZoom = it } }
         )
-        WebAppSettingsSwitchRow(
-            title = stringResource(R.string.use_standard_context_menu_permanently),
-            checked = modified.alwaysUseFallbackContextMenu,
-            onCheckedChange = { updateSettings { alwaysUseFallbackContextMenu = it } },
-            description = stringResource(R.string.desc_standard_menu)
-        )
-        WebAppSettingsSwitchRow(
-            title = stringResource(R.string.allow_media_playback_in_background),
-            checked = modified.isAllowMediaPlaybackInBackground,
-            onCheckedChange = { updateSettings { isAllowMediaPlaybackInBackground = it } },
-            description = stringResource(R.string.desc_media_background)
-        )
     }
 }
 
