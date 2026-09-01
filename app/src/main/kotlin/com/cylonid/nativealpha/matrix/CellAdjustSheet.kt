@@ -64,12 +64,12 @@ internal fun CellAdjustSheet(
             OutlinedButton(
                 onClick = {
                     val screenCss = configuration.screenWidthDp
-                    val cols = MatrixEngine.columnCountOf(
+                    val cols = MatrixLayoutMath.columnCountOf(
                         engine.windowCount.value, cellIndex
                     )
                     val cellCss = (screenCss - PAGE_AND_GAP_DP) / cols
                     // fit 极端场景（6 窗）可能低于可靠下限，钳制后应用
-                    val fit = MatrixEngine.fitZoomPercent(cellCss, screenCss)
+                    val fit = MatrixLayoutMath.fitZoomPercent(cellCss, screenCss)
                         .coerceAtLeast(MatrixCellState.MIN_ZOOM_PERCENT)
                     zoomPct = fit.toFloat()
                     engine.applyCellAdjust(cellIndex, fit, textPct.toInt())

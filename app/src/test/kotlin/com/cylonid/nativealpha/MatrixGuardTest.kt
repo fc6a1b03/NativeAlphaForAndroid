@@ -6,7 +6,7 @@ import com.cylonid.nativealpha.matrix.MatrixCellUi
 import com.cylonid.nativealpha.matrix.MatrixCellUiState
 import com.cylonid.nativealpha.matrix.MatrixCrashBackoff
 import com.cylonid.nativealpha.matrix.MatrixDegrade
-import com.cylonid.nativealpha.matrix.MatrixEngine
+import com.cylonid.nativealpha.matrix.MatrixLayoutMath
 import com.cylonid.nativealpha.matrix.MatrixSessionState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -198,32 +198,32 @@ class MatrixGuardTest {
     /** 半格适配：168px 格子 / 360px 单屏 → 47%→收敛 30 下限之上取整口径 */
     @Test
     fun fitZoom_halfCellOnFullWidth() {
-        assertEquals(46, MatrixEngine.fitZoomPercent(cellWidthCss = 168, hostWidthCss = 360))
+        assertEquals(46, MatrixLayoutMath.fitZoomPercent(cellWidthCss = 168, hostWidthCss = 360))
     }
 
     /** 全宽格（放大态/单列布局）：fit=100 与宿主同源；窄到极限收敛 30 下限 */
     @Test
     fun fitZoom_clampsBothEnds() {
-        assertEquals(100, MatrixEngine.fitZoomPercent(cellWidthCss = 360, hostWidthCss = 360))
-        assertEquals(100, MatrixEngine.fitZoomPercent(cellWidthCss = 400, hostWidthCss = 360))
-        assertEquals(30, MatrixEngine.fitZoomPercent(cellWidthCss = 90, hostWidthCss = 360))
+        assertEquals(100, MatrixLayoutMath.fitZoomPercent(cellWidthCss = 360, hostWidthCss = 360))
+        assertEquals(100, MatrixLayoutMath.fitZoomPercent(cellWidthCss = 400, hostWidthCss = 360))
+        assertEquals(30, MatrixLayoutMath.fitZoomPercent(cellWidthCss = 90, hostWidthCss = 360))
     }
 
     /** 非法输入回退 100（同源），不产生 0/负缩放 */
     @Test
     fun fitZoom_invalidInputsFallBackToSameSource() {
-        assertEquals(100, MatrixEngine.fitZoomPercent(cellWidthCss = 0, hostWidthCss = 360))
-        assertEquals(100, MatrixEngine.fitZoomPercent(cellWidthCss = 168, hostWidthCss = -1))
+        assertEquals(100, MatrixLayoutMath.fitZoomPercent(cellWidthCss = 0, hostWidthCss = 360))
+        assertEquals(100, MatrixLayoutMath.fitZoomPercent(cellWidthCss = 168, hostWidthCss = -1))
     }
 
     /** 列数判定：2 窗/4-6 窗均 2 列；3 窗上 2 列下 1 列 */
     @Test
     fun columnCount_layoutAware() {
-        assertEquals(2, MatrixEngine.columnCountOf(2, 0))
-        assertEquals(2, MatrixEngine.columnCountOf(3, 0))
-        assertEquals(1, MatrixEngine.columnCountOf(3, 2))
-        assertEquals(2, MatrixEngine.columnCountOf(4, 3))
-        assertEquals(2, MatrixEngine.columnCountOf(6, 5))
+        assertEquals(2, MatrixLayoutMath.columnCountOf(2, 0))
+        assertEquals(2, MatrixLayoutMath.columnCountOf(3, 0))
+        assertEquals(1, MatrixLayoutMath.columnCountOf(3, 2))
+        assertEquals(2, MatrixLayoutMath.columnCountOf(4, 3))
+        assertEquals(2, MatrixLayoutMath.columnCountOf(6, 5))
     }
 
     // ===== 主帧加载失败转错误态（onCellLoadFailed 状态机） =====
@@ -231,15 +231,15 @@ class MatrixGuardTest {
     /** LOADING/ACTIVE 都可转 ERROR（缓存/重定向时序下 finished 先置 ACTIVE，error 后到） */
     @Test
     fun failureTransitional_coversLoadingAndActive() {
-        assertTrue(MatrixEngine.isFailureTransitional(MatrixCellUiState.LOADING))
-        assertTrue(MatrixEngine.isFailureTransitional(MatrixCellUiState.ACTIVE))
+        assertTrue(MatrixLayoutMath.isFailureTransitional(MatrixCellUiState.LOADING))
+        assertTrue(MatrixLayoutMath.isFailureTransitional(MatrixCellUiState.ACTIVE))
     }
 
     /** 占位/容量受限/错误态不可转：闸门语义不被覆盖，错误态幂等 */
     @Test
     fun failureTransitional_excludesPlaceholderCapacityAndError() {
-        assertFalse(MatrixEngine.isFailureTransitional(MatrixCellUiState.PLACEHOLDER))
-        assertFalse(MatrixEngine.isFailureTransitional(MatrixCellUiState.CAPACITY_LIMITED))
-        assertFalse(MatrixEngine.isFailureTransitional(MatrixCellUiState.ERROR))
+        assertFalse(MatrixLayoutMath.isFailureTransitional(MatrixCellUiState.PLACEHOLDER))
+        assertFalse(MatrixLayoutMath.isFailureTransitional(MatrixCellUiState.CAPACITY_LIMITED))
+        assertFalse(MatrixLayoutMath.isFailureTransitional(MatrixCellUiState.ERROR))
     }
 }

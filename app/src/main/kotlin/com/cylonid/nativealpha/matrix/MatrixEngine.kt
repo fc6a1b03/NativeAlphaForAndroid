@@ -3,15 +3,10 @@ package com.cylonid.nativealpha.matrix
 import android.app.ActivityManager
 import android.content.ComponentCallbacks2
 import android.content.Context
-import android.webkit.WebView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.cylonid.nativealpha.model.DataManager
-import com.cylonid.nativealpha.model.WebApp
-import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.SiteReconnectSupervisor
-import com.cylonid.nativealpha.util.LocaleUtils
-import com.cylonid.nativealpha.util.WebViewSetup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -21,57 +16,15 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 矩阵窗格运行态（五态机，规格 §4.3）。持久化只存 webappId/zoomPercent，
- * 其余是会话内瞬时状态。
- */
-internal enum class MatrixCellUiState {
-    /** 空占位：点击打开选择器 */
-    PLACEHOLDER,
-
-    /** 加载中：纯 Compose 轻指示器（不用 animal_walk，×4 即加载风暴） */
-    LOADING,
-
-    /** 活跃：工具条 + WebView 满格 */
-    ACTIVE,
-
-    /** 错误：渲染崩溃/加载失败，点击重新选择（手动重试重置退避） */
-    ERROR,
-
-    /** 容量受限：闸门拦截，点击重试（预算动态，退出其他应用后可进） */
-    CAPACITY_LIMITED
-}
-
-/** 窗格 UI 快照（StateFlow 驱动，Compose 只读渲染零决策） */
-internal data class MatrixCellUi(
-    /** 会话内唯一身份（拖拽排序的 Compose key；磁盘不存，进程内自增） */
-    val uid: Int = 0,
-    val state: MatrixCellUiState = MatrixCellUiState.PLACEHOLDER,
-    val webappId: Int = MatrixCellState.PLACEHOLDER_WEBAPP_ID,
-    val title: String = "",
-    /** 页面缩放 %（Q1 反转：格子视口小默认 80%，格内可调并持久化） */
-    val zoomPercent: Int = MatrixCellState.DEFAULT_ZOOM_PERCENT,
-    /** 字体缩放 %（相对站点 textZoom；默认 90%「小一级」） */
-    val textZoomPercent: Int = MatrixCellState.DEFAULT_TEXT_ZOOM_PERCENT
-) {
-    /** 绑定站点快照（工具条标题/favicon 用；占位为 null） */
-    val webapp: WebApp?
-        get() = if (webappId == MatrixCellState.PLACEHOLDER_WEBAPP_ID) {
-            null
-        } else {
-            DataManager.getInstance().getWebApp(webappId)
-        }
-}
-
-/** 引擎一次性事件（UI 映射为 Snackbar 文案；extraBufferCapacity 防丢） */
-internal enum class MatrixNotice { DEGRADED, CRASH_BACKOFF }
-
-/**
  * 多窗矩阵引擎（P4 编排层，activity 作用域）。
+ *
+ * 职责分包：状态模型见 [MatrixCellUi]；布局几何纯函数见 [MatrixLayoutMath]；
+ * WebView 实例所有权见 [MatrixCellWebViewPool]；加载执行见 [MatrixCellLoader]；
+ * 会话恢复/落盘见 [MatrixSessionGateway]——本类只做五态机编排与对外门面。
  *
  * 线程纪律（总纲决策）：
  * - WebView 创建/loadUrl/销毁一律主线程（WebView 是 UI 组件）
@@ -86,7 +39,7 @@ internal enum class MatrixNotice { DEGRADED, CRASH_BACKOFF }
  */
 internal class MatrixEngine(
     private val lifecycleOwner: LifecycleOwner,
-    private val appContext: Context
+    internal val appContext: Context
 ) {
 
     /** Activity Context（对话框/Intent 用；matrix 格的 siteContext） */
@@ -100,9 +53,9 @@ internal class MatrixEngine(
     private val _notices = MutableSharedFlow<MatrixNotice>(extraBufferCapacity = 8)
     val notices: SharedFlow<MatrixNotice> = _notices.asSharedFlow()
 
-    /** 设备不足（QB 入口预检/闸门首窗拦截）：整页劝退提示 */
-    private val _deviceUnsupported = MutableStateFlow(false)
-    val deviceUnsupported: StateFlow<Boolean> = _deviceUnsupported.asStateFlow()
+    /** 设备不足（QB 入口预检/闸门首窗拦截）：整页劝退提示（网关/引擎写） */
+    internal val deviceUnsupportedInternal = MutableStateFlow(false)
+    val deviceUnsupported: StateFlow<Boolean> = deviceUnsupportedInternal.asStateFlow()
 
     /** 原地放大的窗格下标（D4：null=网格态；放大态顶栏隐藏由 UI 处理） */
     private val _zoomedCellIndex = MutableStateFlow<Int?>(null)
@@ -115,11 +68,18 @@ internal class MatrixEngine(
         MutableStateFlow(List(MatrixSessionState.DEFAULT_WINDOW_COUNT) { MatrixCellUi(uid = newCellUid()) })
     val cells: StateFlow<List<MatrixCellUi>> = _cells.asStateFlow()
 
-    /** 宿主窗格持有的 WebView（下标对齐 cells；占位为 null） */
-    private val cellWebViews = arrayOfNulls<WebView>(MatrixSessionState.MAX_WINDOW_COUNT)
+    /** 协作方写口（网关恢复/加载器状态守卫；matrix 包内聚，不对外） */
+    internal val windowCountInternal: MutableStateFlow<Int> get() = _windowCount
+    internal val cellsInternal: MutableStateFlow<List<MatrixCellUi>> get() = _cells
 
-    /** 错峰串行加载任务（格释放/窗口收缩时取消，防竞态） */
-    private val staggeredLoadJobs = arrayOfNulls<Job>(MatrixSessionState.MAX_WINDOW_COUNT)
+    /** WebView 实例池（挂载/换位/释放/整页暂停恢复的所有权承载） */
+    internal val cellPool = MatrixCellWebViewPool(appContext)
+
+    /** 加载执行（错峰 loadUrl + WebView 创建 + 加载头） */
+    private val cellLoader = MatrixCellLoader(this)
+
+    /** 会话恢复/落盘（DataStore 边界） */
+    private val sessionGateway = MatrixSessionGateway(this)
 
     /**
      * 设备呈现档位（本机 Slider 上限）：按真实资源探测一次——RAM < 4GB
@@ -174,13 +134,10 @@ internal class MatrixEngine(
     /** 格会话身份自增（拖拽排序的稳定 Compose key） */
     private var cellUidSeq = 0
 
-    private fun newCellUid(): Int = ++cellUidSeq
+    internal fun newCellUid(): Int = ++cellUidSeq
 
     /** 警示条本会话已弹标记（忽略后本会话不弹） */
     private var memoryWarningShown = false
-
-    /** 持久化单写者队列（conflate：写期间的新快照合并，最新胜出且有序） */
-    private val persistQueue = MutableStateFlow<MatrixSessionState?>(null)
 
     init {
         // QB 前置：跨会话载入已校准的每窗边际成本（首装 ≤0 → 预检 fail-open）
@@ -189,67 +146,15 @@ internal class MatrixEngine(
                 MatrixSessionStore.readPerCellBytes(appContext)
             }
         }
-        mainScope.launch {
-            persistQueue.collect { snapshot ->
-                if (snapshot != null) {
-                    withContext(Dispatchers.IO) {
-                        MatrixSessionStore.write(appContext, snapshot)
-                    }
-                }
-            }
-        }
+        sessionGateway.startPersistCollector()
     }
+
     /** 主线程调度（引擎全部可变状态只在主线程触碰） */
-    private val mainScope get() = lifecycleOwner.lifecycleScope
+    internal val mainScope get() = lifecycleOwner.lifecycleScope
 
-    // ===== 会话恢复（进入矩阵调用一次） =====
+    // ===== 会话恢复（进入矩阵调用一次，实现在会话网关） =====
 
-    /**
-     * 从 DataStore 恢复布局：归一化 → 已删站点过滤 → 窗格回填 → 绑定格
-     * 自动重载（D8：退出即释放，再进「布局在、页面重载」——重载走
-     * pickSite 完整闸门/错峰链路，不绕过容量守卫）。已删站点格自动回占位。
-     * 恢复完成后跑 QB 入口预检（与闸门同一判定函数，fail-open）：预算连
-     * 首窗边际都盖不住 → 整页劝退，不让用户见空网格后逐格碰壁。
-     *
-     * 竞态防护（release 实测）：站点过滤必须等 DataManager 首次加载完成
-     * （revision>0）——App.onCreate 预热是后台线程，R8 下 DataStore 读取
-     * 可能快于列表加载，拿空 items 过滤会把全部绑定格误清成占位。
-     */
-    fun restoreSession() {
-        mainScope.launch {
-            val session = withContext(Dispatchers.IO) { MatrixSessionStore.read(appContext) }
-            val loaded = DataManager.getInstance().webAppsFlow
-                .first { it.revision > 0 }
-            val activeIds = loaded.items
-                .filter { it.isActiveEntry }
-                .map { it.ID }
-                .toSet()
-            val restored = session.normalized()
-                .clampToMaxWindows(maxWindows)
-                .filteredByActiveSites(activeIds)
-            _windowCount.value = restored.windowCount
-            _cells.value = restored.cells.map { cell ->
-                MatrixCellUi(
-                    uid = newCellUid(),
-                    webappId = cell.webappId,
-                    // 会话遗留的极端缩放值（历史误操作/旧版 fit）钳回可靠
-                    // 区间：44% 这类值会让 chromium 绘制截断（只画上半）
-                    zoomPercent = MatrixCellState.clampZoomPercent(cell.zoomPercent),
-                    textZoomPercent = cell.textZoomPercent
-                )
-            }
-            // QB 入口预检（边际未就绪时 readPerCellBytes 仍在异步载入——
-            // fail-open 语义下预检放行，真正的拦截由首窗闸门兜底）
-            val budget = withContext(Dispatchers.IO) { readBudget() }
-            if (MatrixCapacityGate.decide(0, budget) == MatrixCapacityGate.Decision.DeviceUnsupported) {
-                _deviceUnsupported.value = true
-                return@launch
-            }
-            restored.cells.forEachIndexed { index, cell ->
-                if (!cell.isPlaceholder) pickSite(index, cell.webappId)
-            }
-        }
-    }
+    fun restoreSession() = sessionGateway.restoreSession()
 
     // ===== 顶栏 Slider：增减窗（D2） =====
 
@@ -317,9 +222,9 @@ internal class MatrixEngine(
         mainScope.launch {
             val budget = withContext(Dispatchers.IO) { readBudget() }
             when (MatrixCapacityGate.decide(countBusyCells(), budget)) {
-                MatrixCapacityGate.Decision.Allow -> loadCell(cellIndex, webapp)
+                MatrixCapacityGate.Decision.Allow -> cellLoader.loadCell(cellIndex, webapp)
                 MatrixCapacityGate.Decision.DeviceUnsupported -> {
-                    _deviceUnsupported.value = true
+                    deviceUnsupportedInternal.value = true
                     _cells.value = _cells.value.mapIndexed { i, cell ->
                         if (i == cellIndex) MatrixCellUi(uid = newCellUid()) else cell
                     }
@@ -361,9 +266,9 @@ internal class MatrixEngine(
                         return@launch
                     }
                     when (MatrixCapacityGate.decide(countBusyCells(), budget)) {
-                        MatrixCapacityGate.Decision.Allow -> loadCell(cellIndex, webapp)
+                        MatrixCapacityGate.Decision.Allow -> cellLoader.loadCell(cellIndex, webapp)
                         MatrixCapacityGate.Decision.DeviceUnsupported -> {
-                            _deviceUnsupported.value = true
+                            deviceUnsupportedInternal.value = true
                             resetCell(cellIndex)
                         }
                         MatrixCapacityGate.Decision.LimitCell -> {
@@ -420,71 +325,14 @@ internal class MatrixEngine(
         list[b] = tmpUi
         _cells.value = list
 
-        val tmpWv = cellWebViews[a]
-        cellWebViews[a] = cellWebViews[b]
-        cellWebViews[b] = tmpWv
-
-        val tmpJob = staggeredLoadJobs[a]
-        staggeredLoadJobs[a] = staggeredLoadJobs[b]
-        staggeredLoadJobs[b] = tmpJob
+        cellPool.swapSlots(a, b)
 
         persistSession()
     }
 
     /** 目标格映射：direction(dx,dy 主方向) 下按当前布局的相邻格；越界返回 -1 */
-    fun neighborIndex(index: Int, dx: Float, dy: Float): Int {
-        val count = _windowCount.value
-        val horizontal = kotlin.math.abs(dx) >= kotlin.math.abs(dy)
-        return when (count) {
-            // 2 窗=左右分栏（用户定调默认并排）：横向换位
-            2 -> when {
-                horizontal && dx > 0 -> if (index == 0) 1 else -1
-                horizontal && dx < 0 -> if (index == 1) 0 else -1
-                else -> -1
-            }
-            3 -> when {
-                horizontal && dx > 0 -> if (index == 0) 1 else -1
-                horizontal && dx < 0 -> if (index == 1) 0 else -1
-                !horizontal && dy > 0 -> if (index <= 1) 2 else -1
-                !horizontal && dy < 0 -> if (index == 2) 0 else -1
-                else -> -1
-            }
-            // 5 = 上 3 下 2（上排行内 0-1-2、下排行内 3-4；纵向 0↔3、1↔4）
-            5 -> when {
-                horizontal && dx > 0 -> when (index) {
-                    0 -> 1
-                    1 -> 2
-                    3 -> 4
-                    else -> -1
-                }
-                horizontal && dx < 0 -> when (index) {
-                    1 -> 0
-                    2 -> 1
-                    4 -> 3
-                    else -> -1
-                }
-                !horizontal && dy > 0 -> when (index) {
-                    0 -> 3
-                    1 -> 4
-                    else -> -1
-                }
-                !horizontal && dy < 0 -> when (index) {
-                    3 -> 0
-                    4 -> 1
-                    else -> -1
-                }
-                else -> -1
-            }
-            // 4（2×2）与 6（2×3）同构：每行 2 列，纵向 ±一整行
-            else -> when {
-                horizontal && dx > 0 -> if (index % 2 == 0) index + 1 else -1
-                horizontal && dx < 0 -> if (index % 2 == 1) index - 1 else -1
-                !horizontal && dy > 0 -> if (index / 2 < count / 2 - 1) index + 2 else -1
-                !horizontal && dy < 0 -> if (index / 2 > 0) index - 2 else -1
-                else -> -1
-            }
-        }
-    }
+    fun neighborIndex(index: Int, dx: Float, dy: Float): Int =
+        MatrixLayoutMath.neighborIndex(_windowCount.value, index, dx, dy)
 
     /** 格内显示调节（工具条调节 sheet 实时应用 + 持久化） */
     fun applyCellAdjust(cellIndex: Int, zoomPercent: Int, textZoomPercent: Int) {
@@ -496,7 +344,7 @@ internal class MatrixEngine(
         // （UI 层按 zoomPercent 缩放渲染 + WebView 布局宽等比放大）——
         // CSS zoom 注入已废弃：实测它只缩放渲染不改变布局视口
         // （innerWidth 恒为格子宽，fixed/100vh 布局错乱且无法「按单屏布局」）
-        cellWebViews.getOrNull(cellIndex)?.let { webview ->
+        cellPool.webViewAt(cellIndex)?.let { webview ->
             val webapp = old.webapp
             webview.settings.textZoom =
                 ((webapp?.textZoom ?: 100) * textZoomPercent / 100f).toInt().coerceIn(50, 300)
@@ -516,62 +364,11 @@ internal class MatrixEngine(
         _zoomedCellIndex.value = null
     }
 
-    /**
-     * UI 挂载点（AndroidView factory）：返回该格 WebView 实例；跨槽位
-     * 复用（放大/网格切换布局重建）先脱离旧父容器，同实例不重载。
-     * 兜底空 View：仅命中状态竞态的瞬时空窗（正常路径 ACTIVE 必有实例）。
-     */
-    internal fun attachCellWebView(cellIndex: Int): android.view.View {
-        val webview = cellWebViews.getOrNull(cellIndex)
-            ?: return android.view.View(appContext)
-        (webview.parent as? android.view.ViewGroup)?.removeView(webview)
-        return webview
-    }
+    /** UI 挂载点（AndroidView factory）：委托实例池，跨槽位复用不重载 */
+    internal fun attachCellWebView(cellIndex: Int): android.view.View =
+        cellPool.attach(cellIndex)
 
-    // ===== 加载执行（主线程 WebView 操作 + Q8 错峰） =====
-
-    /**
-     * 创建 WebView 并错峰 loadUrl（多窗同时就绪时 ~150ms 间隔串行，
-     * 兼任闸门比对窗口；Q8 参数实测定参入口 [STAGGER_LOAD_MS]）。
-     */
-    private fun loadCell(cellIndex: Int, webapp: WebApp) {
-        staggeredLoadJobs.getOrNull(cellIndex)?.cancel()
-        staggeredLoadJobs[cellIndex] = mainScope.launch {
-            // 错峰：忙格数 × 间隔（首窗立即；闸门比对已在此窗口内完成）
-            delay(countBusyCells() * STAGGER_LOAD_MS)
-            if (_cells.value.getOrNull(cellIndex)?.state != MatrixCellUiState.LOADING) {
-                return@launch // 期间被关闭/重置：放弃本次加载
-            }
-            val webview = createCellWebView(cellIndex, webapp)
-            cellWebViews[cellIndex] = webview
-            FeatureMetrics.count("matrix", "cell_load")
-            webview.loadUrl(webapp.baseUrl, buildLoadHeaders(webapp))
-        }
-    }
-
-    private fun createCellWebView(cellIndex: Int, webapp: WebApp): WebView {
-        val webview = WebView(appContext)
-        // 矩阵格关闭离屏预栅格化（preraster ×4 = 离屏栅格/合成压力放大，
-        // 实测 4 窗满载滚动 92.6% 卡顿帧 vs 单窗 10.6%——总纲定参条款落地）；
-        // 不写全局 Cookie 接受开关（矩阵 D1 只读共享，防污染宿主站点）
-        WebViewSetup.applySiteSettings(
-            webview, webapp,
-            enablePreRaster = false, configureGlobalCookieAccept = false
-        )
-        // Q1 反转（用户实测格子视口小）：启用捏合缩放；字体按格子留存值
-        // 相对站点 textZoom 缩放（默认 90%「小一级」）
-        webview.settings.setSupportZoom(true)
-        webview.settings.builtInZoomControls = true
-        webview.settings.displayZoomControls = false
-        val cell = _cells.value.getOrNull(cellIndex)
-        if (cell != null) {
-            webview.settings.textZoom =
-                ((webapp.textZoom) * cell.textZoomPercent / 100f).toInt().coerceIn(50, 300)
-        }
-        webview.webViewClient = MatrixCellClient(MatrixCellContext(this, cellIndex, webapp.ID))
-        webview.webChromeClient = MatrixCellChromeClient(this, cellIndex)
-        return webview
-    }
+    // ===== client/chrome client 回调（格状态机迁移） =====
 
     /** 页面开始加载（client 回调）：重置格标题（新导航） */
     internal fun onCellLoadStarted(cellIndex: Int) {
@@ -627,7 +424,7 @@ internal class MatrixEngine(
      */
     internal fun onCellLoadFailed(cellIndex: Int) {
         val state = _cells.value.getOrNull(cellIndex)?.state ?: return
-        if (isFailureTransitional(state)) {
+        if (MatrixLayoutMath.isFailureTransitional(state)) {
             releaseCell(cellIndex)
             markCellError(cellIndex)
             // 放大格失败：退出放大视图让错误态正常渲染（与减窗路径同款联动）
@@ -725,63 +522,39 @@ internal class MatrixEngine(
         persistSession()
     }
 
-    // ===== 生命周期（D8） =====
+    // ===== 生命周期（D8；WebView 实例操作委托实例池） =====
 
     /** onPause：全窗 onPause()（页面级暂停） */
-    fun onPauseCells() {
-        cellWebViews.forEach { it?.onPause() }
-    }
+    fun onPauseCells() = cellPool.pauseCells()
 
     /** onResume：全窗对称恢复 */
-    fun onResumeCells() {
-        cellWebViews.forEach { it?.onResume() }
-    }
+    fun onResumeCells() = cellPool.resumeCells()
 
     /** onStop：pauseTimers 全局暂停（矩阵整页后台语义一致） */
-    fun stopCellTimers() {
-        cellWebViews.forEach { it?.pauseTimers() }
-    }
+    fun stopCellTimers() = cellPool.stopTimers()
 
     /** onStart：全局对称恢复 */
-    fun resumeCellTimers() {
-        cellWebViews.forEach { it?.resumeTimers() }
-    }
+    fun resumeCellTimers() = cellPool.resumeTimers()
 
     /** onDestroy：全量 releaseCell，进程内不驻留 WebView（D8） */
     fun releaseAll() {
-        staggeredLoadJobs.forEach { it?.cancel() }
-        cellWebViews.forEachIndexed { index, _ -> releaseCell(index) }
+        cellPool.releaseAll()
+        reconnectSupervisors.forEachIndexed { index, _ -> stopCellReconnect(index) }
     }
 
     // ===== 内部工具 =====
 
-    /**
-     * releaseCell 四步（确定性释放，触发点：close/减窗/降级/崩溃清理/
-     * onDestroy）：cancel 挂起加载 → stopLoading → 层级移除 → onPause →
-     * destroy。重用一律新实例，不做对象池（总纲「不做预热池」）。
-     */
+    /** 确定性释放：断线监督停止 + 实例池四步释放（触发点见池释放注释） */
     private fun releaseCell(cellIndex: Int) {
         stopCellReconnect(cellIndex)
-        staggeredLoadJobs.getOrNull(cellIndex)?.cancel()
-        staggeredLoadJobs[cellIndex] = null
-        val webview = cellWebViews.getOrNull(cellIndex) ?: return
-        cellWebViews[cellIndex] = null
-        try {
-            webview.stopLoading()
-            (webview.parent as? android.view.ViewGroup)?.removeView(webview)
-            webview.onPause()
-            webview.destroy()
-        } catch (ignored: Exception) {
-            // 销毁竞态（层级/内核态异常）：释放纪律优先，不阻断其余格
-        }
+        cellPool.releaseAt(cellIndex)
     }
 
-    private fun countBusyCells(): Int = _cells.value.count {
+    internal fun countBusyCells(): Int = _cells.value.count {
         it.state == MatrixCellUiState.ACTIVE || it.state == MatrixCellUiState.LOADING
     }
 
-
-    private fun readBudget(): MatrixCapacityGate.Budget? {
+    internal fun readBudget(): MatrixCapacityGate.Budget? {
         val avail = MatrixMemorySampler.availMemBytes(appContext)
         val threshold = MatrixMemorySampler.lowMemoryThresholdBytes(appContext)
         if (avail <= 0 || threshold <= 0) return null // 系统读数失败 → fail-open
@@ -792,24 +565,7 @@ internal class MatrixEngine(
     }
 
     private fun persistSession() {
-        val snapshot = MatrixSessionState(
-            windowCount = _windowCount.value,
-            cells = _cells.value.map { MatrixCellState(it.webappId, it.zoomPercent, it.textZoomPercent) }
-        )
-        // 单写者队列：连续变更（如 Slider 一次跨两档）只保留最新快照且按序
-        // 落盘——各自发射独立协程在 Dispatchers.IO 上不保序，旧快照可能
-        // 覆盖新快照（实测踩坑：4 窗状态被前一档 3 窗快照回写）
-        persistQueue.value = snapshot
-    }
-
-    /** 窗格加载头（与宿主 initCustomHeaders 同源：DNT/UA 清标/语言/省流） */
-    private fun buildLoadHeaders(webapp: WebApp): Map<String, String> {
-        val headers = HashMap<String, String>()
-        headers["DNT"] = "1"
-        headers["X-REQUESTED-WITH"] = ""
-        headers["Accept-Language"] = LocaleUtils.acceptLanguage
-        if (webapp.isSendSavedataRequest) headers["Save-Data"] = "on"
-        return headers
+        sessionGateway.persistSession()
     }
 
     companion object {
@@ -818,35 +574,5 @@ internal class MatrixEngine(
 
         /** 崩溃风暴静默期：N 格回调在此窗口内到达视为同一渲染进程死亡 */
         const val CRASH_BURST_SETTLE_MS = 600L
-
-        /**
-         * 主帧加载失败可转错误态的状态集合（纯函数，可单测）：
-         * LOADING=经典时序（error 先于 finished）；ACTIVE=缓存/重定向时序
-         * （finished 先把格置 ACTIVE，主帧 error 后到——飞行模式实测复现）。
-         * CAPACITY_LIMITED（闸门语义不覆盖）/占位/错误态不在列。
-         */
-        internal fun isFailureTransitional(state: MatrixCellUiState): Boolean =
-            state == MatrixCellUiState.LOADING || state == MatrixCellUiState.ACTIVE
-
-        /**
-         * 「适应宽度」缩放（纯函数，可单测）：格子物理宽度只有半屏时，
-         * width=device-width 页面按格子宽（~168px）布局导致挤压换行——
-         * 缩小 zoom 让布局视口 ≈ 单屏宽，页面按单屏布局整体缩进格子
-         * （显示效果与单屏一致，代价是等比缩小的字号，用户可再调）。
-         *
-         * @param cellWidthCss 格子 CSS 宽（px）
-         * @param hostWidthCss 宿主单屏 CSS 宽（px）
-         */
-        internal fun fitZoomPercent(cellWidthCss: Int, hostWidthCss: Int): Int {
-            if (cellWidthCss <= 0 || hostWidthCss <= 0) return 100
-            return (cellWidthCss.toFloat() / hostWidthCss * 100).toInt().coerceIn(30, 100)
-        }
-
-        /** 该格所在布局的列数（fit 计算用；3 窗为上 2 列/下 1 列特殊结构） */
-        internal fun columnCountOf(windowCount: Int, cellIndex: Int): Int = when {
-            windowCount == 3 -> if (cellIndex < 2) 2 else 1
-            windowCount == 2 -> 2
-            else -> 2 // 4=2×2、5=上3下2、6=2×3——均为 2 列网格
-        }.coerceIn(1, windowCount)
     }
 }
