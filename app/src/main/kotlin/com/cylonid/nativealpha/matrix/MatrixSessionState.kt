@@ -101,5 +101,18 @@ data class MatrixCellState(
 
         /** 字体同源：默认 100%（不相对站点 textZoom 额外缩小），调节保留 */
         const val DEFAULT_TEXT_ZOOM_PERCENT = 100
+
+        /**
+         * 缩放下限 50%：低于该值 WebView 被等比拉到超大测量尺寸（50% 即
+         * 约 2 倍容器高）后 chromium 硬件合成会截断绘制（实测 44% 时网页
+         * 只画上半、50% 完整），且文字已不可读——渲染可靠性优先收敛。
+         * 「适应宽度」在 6 窗极端场景的 fit 值也由应用处 coerce 到此下限。
+         */
+        const val MIN_ZOOM_PERCENT = 50
+        const val MAX_ZOOM_PERCENT = 150
+
+        /** 缩放可靠区间钳制（恢复/调节/渲染统一口径） */
+        fun clampZoomPercent(percent: Int): Int =
+            percent.coerceIn(MIN_ZOOM_PERCENT, MAX_ZOOM_PERCENT)
     }
 }

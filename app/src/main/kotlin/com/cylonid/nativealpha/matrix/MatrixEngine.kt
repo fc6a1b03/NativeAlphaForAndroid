@@ -232,7 +232,9 @@ internal class MatrixEngine(
                 MatrixCellUi(
                     uid = newCellUid(),
                     webappId = cell.webappId,
-                    zoomPercent = cell.zoomPercent,
+                    // 会话遗留的极端缩放值（历史误操作/旧版 fit）钳回可靠
+                    // 区间：44% 这类值会让 chromium 绘制截断（只画上半）
+                    zoomPercent = MatrixCellState.clampZoomPercent(cell.zoomPercent),
                     textZoomPercent = cell.textZoomPercent
                 )
             }
@@ -488,7 +490,7 @@ internal class MatrixEngine(
     fun applyCellAdjust(cellIndex: Int, zoomPercent: Int, textZoomPercent: Int) {
         val old = _cells.value.getOrNull(cellIndex) ?: return
         _cells.value = _cells.value.mapIndexed { i, cell ->
-            if (i == cellIndex) cell.copy(zoomPercent = zoomPercent, textZoomPercent = textZoomPercent) else cell
+            if (i == cellIndex) cell.copy(zoomPercent = MatrixCellState.clampZoomPercent(zoomPercent), textZoomPercent = textZoomPercent) else cell
         }
         // 实时应用：字体 textZoom 相对站点基准；页面缩放走 View 级适配
         // （UI 层按 zoomPercent 缩放渲染 + WebView 布局宽等比放大）——

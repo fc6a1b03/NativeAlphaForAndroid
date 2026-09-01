@@ -333,8 +333,8 @@
     <!-- ===== Matrix view (P4) ===== -->
     <string name="matrix_entry_desc">Open matrix view</string>
     <string name="matrix_empty_hint">Add a site first</string>
-    <string name="matrix_title">Matrix</string>
     <string name="matrix_window_count">Windows on screen</string>
+    <string name="matrix_exit">Exit matrix view</string>
     <string name="matrix_pick_app">Pick an app</string>
     <string name="matrix_pick_title">Pick an app</string>
     <string name="matrix_cookie_disclosure">Matrix uses shared cookies; isolation restores on exit</string>
@@ -352,7 +352,6 @@
     <string name="matrix_zoom_page_value">%1$d%%</string>
     <string name="matrix_zoom_text">Text size</string>
     <string name="matrix_zoom_text_value">%1$d%%</string>
-    <string name="matrix_drag_hint">Long-press title to rearrange windows</string>
     <string name="matrix_close_window">Close window</string>
     <string name="matrix_search_hint">Search sites</string>
     <string name="matrix_picker_empty">No matching sites</string>

@@ -68,7 +68,9 @@ internal fun CellAdjustSheet(
                         engine.windowCount.value, cellIndex
                     )
                     val cellCss = (screenCss - PAGE_AND_GAP_DP) / cols
+                    // fit 极端场景（6 窗）可能低于可靠下限，钳制后应用
                     val fit = MatrixEngine.fitZoomPercent(cellCss, screenCss)
+                        .coerceAtLeast(MatrixCellState.MIN_ZOOM_PERCENT)
                     zoomPct = fit.toFloat()
                     engine.applyCellAdjust(cellIndex, fit, textPct.toInt())
                 },
@@ -87,7 +89,7 @@ internal fun CellAdjustSheet(
                 onValueChangeFinished = {
                     engine.applyCellAdjust(cellIndex, zoomPct.toInt(), textPct.toInt())
                 },
-                valueRange = 30f..150f
+                valueRange = MatrixCellState.MIN_ZOOM_PERCENT.toFloat()..MatrixCellState.MAX_ZOOM_PERCENT.toFloat()
             )
             Text(
                 text = stringResource(R.string.matrix_zoom_page_value, zoomPct.toInt()),
