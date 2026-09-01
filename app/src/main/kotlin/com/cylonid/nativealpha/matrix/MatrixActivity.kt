@@ -52,6 +52,8 @@ internal class MatrixActivity : ComponentActivity() {
                     MatrixScreen(
                         engine = engine,
                         onBack = { finish() },
+                        // 状态栏/导航条可见（用户定调），App 内不留白：可用
+                        // 空间=系统栏之间的全部区域，Scaffold inset 是唯一边界
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(padding)

@@ -330,8 +330,8 @@
     <!-- ===== 多窗矩阵（P4） ===== -->
     <string name="matrix_entry_desc">打开多窗矩阵</string>
     <string name="matrix_empty_hint">先添加站点再使用矩阵</string>
-    <string name="matrix_title">多窗矩阵</string>
     <string name="matrix_window_count">同屏窗口数量</string>
+    <string name="matrix_exit">退出多窗矩阵</string>
     <string name="matrix_pick_app">选择应用</string>
     <string name="matrix_pick_title">选择应用</string>
     <string name="matrix_cookie_disclosure">矩阵使用共享 Cookie；退出矩阵后恢复站点独立会话</string>
@@ -349,7 +349,6 @@
     <string name="matrix_zoom_page_value">%1$d%%</string>
     <string name="matrix_zoom_text">字体大小</string>
     <string name="matrix_zoom_text_value">%1$d%%</string>
-    <string name="matrix_drag_hint">长按标题可拖动窗口换位</string>
     <string name="matrix_close_window">关闭窗口</string>
     <string name="matrix_search_hint">搜索站点</string>
     <string name="matrix_picker_empty">没有匹配的站点</string>
