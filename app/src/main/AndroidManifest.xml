@@ -54,6 +54,12 @@
 
 <!--        Make sure to also copy changes to WebViewActivity in build.gradle-->
         <activity
+            android:name=".ScanCaptureActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" />
+        <activity
             android:name=".WebViewActivity"
             android:parentActivityName=".MainActivity"
             android:windowSoftInputMode="adjustResize"

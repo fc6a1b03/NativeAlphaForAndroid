@@ -17,6 +17,9 @@ targetSdk = "37"
 # 站点分享二维码（纯 Java core，无 GMS/android 传递依赖）
 zxingCore = "3.5.3"
 
+# 应用内扫码相机栈（谷歌推荐 CameraX；解码复用 zxing-core，无 GMS）
+androidxCamera = "1.5.3"
+
 # AndroidX
 coreKtx = "1.19.0"
 appcompat = "1.8.0"
@@ -53,6 +56,9 @@ orchestrator = "1.6.1"
 [libraries]
 
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxingCore" }
+androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "androidxCamera" }
+androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "androidxCamera" }
+androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "androidxCamera" }
 # AndroidX
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }

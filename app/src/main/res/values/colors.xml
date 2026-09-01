@@ -46,4 +46,5 @@
     <color name="md_theme_surfaceContainerHigh">#E9E7F0</color>
     <color name="md_theme_surfaceContainerHighest">#E4E1EA</color>
     <color name="webnative_splash_bg">#4F46E5</color>
+    <color name="scan_bracket">#E8E7FF</color>
 </resources>

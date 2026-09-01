@@ -60,4 +60,21 @@ object WebViewLauncher {
             e.printStackTrace()
         }
     }
+
+    /**
+     * 扫码临时浏览（C-扫码）：携带原始 URL 直接进页面，不注册站点
+     * （WebViewActivity 按 INTENT_RAW_URL 构建负 ID 瞬态站点，统计零写入）。
+     * URL 已由 ScanRouting 按 http/https 白名单校验。
+     */
+    @JvmStatic
+    fun startRawUrl(url: String, c: Context) {
+        try {
+            val intent = Intent(c, WebViewActivity::class.java)
+            intent.putExtra(Const.INTENT_RAW_URL, url)
+            intent.action = Intent.ACTION_VIEW
+            c.startActivity(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }

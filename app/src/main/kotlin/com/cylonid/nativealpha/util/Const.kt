@@ -12,6 +12,8 @@ object Const {
     const val INTENT_BACKUP_RESTORED = "backup_restored"
     const val INTENT_WEBAPP_CHANGED = "webapp_changed"
     const val INTENT_REFRESH_NEW_THEME = "theme_changed"
+    /** 扫码临时浏览：携带原始 URL 直接进页面（不注册站点，ID 恒为负） */
+    const val INTENT_RAW_URL = "raw_url"
 
     const val NO_CONTAINER = -1
 
