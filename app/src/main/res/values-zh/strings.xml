@@ -416,4 +416,5 @@
     <string name="load_failure_hint_security">站点证书存在问题。若你信任该站点，可在其设置里开启「忽略 SSL 错误」。</string>
     <string name="load_failure_hint_bad_address">地址似乎无效。请在本应用设置中核对该站点网址。</string>
     <string name="load_failure_hint_retryable">网络似乎不可用。我们会持续探测，恢复后自动重新加载。</string>
+    <string name="webevent_hook_stale">最近一次加载未检测到注入钩子，站点可能已改版，规则可能失效。请重新打开该站点后再次查看。</string>
 </resources>

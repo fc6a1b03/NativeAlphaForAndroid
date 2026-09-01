@@ -298,6 +298,22 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
         // 成功加载即停止断线探测（恢复闭环完成）；失败页的 finished
         // 不算成功（lastMainFrameFailed），监视继续等探测通过
         if (!lastMainFrameFailed) stopReconnectWatch()
+        // hook 存活探针：规则失效显式提示的数据源——注入过的幂等标记在
+        // SPA 换文档/站点改版后是否仍在（站点改版致 hook 挂载失败时，
+        // 规则入口卡显示「可能失效」而非静默无效）
+        if (!lastMainFrameFailed &&
+            com.cylonid.nativealpha.webevent.EventRuleStore.hasActiveRules(webappID)
+        ) {
+            wv?.evaluateJavascript(
+                "String(window." +
+                    com.cylonid.nativealpha.webevent.JsHookScript.IDEMPOTENCY_FLAG +
+                    " === true)"
+            ) { result ->
+                com.cylonid.nativealpha.webevent.WebeventRuntime.onHookProbe(
+                    webappID, result?.contains("true") == true
+                )
+            }
+        }
     }
 
     override fun showCustomErrorPage(code: String?, desc: String?) {
