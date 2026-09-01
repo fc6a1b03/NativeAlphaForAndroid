@@ -63,6 +63,11 @@ internal abstract class SiteWebViewClient(
         }
         // 统计埋点：缓存占用（cacheDir + WebStorage，异步不阻塞）
         site.recordCacheUsage()
+        // 站点健康登记（presence 语义）：真实页面 finished → 健康。错误页
+        // （file:///android_asset）与 about:blank 不算站点可达证据
+        if (url.startsWith("http")) {
+            com.cylonid.nativealpha.util.SiteHealthRegistry.markSuccess(site.webappId)
+        }
         if (url == "about:blank") {
             site.showCustomErrorPage("blank", "")
         }
@@ -122,6 +127,8 @@ internal abstract class SiteWebViewClient(
             if (LoadFailureClassifier.isRetryable(kind)) {
                 site.startReconnectWatch()
             }
+            // 站点健康登记（presence 语义）：主帧失败 → 失联
+            com.cylonid.nativealpha.util.SiteHealthRegistry.markFailure(site.webappId)
         }
     }
 

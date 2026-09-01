@@ -421,4 +421,5 @@
     <string name="load_failure_hint_bad_address">The address looks invalid. Check the site URL in this app\'s settings.</string>
     <string name="load_failure_hint_retryable">Network seems unreachable. We\'ll keep watching and reload automatically once it\'s back.</string>
     <string name="webevent_hook_stale">Hook not detected on latest load. The site may have changed; rules might not fire. Reopen the site and re-check.</string>
+    <string name="site_health_recent_failure">Failed to load recently in this session</string>
 </resources>

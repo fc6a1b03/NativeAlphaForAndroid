@@ -179,5 +179,7 @@ class MainActivity : AppCompatActivity() {
         DataManager.getInstance().commitChanges()
         // 网页事件规则级联删除（P5-3）：站点没了规则不留死角
         com.cylonid.nativealpha.webevent.WebeventRuntime.cascadeDeleteForSite(webApp.ID)
+        // 站点健康登记同步清理（presence 会话态不残留已删站点）
+        com.cylonid.nativealpha.util.SiteHealthRegistry.forget(webApp.ID)
     }
 }
