@@ -342,7 +342,7 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    /** 写错误日志到所选 URI（异步：读 DataStore 不阻塞主线程；只读不清除） */
+    /** 写错误日志到所选 URI（异步：读 DataStore 不阻塞主线程）；写成功即清空历史 */
     private fun exportAppErrorsToUri(uri: Uri) {
         lifecycleScope.launch(Dispatchers.IO) {
             val recent = AppErrorLogRepository.getRecent(applicationContext)
@@ -369,6 +369,8 @@ class SettingsActivity : AppCompatActivity() {
                     OutputStreamWriter(stream, Charsets.UTF_8).use { writer ->
                         writer.write(AppErrorEntry.toJson(recent))
                     }
+                    // 导出成功即清空历史（用户定调：避免反复导出同一批旧错误；
+                    // 写失败路径不清除，数据无损）
                     NotificationUtils.showInfoSnackbar(
                         this@SettingsActivity,
                         getString(R.string.app_errors_export_success),
