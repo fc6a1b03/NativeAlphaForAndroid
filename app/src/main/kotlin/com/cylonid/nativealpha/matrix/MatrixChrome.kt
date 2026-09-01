@@ -42,7 +42,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -66,7 +65,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.cylonid.nativealpha.R
 import kotlin.math.roundToInt
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -75,31 +73,32 @@ import androidx.compose.ui.semantics.Role
 
 /**
  * 可移动窗数胶囊（矩阵全局 chrome，用户逐条拍板的浮窗助手交互）：
- * - 默认顶部居中完整显示（进页面不吸附）；拖动自由摆放
- * - 拖到左右缘吸边隐藏（露把手，手势排除区防误触）；拖到顶缘吸顶收纳
- * - **2s 无操作自动吸顶**收纳（已吸左右视为明确收纳意图，保持不动）
+ * - 默认顶部居中完整显示；拖动自由摆放（纵向全程完整可见，不裁切）
+ * - 拖到左右缘吸边隐藏（露把手，手势排除区防误触）
  * - 点击完整胶囊 → 原地**扩开悬浮小菜单**（窗数步进 + 退出矩阵），全屏
  *   透明遮罩防误触，点遮罩收回
- * - 点击吸边/吸顶把手 → 弹回顶部居中完整态
+ * - 点击吸边把手 → 弹回顶部居中完整态
  * 所有形态切换走动画（淡入淡出 + 中心缩放 + 位移缓动），只动
  * graphicsLayer 不触发重布局。
+ *
+ * 不做顶缘吸顶收纳（v2.2.11 用户定调撤销）：顶部把手与系统下拉通知栏
+ * 手势区物理重叠，实机拉出把手总被下拉菜单截胡，且 App 无权排除顶部
+ * 系统手势（systemGestureExclusion 仅覆盖左右 back 边缘）。
  */
 
 internal val PILL_WIDTH = 52.dp
 internal val PILL_HEIGHT = 32.dp
 
-/** 吸边/吸顶后屏幕内露出的把手尺寸（其余被屏幕边缘裁掉） */
+/** 吸边后屏幕内露出的把手尺寸（其余被屏幕边缘裁掉） */
 internal val PILL_DOCK_PEEK = 10.dp
 
 /** 松手时胶囊中心距某边缘小于该值即吸向该侧 */
 internal val PILL_DOCK_THRESHOLD = 60.dp
 
-/** 无操作多久后自动吸顶收纳 */
-internal const val PILL_AUTO_DOCK_IDLE_MS = 2_000L
+internal enum class MatrixPillDock { LEFT, RIGHT }
 
-internal enum class MatrixPillDock { LEFT, RIGHT, TOP }
-
-/** 吸边判定（纯函数可单测）：胶囊中心距各边缘的距离取最小者，超过阈值不吸 */
+/** 吸边判定（纯函数可单测）：胶囊中心距左右边缘的距离取最小者，
+ * 超过阈值不吸；顶缘不吸（顶部收纳与系统下拉手势冲突，已撤销） */
 internal fun matrixPillDockTarget(
     centerX: Float,
     centerY: Float,
@@ -109,9 +108,7 @@ internal fun matrixPillDockTarget(
 ): MatrixPillDock? {
     val distLeft = centerX
     val distRight = containerWidth - centerX
-    val distTop = centerY
     return when {
-        distTop < threshold -> MatrixPillDock.TOP
         distLeft < threshold -> MatrixPillDock.LEFT
         distRight < threshold -> MatrixPillDock.RIGHT
         else -> null
@@ -145,7 +142,7 @@ internal fun MatrixWindowCountPill(
 
     fun clampPos(p: Offset): Offset = Offset(
         p.x.coerceIn(-pillW + peek, (containerSize.width - peek).coerceAtLeast(peek)),
-        p.y.coerceIn(-(pillH - peek), (containerSize.height - peek).coerceAtLeast(peek))
+        p.y.coerceIn(0f, (containerSize.height - pillH).coerceAtLeast(0f))
     )
 
     val pos = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
@@ -165,29 +162,10 @@ internal fun MatrixWindowCountPill(
 
     var dragging by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
-    // 交互戳：任意拖动/点击重置自动吸顶计时
-    var idleEpoch by remember { mutableIntStateOf(0) }
-    // 用户接手位置权（用户定调）：手动拖动过即视为用户选定摆放位置，
-    // 本会话内不再自动吸顶；点把手弹回=交还系统，自动吸顶恢复
-    var userTookControl by remember { mutableStateOf(false) }
 
     val isDockedSide: () -> Boolean = {
         val x = pos.value.x
         x <= -pillW + peek + 1f || x >= containerSize.width - peek - 1f
-    }
-
-    // 2s 无操作自动吸顶（拖动中/菜单展开时不吸；已吸左右=明确收纳意图，保持）
-    LaunchedEffect(idleEpoch, dragging, expanded, containerSize, userTookControl) {
-        if (!dragging && !expanded && !userTookControl) {
-            delay(PILL_AUTO_DOCK_IDLE_MS)
-            if (!dragging && !expanded && !userTookControl && !isDockedSide()) {
-                val dest = Offset(
-                    pos.value.x.coerceIn(0f, (containerSize.width - pillW).coerceAtLeast(0f)),
-                    -(pillH - peek)
-                )
-                pos.animateTo(dest, tween(250, easing = FastOutSlowInEasing))
-            }
-        }
     }
 
     // 吸边把手贴屏幕左右缘（系统返回手势区）：把胶囊窗口坐标声明为
@@ -236,7 +214,6 @@ internal fun MatrixWindowCountPill(
                     detectDragGestures(
                         onDragStart = {
                             dragging = true
-                            idleEpoch++
                         },
                         onDrag = { change, amount ->
                             change.consume()
@@ -244,8 +221,6 @@ internal fun MatrixWindowCountPill(
                         },
                         onDragEnd = {
                             dragging = false
-                            userTookControl = true
-                            idleEpoch++
                             val dock = matrixPillDockTarget(
                                 pos.value.x + pillW / 2f,
                                 pos.value.y + pillH / 2f,
@@ -257,13 +232,6 @@ internal fun MatrixWindowCountPill(
                                 MatrixPillDock.LEFT -> Offset(-pillW + peek, pos.value.y)
                                 MatrixPillDock.RIGHT ->
                                     Offset(containerSize.width - peek, pos.value.y)
-                                MatrixPillDock.TOP -> Offset(
-                                    pos.value.x.coerceIn(
-                                        0f,
-                                        (containerSize.width - pillW).coerceAtLeast(0f)
-                                    ),
-                                    -(pillH - peek)
-                                )
                                 null -> clampPos(pos.value)
                             }
                             scope.launch {
@@ -276,11 +244,8 @@ internal fun MatrixWindowCountPill(
                 }
                 .pointerInput(containerSize) {
                     detectTapGestures(onTap = {
-                        if (isDockedSide() || pos.value.y <= -(pillH - peek) + 1f) {
-                            // 吸边/吸顶把手 → 弹回顶部居中完整态（交还位置
-                            // 权，自动吸顶随之恢复）
-                            userTookControl = false
-                            idleEpoch++
+                        if (isDockedSide()) {
+                            // 吸边把手 → 弹回顶部居中完整态
                             scope.launch {
                                 pos.animateTo(
                                     defaultPos(), tween(250, easing = FastOutSlowInEasing)
@@ -325,7 +290,6 @@ internal fun MatrixWindowCountPill(
                     .pointerInput(Unit) {
                         detectTapGestures {
                             expanded = false
-                            idleEpoch++
                         }
                     }
             )
