@@ -230,13 +230,17 @@ private fun AddWebAppScreen(
                 isFetching = false
             }
             // 标题回填：fetch 已结构化识别挑战/安全拦截页（返回 null 标题），
-            // 此处仅防空——取不到就不动用户输入（保持 nameText 原值/空）
+            // 此处仅防空——取不到就不动用户输入（保持 nameText 原值/空）。
+            // 分享深链预填的名字同样不覆盖（分享者定的名优先于站点标题）：
+            // 仅当名称为空时才回填抓取标题
             val cleanTitle = result.first.title
                 ?.let { it.trim() }
                 ?.takeIf { it.isNotEmpty() }
             if (cleanTitle != null) {
                 fetchedTitle = cleanTitle
-                nameText = cleanTitle
+                if (nameText.isBlank()) {
+                    nameText = cleanTitle
+                }
             } else {
                 fetchedTitle = null
                 // 标题取不到（拦截页/网络失败）：名称框兜底填域名（可改）——
