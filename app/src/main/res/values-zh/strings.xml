@@ -130,7 +130,7 @@
     <string name="keep_screen_awake">保持屏幕常亮</string>
     <string name="allow_camera_access">允许相机访问</string>
     <string name="allow_microphone_access">允许麦克风访问</string>
-    <string name="shortcut_already_exists">快捷方式已存在。</string>
+    <string name="shortcut_already_exists">该名称的快捷方式已存在，请换一个名称或删除原有快捷方式。</string>
     <string name="back">后退</string>
     <string name="forward">前进</string>
         <string name="app_icon">应用图标</string>
@@ -147,7 +147,6 @@
     <string name="share">分享</string>
     <string name="reload">刷新</string>
     <string name="activate_two_finger_zoom">启用双指缩放</string>
-    <string name="allow_media_playback_in_background">允许后台媒体播放</string>
     <string name="more">更多</string>
     <string name="close_web_app">关闭 Web App</string>
     <string name="to_main_menu">主菜单</string>
@@ -158,8 +157,6 @@
     <string name="webview_activity_launch_failed">Web App 无法启动。</string>
     <string name="no_url_entered">未输入网址。</string>
     <string name="always_show_software_buttons">始终显示软件导航按钮</string>
-    <string name="use_standard_context_menu_temporarily">暂时使用标准上下文菜单</string>
-    <string name="use_standard_context_menu_permanently">始终使用标准上下文菜单</string>
     <string name="http_auth_title">登录（HTTP 认证）</string>
     <string name="username">用户名</string>
     <string name="password">密码</string>
@@ -195,13 +192,11 @@
     <string name="desc_keep_awake">打开时防止屏幕自动熄灭。</string>
     <string name="desc_request_desktop">请求网站返回桌面版页面。</string>
     <string name="desc_open_external">其他域名的链接在外部浏览器打开。</string>
-    <string name="desc_two_finger_zoom">启用双指捏合缩放手势。</string>
+    <string name="desc_two_finger_zoom">用双指捏合缩放页面。</string>
     <string name="text_zoom">字体大小</string>
     <string name="desc_text_zoom" formatted="false">调整页面文字大小（50% ~ 200%）。</string>
     <string name="page_zoom">页面缩放</string>
     <string name="desc_page_zoom" formatted="false">调整页面整体缩放比例（50% ~ 200%）。</string>
-    <string name="desc_standard_menu">使用系统文本选择菜单代替自定义菜单。</string>
-    <string name="desc_media_background">应用退到后台时继续播放音视频。</string>
     <string name="desc_expert_settings">显示高级选项（起始 URL、UA、SSL）。</string>
     <string name="desc_custom_ua">向网站发送自定义 User Agent 字符串。</string>
     <string name="desc_ignore_ssl">跳过此站点的 SSL 证书验证。</string>
@@ -210,9 +205,9 @@
     <string name="disable_file_access">禁用文件访问</string>
     <string name="desc_disable_file_access">防止恶意站点读取本地文件。</string>
     <string name="disable_content_access">禁用内容访问</string>
-    <string name="desc_disable_content_access">防止站点访问系统内容提供器。</string>
+    <string name="desc_disable_content_access">阻止网站读取手机系统内容。</string>
     <string name="block_mixed_content">拦截混合内容</string>
-    <string name="desc_block_mixed_content">拦截 HTTPS 页面中的 HTTP 不安全资源。</string>
+    <string name="desc_block_mixed_content">拦截安全页面中的不安全内容。</string>
     <string name="restrict_js_popups">限制 JS 自动弹窗</string>
     <string name="desc_restrict_js_popups">防止页面自动弹出窗口。</string>
     <string name="enable_safe_browsing">恶意网站防护</string>
@@ -223,7 +218,7 @@
     <string name="export_app_errors">导出错误日志（近 3 天）</string>
     <string name="desc_export_app_errors">导出应用自身最近 3 天的错误日志，供开发排查。</string>
     <string name="stat_log_network_errors">站点统计记录网络错误</string>
-    <string name="desc_stat_log_network_errors">关闭后，断网、DNS 解析失败等网络类页面错误不记入站点统计。</string>
+    <string name="desc_stat_log_network_errors">关闭后，断网等网络类页面错误不计入站点统计。</string>
     <string name="app_errors_export_success">已导出，错误历史已清空</string>
     <string name="app_errors_export_failed">错误日志导出失败</string>
     <string name="app_errors_none">近 3 天无错误日志</string>
@@ -420,9 +415,7 @@
     <string name="site_health_recent_failure">本次会话内最近一次加载失败</string>
     <!-- ===== 站点分享（二维码+深链，借鉴 happier 配对纪律） ===== -->
     <string name="share_site_entry">分享此站点</string>
-    <string name="share_hint_scan">让对方用相机扫描二维码，或复制下方链接发送。</string>
-    <string name="share_copy_link">复制链接</string>
-    <string name="share_link_copied">链接已复制</string>
+    <string name="share_hint_scan">让对方用相机扫描这个二维码即可添加。</string>
     <string name="share_close">关闭</string>
     <string name="share_invalid_url">无法生成分享码：站点地址似乎无效。</string>
     <string name="share_invalid_link">这不是有效的站点分享链接。</string>
@@ -432,4 +425,5 @@
     <string name="scan_hint">对准二维码即可自动识别</string>
     <string name="scan_torch">闪光灯</string>
     <string name="scan_permission_denied">需要相机权限才能扫码，请在系统设置中开启。</string>
+    <string name="use_standard_context_menu_temporarily">暂时使用标准上下文菜单</string>
 </resources>

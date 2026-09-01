@@ -61,18 +61,13 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     /** 安全加固：限制 JS 自动弹窗（true=setJavaScriptCanOpenWindowsAutomatically(false)，默认防护开） */
     var isJsPopupsRestricted = true
     var isBlockThirdPartyRequests = false
-    var containerId: Int = Const.NO_CONTAINER
-    var isUseContainer = false
     var isDrmAllowed = false
     var isShowFullscreen = false
     var isKeepAwake = false
     var isCameraPermission = false
     var isMicrophonePermission = false
     var isEnableZooming = false
-    var isBiometricProtection = false
-    var isAllowMediaPlaybackInBackground = false
     var order = 0
-    var alwaysUseFallbackContextMenu = false
 
     // ===== 组合快捷键（页面独有快捷键发送，每站独立，不参与 copySettings 合并） =====
     // 格式："Ctrl+S" / "Shift+S" / "Ctrl+Shift+S"（Ctrl/Shift/Alt + 字母/数字/功能键）
@@ -107,8 +102,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         title = other.title
         iconPath = other.iconPath  // 副本构造保留自身图标（copySettings 不含 iconPath）
         isOverrideGlobalSettings = other.isOverrideGlobalSettings
-        containerId = other.containerId
-        isUseContainer = other.isUseContainer
         copySettings(other)
     }
 
@@ -154,10 +147,7 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         isCameraPermission = other.isCameraPermission
         isMicrophonePermission = other.isMicrophonePermission
         isEnableZooming = other.isEnableZooming
-        isBiometricProtection = other.isBiometricProtection
-        isAllowMediaPlaybackInBackground = other.isAllowMediaPlaybackInBackground
         order = other.order
-        alwaysUseFallbackContextMenu = other.alwaysUseFallbackContextMenu
     }
 
     /**

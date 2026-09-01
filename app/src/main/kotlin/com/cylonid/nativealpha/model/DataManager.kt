@@ -273,7 +273,6 @@ class DataManager private constructor() {
     /** 迁移旧版散列全局设置（仅在检测到 globalSettingsStoredAsJson 键时触发） */
     fun loadGlobalSettingsLegacy() {
         _settings.isClearCache = appdata!!.getBoolean(SHARED_PREF_GLOB_CACHE, false)
-        _settings.setClearCookies(appdata!!.getBoolean(SHARED_PREF_GLOB_COOKIE, false))
         _settings.isTwoFingerMultitouch =
             appdata!!.getBoolean(SHARED_PREF_GLOB_2F_MULTITOUCH, true)
         _settings.isMultitouchReload =
@@ -522,11 +521,9 @@ class DataManager private constructor() {
     }
 
     private fun assertGlobalWebappData() {
-        val override = _settings.globalWebApp.isOverrideGlobalSettings
-        val container = _settings.globalWebApp.containerId
-        if (!override || container != Const.NO_CONTAINER) {
+        // 全局模板必须永远处于「覆盖」态（v2.2.13 审计：container 遗留分支已删）
+        if (!_settings.globalWebApp.isOverrideGlobalSettings) {
             _settings.globalWebApp.isOverrideGlobalSettings = true
-            _settings.globalWebApp.containerId = Const.NO_CONTAINER
             this.saveGlobalSettings()
         }
     }
@@ -547,7 +544,6 @@ class DataManager private constructor() {
         // 迁移兼容：旧版本把全局设置散列存放在 Cache/Cookies/... 键下，
         // 新版本统一存 JSON（GLOBALSETTINGS）。仅在检测到 legacy 键时触发迁移。
         private const val SHARED_PREF_GLOB_CACHE = "Cache"
-        private const val SHARED_PREF_GLOB_COOKIE = "Cookies"
         private const val SHARED_PREF_GLOB_2F_MULTITOUCH = "TwoFingerMultiTouch"
         private const val SHARED_PREF_GLOB_MULTITOUCH_RELOAD = "ReloadMultiTouch"
         private const val SHARED_PREF_GLOB_3F_MULTITOUCH = "ThreeFingerMultiTouch"

@@ -20,7 +20,7 @@
     <string name="icon_will_be_generated">A gradient icon will be generated automatically.</string>
     <string name="add_to_home_screen">Add to home screen</string>
     <string name="open_external_links_in_browser_app">Open external links in browser app</string>
-    <string name="allow_javascript">Allow Javascript</string>
+    <string name="allow_javascript">Allow JavaScript</string>
     <string name="warning_js_disabled">JavaScript is disabled. Most modern websites will not display correctly.</string>
     <string name="accept_cookies">Accept cookies</string>
     <string name="accept_third_party_cookies">Accept third-party cookies</string>
@@ -107,7 +107,7 @@
     <string name="webapp_interval_for_reload">Interval in seconds</string>
     <string name="webapp_autoreload_switch">Refresh page regularly</string>
 
-    <string name="label">Label</string>
+    <string name="label">Name</string>
     <string name="force_dark_mode">Force Dark Mode</string>
     <string name="end">End</string>
     <string name="begin">Begin</string>
@@ -146,7 +146,6 @@
     <string name="share">Share</string>
     <string name="reload">Reload</string>
     <string name="activate_two_finger_zoom">Enable Pinch-To-Zoom</string>
-    <string name="allow_media_playback_in_background">Allow media playback in background</string>
     <string name="more">More</string>
     <string name="close_web_app">Close Web App</string>
     <string name="to_main_menu">To Main Menu</string>
@@ -157,8 +156,6 @@
     <string name="webview_activity_launch_failed">Web App could not be started.</string>
     <string name="no_url_entered">Please enter an URL.</string>
     <string name="always_show_software_buttons">Always show software navigation buttons</string>
-    <string name="use_standard_context_menu_temporarily">Temporarily use standard context menu</string>
-    <string name="use_standard_context_menu_permanently">Use standard context menu</string>
     <string name="http_auth_title">Log in (HTTP Auth)</string>
     <string name="username">User name</string>
     <string name="password">Password</string>
@@ -194,14 +191,12 @@
     <string name="desc_keep_awake">Prevent the screen from turning off while open.</string>
     <string name="desc_request_desktop">Request the desktop version of the website.</string>
     <string name="desc_open_external">Open links to other domains in the external browser.</string>
-    <string name="desc_two_finger_zoom">Enable pinch and double-finger zoom gestures.</string>
+    <string name="desc_two_finger_zoom">Zoom pages with a pinch gesture.</string>
     <string name="text_zoom">Font size</string>
     <string name="desc_text_zoom" formatted="false">Adjust text size of the page (50% ~ 200%).</string>
     <string name="page_zoom">Page zoom</string>
     <string name="desc_page_zoom" formatted="false">Adjust overall page scale (50% ~ 200%).</string>
-    <string name="desc_standard_menu">Use the system text selection menu instead of the custom menu.</string>
-    <string name="desc_media_background">Keep playing audio/video when the app is in background.</string>
-    <string name="desc_expert_settings">Show advanced options (start URL, user agent, SSL).</string>
+    <string name="desc_expert_settings">Show advanced options (user agent, SSL).</string>
     <string name="desc_custom_ua">Send a custom user agent string to the website.</string>
     <string name="desc_ignore_ssl">Skip SSL certificate verification for this site.</string>
     <string name="warning_ignore_ssl">Security risk: your connection to this site will not be verified.</string>
@@ -209,9 +204,9 @@
     <string name="disable_file_access">Block file access</string>
     <string name="desc_disable_file_access">Prevent websites from reading local files.</string>
     <string name="disable_content_access">Block content access</string>
-    <string name="desc_disable_content_access">Prevent websites from accessing system content providers.</string>
+    <string name="desc_disable_content_access">Block websites from reading system data.</string>
     <string name="block_mixed_content">Block mixed content</string>
-    <string name="desc_block_mixed_content">Block insecure HTTP resources on HTTPS pages.</string>
+    <string name="desc_block_mixed_content">Block insecure content on secure pages.</string>
     <string name="restrict_js_popups">Restrict automatic pop-ups</string>
     <string name="desc_restrict_js_popups">Prevent pages from opening windows automatically.</string>
     <string name="enable_safe_browsing">Safe Browsing</string>
@@ -222,7 +217,7 @@
     <string name="export_app_errors">Export error logs (last 3 days)</string>
     <string name="desc_export_app_errors">Export the app\'s own error logs of the last 3 days for debugging.</string>
     <string name="stat_log_network_errors">Log network errors in site stats</string>
-    <string name="desc_stat_log_network_errors">When off, connection-level page errors (offline, DNS failure) are excluded from per-site stats.</string>
+    <string name="desc_stat_log_network_errors">When off, network failures (like being offline) are not counted in site stats.</string>
     <string name="app_errors_export_success">Exported — error history cleared</string>
     <string name="app_errors_export_failed">Failed to export error logs</string>
     <string name="app_errors_none">No error logs in the last 3 days</string>
@@ -424,9 +419,7 @@
     <string name="site_health_recent_failure">Failed to load recently in this session</string>
     <!-- ===== Site share (QR + deep link, borrowed from happier pairing discipline) ===== -->
     <string name="share_site_entry">Share this site</string>
-    <string name="share_hint_scan">Let the other side scan the QR code with their camera, or copy the link below.</string>
-    <string name="share_copy_link">Copy link</string>
-    <string name="share_link_copied">Link copied</string>
+    <string name="share_hint_scan">Let the other side scan this code with their camera.</string>
     <string name="share_close">Close</string>
     <string name="share_invalid_url">Cannot generate a share code: the site URL looks invalid.</string>
     <string name="share_invalid_link">This share link is not valid.</string>
@@ -436,4 +429,5 @@
     <string name="scan_hint">Align a QR code in the frame to scan</string>
     <string name="scan_torch">Torch</string>
     <string name="scan_permission_denied">Camera permission is needed to scan. Enable it in system settings.</string>
+    <string name="use_standard_context_menu_temporarily">Temporarily use standard context menu</string>
 </resources>
