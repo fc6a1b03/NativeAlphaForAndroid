@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.2.7`（`versionCode 2207`）
+- **当前版本**：`2.2.9`（`versionCode 2209`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -136,7 +136,10 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   └── WebViewMenuOverlay.kt    # WebView 页面菜单浮层
 ├── matrix/                      # 多窗矩阵（独立包，MainActivity 直达 MatrixActivity，实现内聚）
 │   ├── MatrixActivity.kt        # UI 宿主：生命周期接线（onDestroy 先 resumeTimers 再 release）
-│   ├── MatrixScreen.kt          # 五态窗格渲染 + 拖拽排序 + 放大/收起 + 调节 sheet
+│   ├── MatrixScreen.kt          # 主入口 + 网格编排（338 行，渲染已拆至 MatrixCell/MatrixCellPicker）
+│   ├── MatrixCell.kt            # 格子渲染层：五态窗格 + ActiveContent + FitFrameLayout（视口适配）
+│   ├── MatrixCellPicker.kt      # 选站面板（底部 sheet）
+│   ├── MatrixChrome.kt          # 可移动窗数胶囊：自由拖动 + 三向吸附 + 2s 自动吸顶 + 扩开快捷菜单
 │   ├── MatrixEngine.kt          # 核心：五态机/交换/缩放注入/崩溃批量恢复/会话持久化
 │   ├── MatrixSessionState.kt    # @Keep 会话模型（webappId/zoomPercent/textZoomPercent）
 │   ├── MatrixSessionStore.kt    # 自持 DataStore matrix_session + 单写者 conflate 队列
@@ -285,4 +288,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-08-31（基于仓库当前实际内容整理，版本 2.2.7）。*
+*最后更新：2026-09-01（基于仓库当前实际内容整理，版本 2.2.9）。*
