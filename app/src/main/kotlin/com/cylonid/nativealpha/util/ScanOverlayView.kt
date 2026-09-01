@@ -32,7 +32,9 @@ internal class ScanOverlayView @JvmOverloads constructor(
     private var cutoutSize = 0f
     private var cutout = RectF()
 
-    private val scrimPaint = Paint().apply { color = 0x8A000000.toInt() }
+    private val scrimPaint = Paint().apply {
+        color = ContextCompat.getColor(context, R.color.scan_scrim)
+    }
     private val clearPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR)
     }
@@ -49,7 +51,7 @@ internal class ScanOverlayView @JvmOverloads constructor(
         pathEffect = CornerPathEffect(4f * density)
     }
     private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xC7FFFFFF.toInt()
+        color = ContextCompat.getColor(context, R.color.scan_hint_text)
         textSize = 14f * density
         textAlign = Paint.Align.CENTER
     }

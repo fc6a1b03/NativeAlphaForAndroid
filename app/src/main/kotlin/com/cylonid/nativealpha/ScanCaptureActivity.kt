@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.view.View
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.Toast
@@ -20,7 +19,6 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
-import com.cylonid.nativealpha.util.ScanOverlayView
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.DecodeHintType
@@ -42,6 +40,8 @@ class ScanCaptureActivity : AppCompatActivity() {
 
     private var camera: Camera? = null
     private var torchOn = false
+    /** 识别完成标记：UI 线程写、分析线程读——@Volatile 保可见性 */
+    @Volatile
     private var done = false
 
     private lateinit var previewView: PreviewView

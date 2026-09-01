@@ -41,6 +41,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
     - Markwon（Markdown 渲染，用于更新日志等）
     - AndroidX ProfileInstaller（Baseline Profile，启动提速）
     - ZXing core（站点分享二维码生成；纯 Java，无 GMS/Android 传递依赖）
+    - CameraX 1.5.x（应用内扫码相机栈：camera-camera2/lifecycle/view；权限走 ActivityResultContracts）
 - **版本管理**：所有依赖版本集中在 `gradle/libs.versions.toml`（Version Catalog），build 文件禁止硬编码版本号
 
 ---
@@ -117,6 +118,7 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 ├── WebAppSettingsActivity.kt    # 单个 WebApp 设置页（Compose）
 ├── WebAppStatsActivity.kt       # 单个 WebApp 统计页（Compose）
 ├── WebViewActivity.kt           # 渲染核心（Kotlin + XML 布局 + WebView）
+├── ScanCaptureActivity.kt       # 扫码取景页（CameraX + 自绘遮罩 ScanOverlayView）
 ├── WebViewSiteContext.kt        # 站点行为解耦接口（宿主/矩阵共用，防 Activity 强引用）
 ├── WebViewBrowserClient.kt      # WebViewClient 模板方法基类（SiteWebViewClient）+ 宿主子类
 ├── model/                       # 数据模型与数据中枢
