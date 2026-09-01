@@ -427,4 +427,9 @@
     <string name="share_invalid_url">无法生成分享码：站点地址似乎无效。</string>
     <string name="share_invalid_link">这不是有效的站点分享链接。</string>
     <string name="share_qr_content_desc">站点分享链接的二维码</string>
+    <!-- ===== 扫码入口（C-扫码：权限走 ActivityResultContracts 现代范式） ===== -->
+    <string name="scan_entry_desc">扫码</string>
+    <string name="scan_hint">对准二维码即可自动识别</string>
+    <string name="scan_torch">闪光灯</string>
+    <string name="scan_permission_denied">需要相机权限才能扫码，请在系统设置中开启。</string>
 </resources>

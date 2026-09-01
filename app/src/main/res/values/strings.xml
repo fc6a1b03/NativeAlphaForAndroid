@@ -431,4 +431,9 @@
     <string name="share_invalid_url">Cannot generate a share code: the site URL looks invalid.</string>
     <string name="share_invalid_link">This share link is not valid.</string>
     <string name="share_qr_content_desc">QR code of the site share link</string>
+    <!-- ===== Scan entry (C-扫码: camera permission via ActivityResultContracts) ===== -->
+    <string name="scan_entry_desc">Scan QR code</string>
+    <string name="scan_hint">Align a QR code in the frame to scan</string>
+    <string name="scan_torch">Torch</string>
+    <string name="scan_permission_denied">Camera permission is needed to scan. Enable it in system settings.</string>
 </resources>

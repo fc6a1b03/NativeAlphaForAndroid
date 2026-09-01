@@ -1,6 +1,9 @@
 package com.cylonid.nativealpha.ui
 
+import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,6 +28,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -67,7 +71,10 @@ import androidx.compose.ui.unit.dp
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.SiteHealthRegistry
+import com.cylonid.nativealpha.util.ScanResultRouter
 import com.cylonid.nativealpha.util.WebAppIconManager
+import com.cylonid.nativealpha.util.WebViewLauncher
+import com.cylonid.nativealpha.ScanCaptureActivity
 import android.graphics.Bitmap
 
 /**
@@ -90,6 +97,11 @@ fun MainScreen(
 ) {
     // 搜索过滤：名称/URL 模糊匹配
     var searchQuery by remember { mutableStateOf("") }
+    // 卡片菜单「分享」目标（C-分享：主页入口与设置页共用同一对话框组件）
+    var shareTarget by remember { mutableStateOf<WebApp?>(null) }
+    shareTarget?.let { target ->
+        SiteShareDialog(webApp = target, onDismiss = { shareTarget = null })
+    }
     // key 必须感知 WebApp 内容变化：WebApp.equals() 只比较 baseUrl/ID，
     // 标题/URL 改了 remember 会误判列表未变，导致卡片不刷新
     val filteredApps = remember(webApps.map { Triple(it.ID, it.title, it.baseUrl) }, searchQuery) {
@@ -150,9 +162,39 @@ fun MainScreen(
                     }
                 },
                 actions = {
+                    // 扫码入口（C-扫码：矩阵图标左侧；webnative→添加，http(s)→临时浏览）
+                    val context = LocalContext.current
+                    val scanInvalidHint = stringResource(R.string.share_invalid_link)
+                    val scanLauncher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.StartActivityForResult()
+                    ) { result ->
+                        when (val action = ScanResultRouter.route(
+                            result.data?.getStringExtra(ScanCaptureActivity.EXTRA_SCAN_RESULT)
+                        )) {
+                            is ScanResultRouter.Action.AddSite ->
+                                context.startActivity(
+                                    Intent(context, AddWebAppActivity::class.java)
+                                        .putExtra(AddWebAppActivity.EXTRA_PREFILL_URL, action.url)
+                                        .putExtra(AddWebAppActivity.EXTRA_PREFILL_NAME, action.name)
+                                )
+                            is ScanResultRouter.Action.OpenPage ->
+                                WebViewLauncher.startRawUrl(action.url, context)
+                            ScanResultRouter.Action.Invalid ->
+                                Toast.makeText(context, scanInvalidHint, Toast.LENGTH_LONG).show()
+                            ScanResultRouter.Action.Ignore -> Unit
+                        }
+                    }
+                    IconButton(onClick = {
+                        context.startActivity(Intent(context, ScanCaptureActivity::class.java))
+                    }) {
+                        Icon(
+                            Icons.Default.QrCodeScanner,
+                            contentDescription = stringResource(R.string.scan_entry_desc),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     // 矩阵入口（E1：设置图标左侧；空站点 Toast 拦截不进矩阵）
                     val hasActiveSites = webApps.any { it.isActiveEntry }
-                    val context = LocalContext.current
                     val emptyHint = stringResource(R.string.matrix_empty_hint)
                     IconButton(onClick = {
                         if (hasActiveSites) {
@@ -286,7 +328,8 @@ fun MainScreen(
                             onSettings = { onOpenSettings(webApp) },
                             onStats = { onOpenStats(webApp) },
                             onDelete = { onDeleteWebApp(webApp) },
-                            onCopyUrl = { onCopyUrl(webApp) }
+                            onCopyUrl = { onCopyUrl(webApp) },
+                            onShare = { shareTarget = webApp }
                         )
                     }
                 }
@@ -304,6 +347,7 @@ private fun WebAppCard(
     onStats: () -> Unit,
     onDelete: () -> Unit,
     onCopyUrl: () -> Unit,
+    onShare: () -> Unit,
 ) {
     val context = LocalContext.current
     Card(
@@ -398,6 +442,13 @@ private fun WebAppCard(
                         onClick = {
                             menuExpanded = false
                             onSettings()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.menu_share)) },
+                        onClick = {
+                            menuExpanded = false
+                            onShare()
                         }
                     )
                     DropdownMenuItem(

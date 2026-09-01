@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 扫码取景页（C-扫码）：全屏预览 + 自绘取景遮罩（遮罩/取景窗/扫描线/提示语
+     全在 ScanOverlayView 内），右上关闭 + 底部手电（48dp 触控目标，M3 触控规范） -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <androidx.camera.view.PreviewView
+        android:id="@+id/scan_preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <com.cylonid.nativealpha.util.ScanOverlayView
+        android:id="@+id/scan_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <ImageButton
+        android:id="@+id/scan_close"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="16dp"
+        android:background="@drawable/scan_button_bg"
+        android:contentDescription="@string/share_close"
+        android:src="@drawable/ic_scan_close"
+        app:tint="@android:color/white"
+        xmlns:app="http://schemas.android.com/apk/res-auto" />
+
+    <Button
+        android:id="@+id/scan_torch"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="48dp"
+        android:background="@drawable/scan_button_bg"
+        android:paddingHorizontal="24dp"
+        android:text="@string/scan_torch"
+        android:textColor="@android:color/white" />
+</FrameLayout>

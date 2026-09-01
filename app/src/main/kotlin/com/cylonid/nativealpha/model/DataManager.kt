@@ -323,6 +323,9 @@ class DataManager private constructor() {
     }
 
     fun getWebAppIgnoringGlobalOverride(i: Int, ignoreOverride: Boolean): WebApp? {
+        // 负 id = 系统/瞬态站点（矩阵占位 -1、扫码临时浏览）——静默返回，
+        // 不弹「站点不存在」（调用方：统计/菜单对负 id 自动降级）
+        if (i < 0) return null
         loadAppData()
         return try {
             val webApp = websites[i]

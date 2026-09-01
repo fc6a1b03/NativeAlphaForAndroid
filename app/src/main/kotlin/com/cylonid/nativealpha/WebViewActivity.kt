@@ -411,14 +411,24 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
         handleIntent(intent)
     }
 
-    /** 初始化/重载：按 intent 的 webappID 加载 WebApp（复用实例时先清理旧 WebView） */
+    /** 初始化/重载：按 intent 的 webappID 加载 WebApp（复用实例时先清理旧 WebView）。
+     * 扫码临时浏览（INTENT_RAW_URL）例外：构建负 ID 瞬态站点——不注册、
+     * 统计零写入（StatsRecorder/DataManager 对负 id 静默跳过），标题取 host。 */
     private fun handleIntent(intent: Intent) {
-        webappID = intent.getIntExtra(Const.INTENT_WEBAPPID, -1)
+        val rawUrl = intent.getStringExtra(Const.INTENT_RAW_URL)
+        if (rawUrl != null) {
+            webappID = -1
+            webapp = WebApp(rawUrl, -1, -1).apply {
+                title = com.cylonid.nativealpha.util.UrlUtils.displayHost(rawUrl)
+            }
+        } else {
+            webappID = intent.getIntExtra(Const.INTENT_WEBAPPID, -1)
+            webapp = DataManager.getInstance().getWebApp(webappID)
+        }
         webappTabIndex = intent.getIntExtra(Const.INTENT_TAB_INDEX, 0)
         EntryPointUtils.entryPointReached(this)
         // 重置错误页重试目标（新应用加载，避免残留旧地址）
         retryUrl = ""
-        webapp = DataManager.getInstance().getWebApp(webappID)
         // 登录态隔离：开启隔离的 WebApp 恢复自己的 Cookie 会话（异步，多标签按 tabIndex）。
         // onRestored 后才装配 WebView/loadUrl——cookie 就绪先于页面首批请求，
         // 消除「清空后未恢复」窗口期的登录态偶发丢失（loadUrl 与恢复的时序竞争）

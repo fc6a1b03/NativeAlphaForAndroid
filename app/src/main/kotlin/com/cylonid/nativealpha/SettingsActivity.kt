@@ -369,8 +369,13 @@ class SettingsActivity : AppCompatActivity() {
                     OutputStreamWriter(stream, Charsets.UTF_8).use { writer ->
                         writer.write(AppErrorEntry.toJson(recent))
                     }
-                    // 导出成功即清空历史（用户定调：避免反复导出同一批旧错误；
-                    // 写失败路径不清除，数据无损）
+                    // 导出成功即清空历史（用户定调：避免反复导出同一批旧错误）。
+                    // v2.2.11 修复：文案声称已清空但 clearAll 从未接线（v2.2.9
+                    // 只改了提示语）——真机两次导出同批旧错误实锤
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        AppErrorLogRepository.clearAll(applicationContext)
+                    }
+                    // 写失败路径不清除，数据无损
                     NotificationUtils.showInfoSnackbar(
                         this@SettingsActivity,
                         getString(R.string.app_errors_export_success),
