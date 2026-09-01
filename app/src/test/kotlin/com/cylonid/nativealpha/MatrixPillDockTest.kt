@@ -8,7 +8,8 @@ import org.junit.Test
 
 /**
  * 可移动窗数胶囊吸边判定穷举（用户拍板的浮窗助手交互）：
- * 中心距顶/左/右边缘小于阈值即吸该侧（顶部优先），居中区域不吸。
+ * 中心距左/右边缘小于阈值即吸该侧，居中区域与顶缘不吸
+ * （v2.2.11 撤销顶置吸顶：与系统下拉通知栏手势区冲突）。
  */
 class MatrixPillDockTest {
 
@@ -44,26 +45,24 @@ class MatrixPillDockTest {
         )
     }
 
-    /** 中心贴顶缘 → 吸顶（自动吸顶收纳用同一判定） */
+    /** 贴顶缘 → 不吸（顶置收纳已撤销：与系统下拉手势冲突） */
     @Test
-    fun dock_top_whenCenterNearTopEdge() {
-        assertEquals(
-            MatrixPillDock.TOP,
+    fun noDock_whenCenterNearTopEdge() {
+        assertNull(
             matrixPillDockTarget(containerW / 2f, 0f, containerW, containerH, threshold)
         )
-        assertEquals(
-            MatrixPillDock.TOP,
+        assertNull(
             matrixPillDockTarget(
                 containerW / 2f, threshold - 1f, containerW, containerH, threshold
             )
         )
     }
 
-    /** 顶部优先：角落位置（同时近顶与左）吸顶 */
+    /** 角落位置（同时近顶与左）→ 吸左（顶缘无收纳，侧缘接管） */
     @Test
-    fun dock_topWinsAtCorner() {
+    fun dock_leftWinsAtTopCorner() {
         assertEquals(
-            MatrixPillDock.TOP,
+            MatrixPillDock.LEFT,
             matrixPillDockTarget(10f, 10f, containerW, containerH, threshold)
         )
     }
