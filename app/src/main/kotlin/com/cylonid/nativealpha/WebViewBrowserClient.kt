@@ -21,6 +21,7 @@ import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.util.FeatureMetrics
+import com.cylonid.nativealpha.util.LoadFailureClassifier
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.google.android.material.snackbar.Snackbar
 
@@ -114,9 +115,13 @@ internal abstract class SiteWebViewClient(
             // 记录重试目标 + 加载自定义错误页（不显示系统默认白屏）
             site.retryUrl = request.url?.toString() ?: site.urlOnFirstPageload
             site.showCustomErrorPage(code, desc)
-            // 断线自动恢复：启动探测监视，站点可达后自动重载（不再依赖
-            // 用户手动 Try again——网络恢复/站点恢复的下半场闭环）
-            site.startReconnectWatch()
+            // 断线自动恢复：分类驱动（借鉴 happier「终态/瞬态」三分法）——
+            // 仅瞬态失败（断网/DNS/超时）启动探测监视，站点可达后自动重载；
+            // 证书/URL 类终态重载必再败（探测成功只会白耗退避周期），不监视
+            val kind = LoadFailureClassifier.classify(code, desc)
+            if (LoadFailureClassifier.isRetryable(kind)) {
+                site.startReconnectWatch()
+            }
         }
     }
 

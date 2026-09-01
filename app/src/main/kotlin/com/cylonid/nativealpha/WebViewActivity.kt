@@ -96,6 +96,7 @@ import com.cylonid.nativealpha.util.DateUtils
 import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.util.EntryPointUtils
 import com.cylonid.nativealpha.util.LocaleUtils
+import com.cylonid.nativealpha.util.LoadFailureClassifier
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.StatsRecorder
 import com.cylonid.nativealpha.util.WebViewSetup
@@ -1076,11 +1077,20 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
             val lang = LocaleUtils.fileEnding
             val safeCode = code ?: ""
             val safeDesc = desc ?: ""
+            // 本地化原因行（分类驱动）：证书/地址类终态给出可行动提示，
+            // 瞬态失败给「会自动恢复」预期
+            val reasonRes = when (LoadFailureClassifier.classify(safeCode, safeDesc)) {
+                LoadFailureClassifier.Kind.SECURITY -> R.string.load_failure_hint_security
+                LoadFailureClassifier.Kind.BAD_ADDRESS -> R.string.load_failure_hint_bad_address
+                LoadFailureClassifier.Kind.RETRYABLE -> R.string.load_failure_hint_retryable
+            }
+            val encodedReason = java.net.URLEncoder.encode(getString(reasonRes), "UTF-8")
             // URL 编码 desc（含空格/特殊字符安全）
             val encodedDesc = java.net.URLEncoder.encode(safeDesc, "UTF-8")
             wv!!.loadUrl(
                 "file:///android_asset/errorSite/error_" + lang
                     + ".html?code=" + safeCode + "&desc=" + encodedDesc
+                    + "&reason=" + encodedReason
             )
         } catch (ignored: Exception) {
             // 错误页加载失败静默（保持现状）

@@ -415,4 +415,9 @@
     <string name="webevent_delete_body">This rule will stop working.</string>
     <string name="webevent_rule_delete">Delete</string>
     <string name="webevent_rule_subline">%1$s · at most once per %2$d s</string>
+
+    <!-- ===== Load failure classification (borrowed from happier: terminal vs transient) ===== -->
+    <string name="load_failure_hint_security">Certificate error at the site side. If you trust the site, enable \'"Ignore SSL errors"\' in its settings.</string>
+    <string name="load_failure_hint_bad_address">The address looks invalid. Check the site URL in this app\'s settings.</string>
+    <string name="load_failure_hint_retryable">Network seems unreachable. We\'ll keep watching and reload automatically once it\'s back.</string>
 </resources>
