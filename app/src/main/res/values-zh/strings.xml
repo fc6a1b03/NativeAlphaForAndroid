@@ -224,7 +224,7 @@
     <string name="desc_export_app_errors">导出应用自身最近 3 天的错误日志，供开发排查。</string>
     <string name="stat_log_network_errors">站点统计记录网络错误</string>
     <string name="desc_stat_log_network_errors">关闭后，断网、DNS 解析失败等网络类页面错误不记入站点统计。</string>
-    <string name="app_errors_export_success">错误日志已导出</string>
+    <string name="app_errors_export_success">已导出，错误历史已清空</string>
     <string name="app_errors_export_failed">错误日志导出失败</string>
     <string name="app_errors_none">近 3 天无错误日志</string>
     <string name="gesture_no_prev_page">没有上一页了</string>
@@ -331,6 +331,9 @@
     <string name="matrix_entry_desc">打开多窗矩阵</string>
     <string name="matrix_empty_hint">先添加站点再使用矩阵</string>
     <string name="matrix_window_count">同屏窗口数量</string>
+    <plurals name="matrix_window_count_value">
+        <item quantity="other">%1$d 窗</item>
+    </plurals>
     <string name="matrix_exit">退出多窗矩阵</string>
     <string name="matrix_pick_app">选择应用</string>
     <string name="matrix_pick_title">选择应用</string>

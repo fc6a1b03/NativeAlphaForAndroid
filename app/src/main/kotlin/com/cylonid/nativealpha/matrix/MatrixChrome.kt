@@ -2,13 +2,15 @@ package com.cylonid.nativealpha.matrix
 
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.VectorConverter
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,17 +50,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -164,6 +167,9 @@ internal fun MatrixWindowCountPill(
     var expanded by remember { mutableStateOf(false) }
     // 交互戳：任意拖动/点击重置自动吸顶计时
     var idleEpoch by remember { mutableIntStateOf(0) }
+    // 用户接手位置权（用户定调）：手动拖动过即视为用户选定摆放位置，
+    // 本会话内不再自动吸顶；点把手弹回=交还系统，自动吸顶恢复
+    var userTookControl by remember { mutableStateOf(false) }
 
     val isDockedSide: () -> Boolean = {
         val x = pos.value.x
@@ -171,10 +177,10 @@ internal fun MatrixWindowCountPill(
     }
 
     // 2s 无操作自动吸顶（拖动中/菜单展开时不吸；已吸左右=明确收纳意图，保持）
-    LaunchedEffect(idleEpoch, dragging, expanded, containerSize) {
-        if (!dragging && !expanded) {
+    LaunchedEffect(idleEpoch, dragging, expanded, containerSize, userTookControl) {
+        if (!dragging && !expanded && !userTookControl) {
             delay(PILL_AUTO_DOCK_IDLE_MS)
-            if (!dragging && !expanded && !isDockedSide()) {
+            if (!dragging && !expanded && !userTookControl && !isDockedSide()) {
                 val dest = Offset(
                     pos.value.x.coerceIn(0f, (containerSize.width - pillW).coerceAtLeast(0f)),
                     -(pillH - peek)
@@ -193,16 +199,6 @@ internal fun MatrixWindowCountPill(
         onDispose { androidView.systemGestureExclusionRects = emptyList() }
     }
 
-    // 扩开菜单动画（中心缩放 + 淡入，遮罩独立淡入）
-    val menuAlpha by animateFloatAsState(
-        if (expanded) 1f else 0f,
-        tween(200, easing = FastOutSlowInEasing), label = "menuAlpha"
-    )
-    val menuScale by animateFloatAsState(
-        if (expanded) 1f else 0.55f,
-        tween(220, easing = FastOutSlowInEasing), label = "menuScale"
-    )
-
     val desc = stringResource(R.string.matrix_window_count)
     val exitDesc = stringResource(R.string.matrix_exit)
 
@@ -213,7 +209,7 @@ internal fun MatrixWindowCountPill(
             shape = RoundedCornerShape(16.dp),
             shadowElevation = 2.dp,
             modifier = Modifier
-                .alpha(if (positioned.value) (1f - menuAlpha) else 0f)
+                .alpha(if (positioned.value && !expanded) 1f else 0f)
                 .offset { IntOffset(pos.value.x.roundToInt(), pos.value.y.roundToInt()) }
                 .size(PILL_WIDTH, PILL_HEIGHT)
                 .onGloballyPositioned { coords ->
@@ -248,6 +244,7 @@ internal fun MatrixWindowCountPill(
                         },
                         onDragEnd = {
                             dragging = false
+                            userTookControl = true
                             idleEpoch++
                             val dock = matrixPillDockTarget(
                                 pos.value.x + pillW / 2f,
@@ -280,7 +277,9 @@ internal fun MatrixWindowCountPill(
                 .pointerInput(containerSize) {
                     detectTapGestures(onTap = {
                         if (isDockedSide() || pos.value.y <= -(pillH - peek) + 1f) {
-                            // 吸边/吸顶把手 → 弹回顶部居中完整态
+                            // 吸边/吸顶把手 → 弹回顶部居中完整态（交还位置
+                            // 权，自动吸顶随之恢复）
+                            userTookControl = false
                             idleEpoch++
                             scope.launch {
                                 pos.animateTo(
@@ -332,81 +331,110 @@ internal fun MatrixWindowCountPill(
             )
         }
 
-        // 悬浮小菜单：以胶囊位置为锚点原地扩开（中心缩放 + 淡入）
-        if (positioned.value) {
+        // 悬浮小菜单：以胶囊中心为锚原地扩开（中心缩放 + 淡入），
+        // 居中覆盖胶囊（用户定调），整体钳回屏幕内。
+        // 注：M3 DropdownMenu 锚定只认组合位置，无法感知 offset 绝对
+        // 定位浮层（实测弹点失控），故保留手写定位。
+        AnimatedVisibility(
+            visible = expanded && positioned.value,
+            enter = fadeIn(tween(200, easing = FastOutSlowInEasing)) +
+                scaleIn(initialScale = 0.55f, animationSpec = tween(220, easing = FastOutSlowInEasing)),
+            exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.55f, animationSpec = tween(150)),
+            modifier = Modifier.align(Alignment.TopStart)
+        ) {
             val menuW = with(density) { MENU_WIDTH.toPx() }
             val menuH = with(density) { MENU_HEIGHT_ESTIMATE_DP.dp.toPx() }
             val menuOrigin = Offset(
-                pos.value.x.coerceIn(0f, (containerSize.width - menuW).coerceAtLeast(0f)),
-                pos.value.y.coerceIn(
-                    0f,
-                    (containerSize.height - menuH).coerceAtLeast(0f)
+                (pos.value.x + pillW / 2f - menuW / 2f).coerceIn(
+                    0f, (containerSize.width - menuW).coerceAtLeast(0f)
+                ),
+                (pos.value.y + pillH / 2f - menuH / 2f).coerceIn(
+                    0f, (containerSize.height - menuH).coerceAtLeast(0f)
                 )
             )
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainer,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
                 shadowElevation = 3.dp,
                 modifier = Modifier
-                    .alpha(menuAlpha)
                     .offset { IntOffset(menuOrigin.x.roundToInt(), menuOrigin.y.roundToInt()) }
                     .width(MENU_WIDTH)
-                    .graphicsLayer {
-                        scaleX = menuScale
-                        scaleY = menuScale
-                        transformOrigin = TransformOrigin(0.5f, 0.35f)
-                    }
                     .pointerInput(Unit) { detectTapGestures { } }
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // 标题行：窗数是菜单的视觉主体
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
+                        Icon(
+                            Icons.Default.Dashboard,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = pluralStringResource(
+                                R.plurals.matrix_window_count_value, windowCount, windowCount
+                            ),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    // 步进行：tonal 圆钮有实体感，边界态自然降透明
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(22.dp)
+                    ) {
+                        FilledTonalIconButton(
                             onClick = { onChangeWindowCount(windowCount - 1) },
                             enabled = windowCount > MatrixSessionState.MIN_WINDOW_COUNT
                         ) {
-                            Icon(
-                                Icons.Default.Remove,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Icon(Icons.Default.Remove, contentDescription = null)
                         }
-                        Text(
-                            text = windowCount.toString(),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.width(40.dp),
-                            textAlign = TextAlign.Center
-                        )
-                        IconButton(
+                        FilledTonalIconButton(
                             onClick = { onChangeWindowCount(windowCount + 1) },
                             enabled = windowCount < maxWindows
                         ) {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Icon(Icons.Default.Add, contentDescription = null)
                         }
                     }
-                    HorizontalDivider()
-                    TextButton(
-                        onClick = {
-                            expanded = false
-                            onExit()
-                        },
-                        modifier = Modifier.semantics { contentDescription = exitDesc }
+                    Spacer(Modifier.height(10.dp))
+                    // 退出行：tonal 胶囊菜单项（icon+label 整行可点，非裸链接）
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                role = Role.Button,
+                                onClick = {
+                                    expanded = false
+                                    onExit()
+                                }
+                            )
+                            .semantics { contentDescription = exitDesc }
                     ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.matrix_exit))
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ExitToApp,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.matrix_exit),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
                     }
                 }
             }
@@ -415,7 +443,8 @@ internal fun MatrixWindowCountPill(
 }
 
 /** 菜单宽度（固定，保证步进行 + 退出按钮排版稳定） */
-internal val MENU_WIDTH = 184.dp
+internal val MENU_WIDTH = 192.dp
 
-/** 菜单高度估算（clamp 用；实际 wrap 内容） */
-internal const val MENU_HEIGHT_ESTIMATE_DP = 132
+/** 菜单高度估算（屏幕内钳制用；实际 wrap 内容） */
+internal const val MENU_HEIGHT_ESTIMATE_DP = 158
+

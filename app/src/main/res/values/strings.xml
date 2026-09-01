@@ -223,7 +223,7 @@
     <string name="desc_export_app_errors">Export the app\'s own error logs of the last 3 days for debugging.</string>
     <string name="stat_log_network_errors">Log network errors in site stats</string>
     <string name="desc_stat_log_network_errors">When off, connection-level page errors (offline, DNS failure) are excluded from per-site stats.</string>
-    <string name="app_errors_export_success">Error logs exported</string>
+    <string name="app_errors_export_success">Exported — error history cleared</string>
     <string name="app_errors_export_failed">Failed to export error logs</string>
     <string name="app_errors_none">No error logs in the last 3 days</string>
     <string name="gesture_no_prev_page">No previous page</string>
@@ -334,6 +334,10 @@
     <string name="matrix_entry_desc">Open matrix view</string>
     <string name="matrix_empty_hint">Add a site first</string>
     <string name="matrix_window_count">Windows on screen</string>
+    <plurals name="matrix_window_count_value">
+        <item quantity="one">%1$d window</item>
+        <item quantity="other">%1$d windows</item>
+    </plurals>
     <string name="matrix_exit">Exit matrix view</string>
     <string name="matrix_pick_app">Pick an app</string>
     <string name="matrix_pick_title">Pick an app</string>
