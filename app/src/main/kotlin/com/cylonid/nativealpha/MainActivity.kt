@@ -25,6 +25,7 @@ import com.cylonid.nativealpha.ui.MainScreen
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.EntryPointUtils.entryPointReached
 import com.cylonid.nativealpha.util.ShortcutIconUtils
+import com.cylonid.nativealpha.util.SiteShareCodec
 import com.cylonid.nativealpha.util.WebViewLauncher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,6 +42,10 @@ class MainActivity : AppCompatActivity() {
         lastAppliedThemeId = DataManager.getInstance().settings.themeId
 
         entryPointReached(this)
+
+        // 分享深链导入（C-分享）：扫码/点开 webnative://add 链接 → 校验后
+        // 进添加向导预填（fail-closed：解析失败提示无效，不进向导）
+        routeShareDeepLink(intent)
 
         // 崩溃恢复提示：上次进程崩溃过 → 引导导出错误日志（异步检查，不阻塞启动）
         checkAndPromptCrashLog()
@@ -129,6 +134,32 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // singleTask：App 在前台时再扫一个码走这里（onCreate 只覆盖冷启路径）
+        routeShareDeepLink(intent)
+    }
+
+    /**
+     * 分享深链路由（C-分享）：webnative://add?v=1&u=..&n=.. → 添加向导预填。
+     * 深链数据视为不可信输入（happier fail-closed 纪律）：解析失败提示
+     * 「链接无效」即止，绝不带着未校验的 URL 进向导。
+     */
+    private fun routeShareDeepLink(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (!SiteShareCodec.SCHEME.equals(data.scheme, ignoreCase = true)) return
+        val shared = SiteShareCodec.parseShareLink(data.toString())
+        if (shared == null) {
+            Toast.makeText(this, R.string.share_invalid_link, Toast.LENGTH_LONG).show()
+            return
+        }
+        startActivity(
+            Intent(this, AddWebAppActivity::class.java)
+                .putExtra(AddWebAppActivity.EXTRA_PREFILL_URL, shared.url)
+                .putExtra(AddWebAppActivity.EXTRA_PREFILL_NAME, shared.name)
+        )
     }
 
     override fun onResume() {

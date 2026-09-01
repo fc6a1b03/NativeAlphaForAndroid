@@ -98,6 +98,8 @@ dependencies {
     implementation libs.androidx.datastore.preferences
     // Baseline Profile 运行时安装（启动提速）
     implementation libs.androidx.profileinstaller
+    // 站点分享二维码生成（纯 Java core；扫码走系统相机+深链，不引入 GMS）
+    implementation libs.zxing.core
 
     // Compose
     implementation platform(libs.androidx.compose.bom)

@@ -422,4 +422,13 @@
     <string name="load_failure_hint_retryable">Network seems unreachable. We\'ll keep watching and reload automatically once it\'s back.</string>
     <string name="webevent_hook_stale">Hook not detected on latest load. The site may have changed; rules might not fire. Reopen the site and re-check.</string>
     <string name="site_health_recent_failure">Failed to load recently in this session</string>
+    <!-- ===== Site share (QR + deep link, borrowed from happier pairing discipline) ===== -->
+    <string name="share_site_entry">Share this site</string>
+    <string name="share_hint_scan">Let the other side scan the QR code with their camera, or copy the link below.</string>
+    <string name="share_copy_link">Copy link</string>
+    <string name="share_link_copied">Link copied</string>
+    <string name="share_close">Close</string>
+    <string name="share_invalid_url">Cannot generate a share code: the site URL looks invalid.</string>
+    <string name="share_invalid_link">This share link is not valid.</string>
+    <string name="share_qr_content_desc">QR code of the site share link</string>
 </resources>

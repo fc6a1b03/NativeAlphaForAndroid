@@ -418,4 +418,13 @@
     <string name="load_failure_hint_retryable">网络似乎不可用。我们会持续探测，恢复后自动重新加载。</string>
     <string name="webevent_hook_stale">最近一次加载未检测到注入钩子，站点可能已改版，规则可能失效。请重新打开该站点后再次查看。</string>
     <string name="site_health_recent_failure">本次会话内最近一次加载失败</string>
+    <!-- ===== 站点分享（二维码+深链，借鉴 happier 配对纪律） ===== -->
+    <string name="share_site_entry">分享此站点</string>
+    <string name="share_hint_scan">让对方用相机扫描二维码，或复制下方链接发送。</string>
+    <string name="share_copy_link">复制链接</string>
+    <string name="share_link_copied">链接已复制</string>
+    <string name="share_close">关闭</string>
+    <string name="share_invalid_url">无法生成分享码：站点地址似乎无效。</string>
+    <string name="share_invalid_link">这不是有效的站点分享链接。</string>
+    <string name="share_qr_content_desc">站点分享链接的二维码</string>
 </resources>

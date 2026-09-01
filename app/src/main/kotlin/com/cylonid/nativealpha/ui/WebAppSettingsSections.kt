@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -39,6 +40,7 @@ internal fun BasicInfoSection(
     updateSettings: (WebApp.() -> Unit) -> Unit,
     syncFromGlobal: () -> Unit,
     onRecreateShortcut: () -> Unit,
+    onShareSite: () -> Unit,
 ) {
     val context = LocalContext.current
     // 预取字符串（避免在 lambda 里查询资源触发 lint）
@@ -90,6 +92,13 @@ internal fun BasicInfoSection(
             icon = { Icon(Icons.Default.CloudUpload, contentDescription = null) },
             title = stringResource(R.string.re_create_shortcut),
             onClick = onRecreateShortcut
+        )
+        // 分享此站点（二维码+深链，对端扫码进添加向导预填）
+        HorizontalDivider()
+        WebAppSettingsActionRow(
+            icon = { Icon(Icons.Default.Share, contentDescription = null) },
+            title = stringResource(R.string.share_site_entry),
+            onClick = onShareSite
         )
         // 覆盖全局设置开关（语义：开=应用设置为主，关=跟随全局）
         HorizontalDivider()
