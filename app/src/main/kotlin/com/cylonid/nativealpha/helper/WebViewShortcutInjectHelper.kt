@@ -141,6 +141,26 @@ class WebViewShortcutInjectHelper(private val activity: WebViewActivity) {
         return w != null && w.keyShortcuts.contains(shortcut)
     }
 
+    /**
+     * dispatchKeyEvent 组合键拦截（重构时自 WebViewActivity 逐行迁移，零语义变更）：
+     * 已绑定组合键拦截发送（不触发浏览器默认），管理在设置页点选录入。
+     * 返回 true 表示已消费（Activity 不再下传）。
+     */
+    fun tryInterceptShortcutKey(event: KeyEvent): Boolean {
+        if (event.action != KeyEvent.ACTION_DOWN) return false
+        val ctrl = event.isCtrlPressed
+        val shift = event.isShiftPressed
+        val alt = event.isAltPressed
+        // 仅捕获组合键（Ctrl/Shift/Alt 单独按下不处理）
+        if (!ctrl && !shift && !alt) return false
+        val key = keyCodeToChar(event.keyCode, shift) ?: return false
+        val shortcut = buildShortcutString(ctrl, shift, alt, key)
+        // 已绑定快捷键：拦截发送（不触发浏览器默认）
+        if (!isBoundShortcut(shortcut)) return false
+        sendShortcutToPage(shortcut)
+        return true
+    }
+
     /** 构建组合键字符串（Ctrl+S / Ctrl+Shift+S） */
     fun buildShortcutString(ctrl: Boolean, shift: Boolean, alt: Boolean, key: String): String {
         val sb = StringBuilder()
