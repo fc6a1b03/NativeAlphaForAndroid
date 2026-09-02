@@ -161,6 +161,7 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 ├── util/                        # 工具类与统一能力层
 │   ├── App.kt                   # Application：崩溃兜底（OOM 标注）、主题初始化、内存压力记录
 │   ├── AppStorage.kt            # DataStore 统一封装
+│   ├── SystemBars.kt            # 系统控件全局能力：inset 兜底防遮+全屏沉浸（SelfManagedInsets 自管契约）
 │   ├── AppTheme.kt / ThemeUtils.kt / ColorUtils.kt  # 主题/颜色/状态栏
 │   ├── Const.kt                 # 全局常量
 │   ├── CookieSessionManager.kt  # Cookie 隔离

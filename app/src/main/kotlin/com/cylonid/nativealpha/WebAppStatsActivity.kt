@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
+import com.cylonid.nativealpha.util.SystemBars
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.PageErrorEntry
 import com.cylonid.nativealpha.model.PageErrorRepository
@@ -28,7 +29,7 @@ import java.io.OutputStreamWriter
  * 统计页（按 WebApp 进入）：KPI/图表/缓存/错误日志/清空。
  * 数据源：DataManager 统计字段 + DataStore 页面错误（KEY_PAGE_ERRORS）。
  */
-class WebAppStatsActivity : AppCompatActivity() {
+class WebAppStatsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
 
     private var webappID: Int = -1
     private val snackbarHostState = SnackbarHostState()

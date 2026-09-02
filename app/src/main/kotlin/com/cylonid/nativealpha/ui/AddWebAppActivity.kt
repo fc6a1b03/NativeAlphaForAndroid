@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.IconCompat
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
+import com.cylonid.nativealpha.util.SystemBars
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
@@ -101,7 +102,7 @@ import kotlinx.coroutines.withContext
  *
  * 完成后：保存 WebApp（title 唯一名称）并自动创建桌面快捷方式。
  */
-class AddWebAppActivity : AppCompatActivity() {
+class AddWebAppActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeUtils.applyUiMode()

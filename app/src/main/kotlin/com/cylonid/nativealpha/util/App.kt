@@ -1,9 +1,11 @@
 package com.cylonid.nativealpha.util
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.Application
 import android.content.ComponentCallbacks2
 import android.content.Context
+import android.os.Bundle
 import android.os.Process
 import android.util.Log
 import com.cylonid.nativealpha.model.AppErrorEntry
@@ -22,6 +24,23 @@ class App : Application() {
 
         // 全局未捕获异常兜底：记录应用错误日志（KEY_APP_ERRORS）后优雅重启，不弹系统"已停止"
         installUncaughtExceptionHandler()
+
+        // 系统控件全局兜底（C-系统栏）：targetSdk 35+ 强制 edge-to-edge 后，
+        // 未处理 insets 的页面内容会被状态栏/导航栏/挖孔遮挡（扫码页关闭按钮
+        // 被状态栏吃掉一半的教训）——所有页面自动规避；自管页面实现
+        // SystemBars.SelfManagedInsets 跳过（Scaffold/全屏页）
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+                SystemBars.installInsetGuard(activity)
+            }
+
+            override fun onActivityStarted(activity: Activity) = Unit
+            override fun onActivityResumed(activity: Activity) = Unit
+            override fun onActivityPaused(activity: Activity) = Unit
+            override fun onActivityStopped(activity: Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+            override fun onActivityDestroyed(activity: Activity) = Unit
+        })
 
         // 进程启动即应用 UI 模式（themeId 持久化在 SharedPreferences，
         // 此时加载最可靠——早于任何 Activity 的 setTheme）

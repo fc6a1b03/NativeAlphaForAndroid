@@ -14,6 +14,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.lifecycleScope
+import com.cylonid.nativealpha.util.SystemBars
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.AppErrorLogRepository
 import com.cylonid.nativealpha.model.DataManager
@@ -30,7 +31,7 @@ import com.cylonid.nativealpha.util.WebViewLauncher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemeUtils.applyUiMode()
