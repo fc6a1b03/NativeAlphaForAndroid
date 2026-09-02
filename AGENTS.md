@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.2.15`（`versionCode 2215`）
+- **当前版本**：`2.2.16`（`versionCode 2216`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -208,7 +208,7 @@ Profile 等。
 
 ## 测试策略
 
-- **单元测试**：`app/src/test/java/com/cylonid/nativealpha/`（文件路径历史遗留，实际为 Kotlin 测试）
+- **单元测试**：`app/src/test/kotlin/com/cylonid/nativealpha/`（按被测业务包镜像：util/matrix/webevent/helper/model/ui，公共设施 testing/）
     - 使用 JUnit 4 + Robolectric（`@Config(sdk = [34])`，Robolectric 当前最高支持到 API 34）
     - 覆盖：URL 工具、WebApp 设置拷贝、DataManager Gson 契约、图标管理、日期工具、应用错误日志等
 - **UI / Compose 测试**：`app/src/androidTest/kotlin/com/cylonid/nativealpha/UITests.kt`
@@ -292,4 +292,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-09-01（基于仓库当前实际内容整理，版本 2.2.15）。*
+*最后更新：2026-09-01（基于仓库当前实际内容整理，版本 2.2.16）。*
