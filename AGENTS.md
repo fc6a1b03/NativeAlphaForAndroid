@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.2.18`（`versionCode 2218`）
+- **当前版本**：`2.2.19`（`versionCode 2219`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -117,7 +117,7 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 ├── SettingsActivity.kt          # 全局设置页（Compose）
 ├── WebAppSettingsActivity.kt    # 单个 WebApp 设置页（Compose）
 ├── WebAppStatsActivity.kt       # 单个 WebApp 统计页（Compose）
-├── WebViewActivity.kt           # 渲染核心（Kotlin + XML 布局 + WebView）
+├── WebViewActivity.kt           # 渲染核心集成枢纽（323 行：视图字段+系统回调入口，实现体委托 helper 包四件套）
 ├── ScanCaptureActivity.kt       # 扫码取景页（CameraX + 自绘遮罩 ScanOverlayView）
 ├── WebViewSiteContext.kt        # 站点行为解耦接口（宿主/矩阵共用，防 Activity 强引用）
 ├── WebViewBrowserClient.kt      # WebViewClient 模板方法基类（SiteWebViewClient）+ 宿主子类
@@ -130,10 +130,14 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   └── ErrorType.kt             # 错误类型枚举
 ├── ui/                          # Compose UI 屏幕与弹窗
 │   ├── MainScreen.kt            # 主界面卡片列表 + 搜索 + FAB
-│   ├── AddWebAppActivity.kt     # 两步添加向导
+│   ├── AddWebAppActivity.kt     # 两步添加向导（Activity 壳 + Step1 + 主 Composable）
+│   ├── AddWebAppStep2.kt        # 向导第二步页（名称/图标/完成按钮）
+│   ├── AddWebAppShortcut.kt     # 桌面快捷方式 pin/更新（MainScreen 同用）
 │   ├── SettingsScreen.kt        # 全局设置 Compose UI
 │   ├── WebAppSettingsScreen.kt  # WebApp 设置 Compose UI
-│   ├── WebAppStatsScreen.kt     # 统计图表页
+│   ├── WebAppStatsScreen.kt     # 统计图表页（骨架 + KPI/缓存/元信息卡）
+│   ├── WebAppStatsErrors.kt     # 统计页错误日志区块（分组/详情/清空，状态自管）
+│   ├── WebAppStatsMetrics.kt    # 统计页图表/格式化/使用建议（纯函数可单测）
 │   ├── ShortcutRecreateDialog.kt# 重新创建快捷方式弹窗
 │   ├── ShortcutMenuOverlay.kt   # 快捷方式菜单浮层
 │   └── WebViewMenuOverlay.kt    # WebView 页面菜单浮层
@@ -180,9 +184,12 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 └── helper/
     ├── WebViewGestureHelper.kt       # 双击手势判定契约（JS 构建+语义解析，可单测）
     ├── WebViewTouchHandler.kt        # 触摸手势（双击菜单/长按下载/多指切换/边缘滑）
-    ├── WebViewShortcutInjectHelper.kt  # 组合键注入（JS 合成 + KeyEvent 双路）
+    ├── WebViewShortcutInjectHelper.kt  # 组合键注入（JS 合成 + KeyEvent 双路；comboString 大写归一可单测）
     ├── WebViewMenuHelper.kt          # 菜单浮层（缩放/会话标签/快捷键面板/缓存统计）
-    └── WebViewPermissionHelper.kt    # 运行时权限分流
+    ├── WebViewPermissionHelper.kt    # 运行时权限分流
+    ├── WebViewLifecycleDelegate.kt   # 装配与生命周期委托（intent→Cookie 恢复→装配链/生命周期体/返回键/后台分级回收/自动刷新）
+    ├── WebViewDarkModeController.kt  # 深色模式与系统栏（按站强制深色 API33 前后两路/insets 避让）
+    └── WebViewPageChrome.kt          # 页面加载 UI（动物动画/白屏检测/错误页/HTTP auth/loadURL/下载监听/断线监视）
 ```
 
 资源目录 `app/src/main/res/` 仅保留必要的 XML 资源：启动主题、WebView 布局、图标、字符串双语、错误页 HTML/CSS、Baseline
@@ -247,8 +254,7 @@ Profile 等。
 
 ## 常见坑与注意事项
 
-1. **WebViewActivity 现为 Kotlin，但仍是 View 渲染核心**：不要把它改成纯 Compose；其 XML 布局 `full_webview.xml` 承载
-   WebView 与加载动画。
+1. **WebViewActivity 现为 Kotlin，但仍是 View 渲染核心**：不要把它改成纯 Compose；其 XML 布局 `full_webview.xml` 承载   WebView 与加载动画。
 2. **Compose Compiler 插件不能删**：`build.gradle` 应用了 `alias(libs.plugins.kotlin.compose)`，否则 `remember` 等会出现
    inline 错误。
 3. **Compose BOM 固定 `2026.06.01`**：不要随意升级，新 BOM 可能引入与 Kotlin 2.3.20 不兼容的 beta Compose 版本。
@@ -292,4 +298,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-09-01（基于仓库当前实际内容整理，版本 2.2.18）。*
+*最后更新：2026-09-02（基于仓库当前实际内容整理，版本 2.2.19）。*
