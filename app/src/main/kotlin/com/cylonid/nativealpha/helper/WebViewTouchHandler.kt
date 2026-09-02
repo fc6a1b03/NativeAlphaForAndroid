@@ -420,7 +420,14 @@ class WebViewTouchHandler(private val activity: WebViewActivity) {
             val screenW = activity.resources.displayMetrics.widthPixels
             val edgeZone = startX < screenW * GESTURE_EDGE_ZONE_RATIO
                 || startX > screenW * (1f - GESTURE_EDGE_ZONE_RATIO)
-            if (edgeZone && kotlin.math.abs(dx) > GESTURE_SWIPE_MIN_PX
+            // 内容避让与多指同规（表格误触复盘）：页面可横向平移时边缘滑导航
+            // 禁用——横滚起点随机落入边缘区仍会误触返回。返回路径不唯一
+            // （系统返回手势/双击菜单不受影响），不困死
+            val canPanHorizontally = activity.wv?.let { wv ->
+                wv.canScrollHorizontally(-1) || wv.canScrollHorizontally(1)
+            } ?: false
+            if (edgeZone && !canPanHorizontally
+                && kotlin.math.abs(dx) > GESTURE_SWIPE_MIN_PX
                 && kotlin.math.abs(dx) > dy * GESTURE_HORIZONTAL_DOMINANCE
             ) {
                 if (dx > 0) {
