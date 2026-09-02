@@ -38,6 +38,8 @@ object SystemBars {
      * 内容区自动避开系统栏+挖孔（padding 注入 android.R.id.content 并消费
      * insets——子 View 不再重复处理，根治遮挡）。
      * [SelfManagedInsets] 页面跳过（Scaffold/全屏页自管）。
+     * 注意：兜底只覆盖系统栏+挖孔，不含 IME——需要键盘避让的页面
+     * （带输入框）应实现 SelfManagedInsets 自行处理。
      */
     fun installInsetGuard(activity: Activity) {
         if (activity is SelfManagedInsets) return
