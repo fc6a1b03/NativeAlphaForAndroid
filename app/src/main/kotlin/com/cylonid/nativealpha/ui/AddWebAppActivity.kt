@@ -166,7 +166,8 @@ private fun AddWebAppScreen(
         imagePicker.launch(Intent.createChooser(intent, msgPickIcon))
     }
 
-    fun normalizeUrl(raw: String): String = UrlUtils.normalize(raw)
+    fun normalizeUrl(raw: String): String =
+        UrlUtils.stripTrackingParams(UrlUtils.normalize(raw))
 
     fun validateUrl(raw: String): String? {
         return when (UrlUtils.validate(raw)) {

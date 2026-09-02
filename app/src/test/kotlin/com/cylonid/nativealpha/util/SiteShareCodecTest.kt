@@ -177,4 +177,15 @@ class SiteShareCodecTest {
         // 超长上限内的损坏串原样透传，decode 端 fail-safe 兜底为 null 配置
         assertNull(SiteShareCodec.decodeConfigDiff(parsed!!.configJson))
     }
+
+    /** 分享出去的 u 不携带追踪参数（白名单制,接收方 baseUrl 即干净身份） */
+    @Test
+    fun buildShareLink_stripsTrackingParams() {
+        val link = SiteShareCodec.buildShareLink(
+            "https://example.com/path?utm_source=qr&id=7", "我的站点"
+        )
+        val parsed = link?.let { SiteShareCodec.parseShareLink(it) }
+        assertNotNull(parsed)
+        assertEquals("https://example.com/path?id=7", parsed!!.url)
+    }
 }
