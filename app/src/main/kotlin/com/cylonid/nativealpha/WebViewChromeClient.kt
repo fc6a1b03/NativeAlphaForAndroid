@@ -50,7 +50,6 @@ internal class CustomWebChromeClient(
     private var mCustomView: View? = null
     private var mCustomViewCallback: CustomViewCallback? = null
     private var mOriginalOrientation = 0
-    private var mOriginalSystemUiVisibility = 0
 
     override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
         // 统计埋点：页面 JS 错误（未捕获异常/语法错误走 console.error 上报）
@@ -213,25 +212,21 @@ internal class CustomWebChromeClient(
         return bitmap
     }
 
-    @Suppress("DEPRECATION")
     override fun onHideCustomView() {
         (host.window.decorView as FrameLayout).removeView(this.mCustomView)
         this.mCustomView = null
-        host.window.decorView.systemUiVisibility = this.mOriginalSystemUiVisibility
         host.setRequestedOrientation(this.mOriginalOrientation)
         this.mCustomViewCallback!!.onCustomViewHidden()
         this.mCustomViewCallback = null
         host.showSystemBars()
     }
 
-    @Suppress("DEPRECATION")
     override fun onShowCustomView(pView: View, pViewCallback: CustomViewCallback) {
         if (this.mCustomView != null) {
             onHideCustomView()
             return
         }
         this.mCustomView = pView
-        this.mOriginalSystemUiVisibility = host.window.decorView.systemUiVisibility
         this.mOriginalOrientation = host.requestedOrientation
         this.mCustomViewCallback = pViewCallback
         (host.window.decorView as FrameLayout)

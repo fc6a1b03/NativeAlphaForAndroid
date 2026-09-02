@@ -3,8 +3,8 @@ package com.cylonid.nativealpha.util
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.util.Log
-import android.view.View
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.view.WindowCompat
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.DataManager
 
@@ -53,7 +53,9 @@ object ThemeUtils {
      */
     @JvmStatic
     @SuppressLint("ResourceType") // 动态 attr 数组（statusBarColor 等系统属性），Lint 静态分析误报 styleable 期望
-    @Suppress("DEPRECATION") // statusBarColor/navigationBarColor/systemUiVisibility 已废弃；迁移到 WindowInsetsController/EdgeToEdge 需全屏模式联动改造，本轮保持行为等价并集中 suppress
+    @Suppress("DEPRECATION") // statusBarColor/navigationBarColor 赋值已废弃，但 API 31-34
+    // （非强制 edge-to-edge）仍需其渲染系统栏底色；Android 15+ 为 no-op 无害。
+    // 图标亮暗已现代化（isAppearanceLight*Bars，systemUiVisibility 旧债已清偿）
     fun applySystemBarColors(activity: Activity) {
         try {
             val attrs = intArrayOf(
@@ -72,19 +74,11 @@ object ThemeUtils {
             val window = activity.window
             window.statusBarColor = statusColor
             window.navigationBarColor = navColor
-            // 图标亮暗（浅色主题=深色图标，深色主题=浅色图标）
-            var flags = window.decorView.systemUiVisibility
-            flags = if (lightStatus) {
-                flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-            } else {
-                flags and View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR.inv()
-            }
-            flags = if (lightNav) {
-                flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
-            } else {
-                flags and View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR.inv()
-            }
-            window.decorView.systemUiVisibility = flags
+            // 图标亮暗（浅色主题=深色图标，深色主题=浅色图标）：
+            // 现代范式 WindowInsetsController（minSdk 31 全可用）
+            val controller = WindowCompat.getInsetsController(window, window.decorView)
+            controller.isAppearanceLightStatusBars = lightStatus
+            controller.isAppearanceLightNavigationBars = lightNav
             Log.d("ThemeUtils", "applySystemBarColors status=$statusColor nav=$navColor lightStatus=$lightStatus lightNav=$lightNav")
         } catch (e: Exception) {
             Log.w("ThemeUtils", "applySystemBarColors failed", e)
