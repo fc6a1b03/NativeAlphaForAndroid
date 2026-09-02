@@ -147,10 +147,26 @@ jobs:
           PREV_TAG=$(git tag --sort=-version:refname | sed -n '2p')
           if [ -z "$PREV_TAG" ]; then RANGE=""; else RANGE="${PREV_TAG}..${VERSION}"; fi
           echo "--- 变更范围: ${RANGE:-全部历史} ---"
-          # 分类提取（宽松关键词匹配，兼容中文提交信息；去掉 hash 与类型前缀）
-          FEATURES=$(git log --oneline $RANGE 2>/dev/null | grep -iE "feat|feature|新增|增加|支持|优化.*体验|重设计" | sed -E 's/^[0-9a-f]+ ([a-z]+: )?//' | head -12)
-          FIXES=$(git log --oneline $RANGE 2>/dev/null | grep -iE "fix|bug|修复|崩溃|异常|遮挡|失效" | sed -E 's/^[0-9a-f]+ ([a-z]+: )?//' | head -12)
-          PERFS=$(git log --oneline $RANGE 2>/dev/null | grep -iE "perf|optim|speed|fast|提速|加速|体积|内存" | sed -E 's/^[0-9a-f]+ ([a-z]+: )?//' | head -8)
+          # 分类提取（独占归类：一条提交只进一个分区，fix > feat > perf 优先；
+          # 关键词宽松兼容中文提交信息；去掉 hash 与类型前缀。修复重复入选）
+          FEATURES=""; FIXES=""; PERFS=""
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            stripped=$(echo "$line" | sed -E 's/^[0-9a-f]+ ([a-z]+: )?//')
+            if echo "$line" | grep -qiE "^[0-9a-f]+ (fix|bug)|修复|崩溃|异常|遮挡|失效"; then
+              FIXES="${FIXES}${stripped}
+"
+            elif echo "$line" | grep -qiE "^[0-9a-f]+ (feat|feature)|新增|增加|支持|重设计|优化.*体验"; then
+              FEATURES="${FEATURES}${stripped}
+"
+            elif echo "$line" | grep -qiE "perf|optim|speed|fast|提速|加速|体积|内存|refactor|重构"; then
+              PERFS="${PERFS}${stripped}
+"
+            fi
+          done < <(git log --oneline $RANGE 2>/dev/null | grep -viE "^\s*$|merge branch" | head -60)
+          FEATURES=$(echo -e "$FEATURES" | grep -v '^$' | head -12)
+          FIXES=$(echo -e "$FIXES" | grep -v '^$' | head -12)
+          PERFS=$(echo -e "$PERFS" | grep -v '^$' | head -8)
           # 生成 body（全动态：版本号/统计/分类/提交记录，无固定文案）
           TOTAL_COMMITS=$(git log --oneline $RANGE 2>/dev/null | wc -l | tr -d ' ')
           TOTAL_FILES=$(git diff --stat $RANGE 2>/dev/null | tail -1 | grep -oE '[0-9]+ files? changed' | grep -oE '[0-9]+' | head -1)
