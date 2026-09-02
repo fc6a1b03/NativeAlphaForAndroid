@@ -52,6 +52,14 @@ class WebViewTouchHandler(private val activity: WebViewActivity) {
 
         /** 双击坐标容差（px）：两次按下须落在同点附近才算双击 */
         private const val DOUBLE_TAP_SLOP_PX = 40
+
+        /**
+         * 多指左右滑导航判定（纯函数可单测，表格误触修复）：
+         * 页面内容可横向平移（长表格/宽图）时内容滚动优先，导航让位；
+         * 不可平移时位移超阈值才触发。
+         */
+        internal fun shouldNavigateOnSwipe(canPanHorizontally: Boolean, dxPx: Int): Boolean =
+            !canPanHorizontally && kotlin.math.abs(dxPx) > TRESHOLD
     }
 
     private val longPressHandler = Handler()
@@ -300,33 +308,44 @@ class WebViewTouchHandler(private val activity: WebViewActivity) {
                     mode = NONE
                     // release 前指针数（POINTER_UP 时 getPointerCount 已减 1）
                     val prevCount = event.pointerCount + 1
+                    // 内容避让（表格误触修复）：页面内容宽于视口（可横向平移）时，
+                    // 多指左右滑不触发前进/后退——AI 长表格横滚 + 第二指落下必被
+                    // 旧逻辑吃成导航（真机高频误触主诉）。webView 不可用（极端
+                    // 时序）时按不可平移放行。canScroll 双向或：scrollRange>0 时
+                    // 两端必有一侧可滚，等价「内容宽于视口」且不随滚动位置漂移
+                    // （computeHorizontalScroll* 为 protected 不可用）
+                    val canPanHorizontally = activity.wv?.let { wv ->
+                        wv.canScrollHorizontally(-1) || wv.canScrollHorizontally(1)
+                    } ?: false
                     if (kotlin.math.abs(startX - stopX) > TRESHOLD) {
-                        if (startX > stopX) {
-                            if (prevCount == 3 &&
-                                DataManager.getInstance().settings.isThreeFingerMultitouch
-                            ) {
-                                WebViewLauncher.startWebView(
-                                    DataManager.getInstance().getPredecessor(activity.webappID),
-                                    activity
-                                )
-                                activity.finish()
-                            } else if (DataManager.getInstance().settings.isTwoFingerMultitouch) {
-                                activity.safeGoForward()
+                        if (shouldNavigateOnSwipe(canPanHorizontally, (startX - stopX).toInt())) {
+                            if (startX > stopX) {
+                                if (prevCount == 3 &&
+                                    DataManager.getInstance().settings.isThreeFingerMultitouch
+                                ) {
+                                    WebViewLauncher.startWebView(
+                                        DataManager.getInstance().getPredecessor(activity.webappID),
+                                        activity
+                                    )
+                                    activity.finish()
+                                } else if (DataManager.getInstance().settings.isTwoFingerMultitouch) {
+                                    activity.safeGoForward()
+                                }
+                            } else {
+                                if (prevCount == 3 &&
+                                    DataManager.getInstance().settings.isThreeFingerMultitouch
+                                ) {
+                                    WebViewLauncher.startWebView(
+                                        DataManager.getInstance().getSuccessor(activity.webappID),
+                                        activity
+                                    )
+                                    activity.finish()
+                                } else if (DataManager.getInstance().settings.isTwoFingerMultitouch) {
+                                    activity.safeBackPressed()
+                                }
                             }
-                        } else {
-                            if (prevCount == 3 &&
-                                DataManager.getInstance().settings.isThreeFingerMultitouch
-                            ) {
-                                WebViewLauncher.startWebView(
-                                    DataManager.getInstance().getSuccessor(activity.webappID),
-                                    activity
-                                )
-                                activity.finish()
-                            } else if (DataManager.getInstance().settings.isTwoFingerMultitouch) {
-                                activity.safeBackPressed()
-                            }
+                            return@setOnTouchListener true
                         }
-                        return@setOnTouchListener true
                     }
                     if (DataManager.getInstance().settings.isMultitouchReload &&
                         kotlin.math.abs(startY - stopY) > TRESHOLD

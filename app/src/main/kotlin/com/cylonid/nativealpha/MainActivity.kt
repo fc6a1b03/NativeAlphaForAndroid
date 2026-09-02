@@ -159,6 +159,7 @@ class MainActivity : AppCompatActivity() {
             Intent(this, AddWebAppActivity::class.java)
                 .putExtra(AddWebAppActivity.EXTRA_PREFILL_URL, shared.url)
                 .putExtra(AddWebAppActivity.EXTRA_PREFILL_NAME, shared.name)
+                .putExtra(AddWebAppActivity.EXTRA_PREFILL_CONFIG, shared.configJson)
         )
     }
 

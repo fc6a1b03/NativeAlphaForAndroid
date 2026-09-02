@@ -113,12 +113,14 @@ class AddWebAppActivity : AppCompatActivity() {
         // 校验后传入——本页只消费，不再做安全判定
         val prefillUrl = intent.getStringExtra(EXTRA_PREFILL_URL) ?: ""
         val prefillName = intent.getStringExtra(EXTRA_PREFILL_NAME) ?: ""
+        val prefillConfig = intent.getStringExtra(EXTRA_PREFILL_CONFIG)
         setContent {
             AppMaterialTheme {
                 AddWebAppScreen(
                     onBack = { finish() },
                     initialUrl = prefillUrl,
-                    initialName = prefillName
+                    initialName = prefillName,
+                    prefillConfigJson = prefillConfig
                 )
             }
         }
@@ -130,6 +132,9 @@ class AddWebAppActivity : AppCompatActivity() {
 
         /** 分享深链导入的预填名称 */
         const val EXTRA_PREFILL_NAME = "extra_prefill_name"
+
+        /** 分享深链携带的设置差异 JSON（v2 深链；保存前经 copySettings 覆盖设置字段） */
+        const val EXTRA_PREFILL_CONFIG = "extra_prefill_config"
     }
 }
 
@@ -139,6 +144,7 @@ private fun AddWebAppScreen(
     onBack: () -> Unit,
     initialUrl: String = "",
     initialName: String = "",
+    prefillConfigJson: String? = null,
 ) {
     var step by remember { mutableIntStateOf(1) }
     var urlText by remember { mutableStateOf(initialUrl) }
@@ -277,6 +283,16 @@ private fun AddWebAppScreen(
         val appName = nameText.trim()
         if (appName.isNotEmpty()) webapp.title = appName
         webapp.applySettingsForNewWebApp()
+        // 分享深链 v2：设置差异覆盖新站默认（copySettings 仅复制设置字段，
+        // 统计/快捷键/图标不受染）；显式配置=应用设置为主，否则被全局模板盖掉
+        prefillConfigJson?.let { cfg ->
+            runCatching {
+                com.cylonid.nativealpha.util.SiteShareCodec.decodeConfigDiff(cfg)?.let { shared ->
+                    webapp.copySettings(shared)
+                    webapp.isOverrideGlobalSettings = true
+                }
+            }
+        }
         // 头像统一源：选中/回填图标持久化到 iconPath（列表/快捷方式统一取用）
         (customIcon ?: fetchedFavicon)?.let { icon ->
             WebAppIconManager.saveIcon(context, webapp, icon)

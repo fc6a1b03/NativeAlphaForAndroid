@@ -1,9 +1,11 @@
 package com.cylonid.nativealpha
 
+import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.SiteShareCodec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -34,13 +36,20 @@ class SiteShareCodecTest {
         assertNull(SiteShareCodec.buildShareLink("", "x"))
     }
 
-    /** 版本门：v 不等于受支持版本一律拒绝（未来格式演进防线） */
+    /** 版本门：不识别的未来版本一律拒绝；v1 遗留链接兼容（无 cfg） */
     @Test
-    fun parse_rejectsUnknownVersion() {
+    fun parse_rejectsUnknownVersion_butAcceptsLegacyV1() {
         val good = SiteShareCodec.buildShareLink("https://example.com", "S")!!
-        val evil = good.replace("v=1", "v=2")
-        assertNull(SiteShareCodec.parseShareLink(evil))
-        assertNull(SiteShareCodec.parseShareLink(good.replace("v=1&", "")))
+        // 当前链接为 v2；未来 v3 拒绝
+        assertNull(SiteShareCodec.parseShareLink(good.replace("v=2", "v=3")))
+        // 缺版本参数拒绝
+        assertNull(SiteShareCodec.parseShareLink(good.replace("v=2&", "")))
+        // v1 遗留（旧二维码在用户手里）：兼容解析为无配置添加
+        val v1 = "webnative://add?v=1&u=https%3A%2F%2Fexample.com&n=S"
+        val parsed = SiteShareCodec.parseShareLink(v1)
+        assertNotNull(parsed)
+        assertEquals("https://example.com", parsed!!.url)
+        assertNull(parsed.configJson)
     }
 
     /** scheme/host 门：非 webnative://add 形态拒绝 */
@@ -123,5 +132,49 @@ class SiteShareCodecTest {
         val parsed = link?.let { SiteShareCodec.parseShareLink(it) }
         assertNotNull(parsed)
         assertEquals("A&B=C 论坛", parsed!!.name)
+    }
+
+    /** v2 全配置：设置差异往返无损（改过 JS/深色/UA 的站点分享后设置还原） */
+    @Test
+    fun roundTrip_v2ConfigDiff() {
+        val site = WebApp("https://ai.example.com", 0).apply {
+            title = "AI Site"
+            isRequestDesktop = true          // 非默认
+            isForceDarkMode = true           // 非默认
+            textZoom = 120                   // 非默认
+            isAllowJs = true                 // 与默认相同 → 差异剔除
+        }
+        val link = SiteShareCodec.buildShareLink(site.baseUrl, site.title, site)
+        assertNotNull(link!!.contains("d="))
+
+        val parsed = SiteShareCodec.parseShareLink(link)!!
+        assertEquals("https://ai.example.com", parsed.url)
+        val cfg = SiteShareCodec.decodeConfigDiff(parsed.configJson)!!
+        assertTrue(cfg.isRequestDesktop)
+        assertTrue(cfg.isForceDarkMode)
+        assertEquals(120, cfg.textZoom)
+        // 默认值字段不进差异（接收端默认构造兜底）
+        assertEquals(false, cfg.isBlockImages)
+    }
+
+    /** 默认站点：差异为空 → d 字段省略（QR 最密最低），解析得无配置 */
+    @Test
+    fun defaultSite_omitsConfigField() {
+        val link = SiteShareCodec.buildShareLink("https://example.com", "S", WebApp("https://example.com", 0))
+        assertNotNull(link)
+        assertTrue("unexpected diff in link: $link", !link!!.contains("d="))
+        val parsed = SiteShareCodec.parseShareLink(link)!!
+        assertNull(parsed.configJson)
+    }
+
+    /** 损坏 cfg：降级为无配置添加（不阻断），不抛异常 */
+    @Test
+    fun parse_corruptConfig_degradesToNoConfig() {
+        val parsed = SiteShareCodec.parseShareLink(
+            "webnative://add?v=2&u=https%3A%2F%2Fexample.com&d=%7B%22broken"
+        )
+        assertNotNull(parsed)
+        // 超长上限内的损坏串原样透传，decode 端 fail-safe 兜底为 null 配置
+        assertNull(SiteShareCodec.decodeConfigDiff(parsed!!.configJson))
     }
 }
