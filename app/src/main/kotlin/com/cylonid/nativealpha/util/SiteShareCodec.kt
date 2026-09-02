@@ -62,7 +62,8 @@ object SiteShareCodec {
      * config 传 WebApp 即携带全部设置差异（推荐，主页/设置页入口都传）。
      */
     fun buildShareLink(baseUrl: String, name: String, config: WebApp? = null): String? {
-        val site = sanitizeTargetUrl(baseUrl) ?: return null
+        // 分享出去的链接不携带追踪参数（接收方添加的站点 baseUrl 即干净身份）
+        val site = sanitizeTargetUrl(baseUrl)?.let { UrlUtils.stripTrackingParams(it) } ?: return null
         val encodedUrl = URLEncoder.encode(site, "UTF-8")
         val displayName = name.trim().ifBlank { displayHostFallback(site) }
         val encodedName = URLEncoder.encode(

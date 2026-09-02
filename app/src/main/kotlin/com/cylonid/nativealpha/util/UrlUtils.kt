@@ -76,4 +76,52 @@ object UrlUtils {
         }
         return url.replace("http://", "").replace("https://", "").replace("www.", "")
     }
+
+    // ===== 追踪参数剥离（白名单制） =====
+
+    /** 公认的纯追踪参数名（精确匹配，小写）——功能性参数（token/session/路由）永不在此列 */
+    private val TRACKING_PARAM_KEYS = setOf(
+        "fbclid",      // Facebook/Meta
+        "gclid",       // Google Ads
+        "msclkid",     // Microsoft Ads
+        "igshid",      // Instagram
+        "spm",         // 阿里系埋点
+        "si",          // YouTube 分享追踪
+        "tt_from",     // 字节系分享来源
+        "share_source",
+        "share_medium"
+    )
+
+    /** 追踪参数名前缀（如 utm_source/utm_campaign 全族） */
+    private val TRACKING_PARAM_PREFIXES = listOf("utm_")
+
+    /**
+     * 剥离追踪 query 参数（白名单制，任意网站通用）：
+     * 仅移除公认的广告/埋点参数（utm_* 全族/fbclid/gclid 等），其余一律保留——
+     * 功能性参数（token/sessionId/路由）不受影响。
+     * 字符串级处理不做重编码（保持原 URL 的转义形式）；fragment 锚点保留；
+     * 无参数或无可剥项时原样返回。
+     */
+    @JvmStatic
+    fun stripTrackingParams(url: String): String {
+        val qStart = url.indexOf('?')
+        if (qStart < 0) return url
+        val qEnd = url.indexOf('#', qStart).let { if (it < 0) url.length else it }
+        val query = url.substring(qStart + 1, qEnd)
+        val kept = query.split('&').filter { pair ->
+            if (pair.isEmpty()) return@filter true
+            val rawKey = pair.substringBefore('=')
+            val key = runCatching { java.net.URLDecoder.decode(rawKey, "UTF-8") }
+                .getOrDefault(rawKey).lowercase().trim()
+            val isTracking = key in TRACKING_PARAM_KEYS ||
+                TRACKING_PARAM_PREFIXES.any { key.startsWith(it) }
+            !isTracking
+        }
+        val newQuery = kept.joinToString("&")
+        return when {
+            newQuery == query -> url
+            newQuery.isEmpty() -> url.substring(0, qStart) + url.substring(qEnd)
+            else -> url.substring(0, qStart + 1) + newQuery + url.substring(qEnd)
+        }
+    }
 }

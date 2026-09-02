@@ -36,7 +36,8 @@ object ScanResultRouter {
         }
         val scheme = uri.scheme?.lowercase()
         if ((scheme == "http" || scheme == "https") && !uri.host.isNullOrBlank()) {
-            return Action.OpenPage(text)
+            // 扫码场景广告二维码常带追踪参数：进页面/入库前剥离（白名单制）
+            return Action.OpenPage(UrlUtils.stripTrackingParams(text))
         }
         return Action.Invalid
     }

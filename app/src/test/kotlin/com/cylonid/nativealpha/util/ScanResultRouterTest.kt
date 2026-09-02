@@ -57,4 +57,13 @@ class ScanResultRouterTest {
         assertEquals(Action.Invalid, ScanResultRouter.route("https://"))
         assertEquals(Action.Invalid, ScanResultRouter.route("webnative://other?x=1"))
     }
+
+    /** http 直开前剥离追踪参数（白名单制,广告二维码常带 utm） */
+    @Test
+    fun openPage_stripsTrackingParams() {
+        assertEquals(
+            Action.OpenPage("https://news.example.com/a?b=1"),
+            ScanResultRouter.route("https://news.example.com/a?b=1&utm_source=qr")
+        )
+    }
 }
