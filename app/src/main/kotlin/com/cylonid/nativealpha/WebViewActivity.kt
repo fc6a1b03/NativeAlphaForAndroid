@@ -81,6 +81,7 @@ import androidx.core.view.get
 import androidx.core.view.size
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
+import com.cylonid.nativealpha.util.SystemBars
 import com.cylonid.nativealpha.helper.WebViewGestureHelper
 import com.cylonid.nativealpha.helper.WebViewTouchHandler
 import com.cylonid.nativealpha.helper.WebViewShortcutInjectHelper
@@ -117,7 +118,7 @@ import java.util.Locale
  * 渲染核心 Activity：WebView 配置/回调/手势/下载/权限/错误页（第四刀 Java→Kotlin 机械翻译）。
  * 翻译原则：零语义变更，行行可对照原 Java 版（git 历史 e5543ba 前）。
  */
-class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
+class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.SelfManagedInsets {
 
     companion object {
         /**
@@ -990,32 +991,14 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext {
     }
 
     internal fun hideSystemBars() {
-        // minSdk=31，WindowInsetsController API 始终可用
-        window.setDecorFitsSystemWindows(false)
-        val controller = window.insetsController
-        if (controller != null) {
-            controller.hide(
-                WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
-            )
-            controller.setSystemBarsBehavior(
-                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            )
-        }
+        // 全屏能力收编 SystemBars（C-系统栏）：行为与原私有实现等价
+        SystemBars.enterImmersive(this)
     }
 
     internal fun showSystemBars() {
         if (webapp!!.isShowFullscreen) return
-        // minSdk=31，WindowInsetsController API 始终可用
-        window.setDecorFitsSystemWindows(true)
-        val controller = window.insetsController
-        if (controller != null) {
-            controller.show(
-                WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars()
-            )
-            controller.setSystemBarsBehavior(
-                WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            )
-        }
+        // 全屏能力收编 SystemBars（C-系统栏）：行为与原私有实现等价
+        SystemBars.exitImmersive(this)
     }
 
     override fun onRequestPermissionsResult(

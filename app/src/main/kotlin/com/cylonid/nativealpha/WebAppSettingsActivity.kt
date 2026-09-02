@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import com.cylonid.nativealpha.util.SystemBars
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
@@ -20,7 +21,7 @@ import com.cylonid.nativealpha.util.Utility
 /**
  * 单个 WebApp 的设置页（Compose 实现）。
  */
-class WebAppSettingsActivity : AppCompatActivity() {
+class WebAppSettingsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
 
     private var webappID: Int = -1
     private var webapp: WebApp? = null

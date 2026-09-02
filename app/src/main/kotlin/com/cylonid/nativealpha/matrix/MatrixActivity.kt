@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.padding
 import androidx.lifecycle.lifecycleScope
+import com.cylonid.nativealpha.util.SystemBars
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
@@ -27,7 +28,7 @@ import kotlinx.coroutines.flow.onEach
  * - onDestroy：releaseAll 全量释放，进程内不驻留 WebView
  * - onTrimMemory：引擎分级响应（警示条/COMPLETE 强制降 2 窗）
  */
-internal class MatrixActivity : ComponentActivity() {
+internal class MatrixActivity : ComponentActivity(), SystemBars.SelfManagedInsets {
 
     private lateinit var engine: MatrixEngine
 

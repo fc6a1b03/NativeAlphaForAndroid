@@ -1,5 +1,6 @@
 package com.cylonid.nativealpha
 
+import com.cylonid.nativealpha.util.SystemBars
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -36,7 +37,7 @@ import java.util.concurrent.Executors
  * - 分析分辨率 1280×720（官方性能甜点），KEEP_ONLY_LATEST 背压丢帧
  * - 识别成功即 setResult+finish，路由交 ScanResultRouter（纯函数）
  */
-class ScanCaptureActivity : AppCompatActivity() {
+class ScanCaptureActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
 
     private var camera: Camera? = null
     private var torchOn = false
@@ -72,6 +73,20 @@ class ScanCaptureActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.scan_capture)
+        // 全屏沉浸（C-系统栏收编）：扫码页相机铺满，系统栏隐藏（下滑临时唤出）。
+        // 无论权限是否已授，onCreate 统一进入沉浸（已授权路径此前漏调）
+        SystemBars.enterImmersive(this)
+        // 关闭按钮避开状态栏/摄像头挖孔（immersive 下 systemBars 隐藏，
+        // displayCutout 仍上报——按钮整体平移到挖孔/安全区之下）
+        val closeButton = findViewById<ImageButton>(R.id.scan_close)
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(closeButton) { view, insets ->
+            val top = insets.getInsets(
+                androidx.core.view.WindowInsetsCompat.Type.displayCutout() or
+                    androidx.core.view.WindowInsetsCompat.Type.statusBars()
+            ).top
+            view.translationY = top.toFloat()
+            insets
+        }
         previewView = findViewById(R.id.scan_preview)
         torchButton = findViewById(R.id.scan_torch)
         findViewById<ImageButton>(R.id.scan_close).setOnClickListener { finish() }
@@ -87,6 +102,9 @@ class ScanCaptureActivity : AppCompatActivity() {
         } else {
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
+        // 权限对话框关闭会强制恢复系统栏，且晚于 onWindowFocusChanged 落地——
+        // 延迟补偿重隐（沉浸态幂等，重复调用无副作用）
+        previewView.postDelayed({ if (!done) SystemBars.enterImmersive(this) }, 600)
     }
 
     /** CameraX 装配：Preview（全屏预览）+ ImageAnalysis（1280×720 甜点分辨率） */
@@ -187,6 +205,13 @@ class ScanCaptureActivity : AppCompatActivity() {
             }
         }
         return out
+    }
+
+    /** 沉浸恢复（谷歌官方范式）：系统对话框（权限等）会强制显示系统栏并
+     * 清除隐藏态——重新获得焦点时重新隐藏 */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) SystemBars.enterImmersive(this)
     }
 
     override fun onDestroy() {

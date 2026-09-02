@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
+import com.cylonid.nativealpha.util.SystemBars
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.AppErrorLogRepository
 import com.cylonid.nativealpha.model.DataManager
@@ -39,7 +40,7 @@ import java.io.OutputStreamWriter
 /**
  * 全局设置页：Compose 实现（分区块卡片：通用 / 备份）。
  */
-class SettingsActivity : AppCompatActivity() {
+class SettingsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
 
     // 导出错误日志（SAF 新 API，替代 startActivityForResult）
     private val exportAppErrorsLauncher = registerForActivityResult(
