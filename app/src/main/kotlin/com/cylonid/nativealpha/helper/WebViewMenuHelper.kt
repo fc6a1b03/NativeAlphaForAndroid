@@ -155,11 +155,10 @@ class WebViewMenuHelper(private val activity: WebViewActivity) {
         if (activity.webapp == null) return
         val original =
             DataManager.getInstance().getWebAppIgnoringGlobalOverride(activity.webappID, true) ?: return
-        // 会话数+1（上限10，防内存）
-        if (original.sessionTabCount < 10) {
-            original.sessionTabCount = original.sessionTabCount + 1
-            DataManager.getInstance().replaceWebApp(original)
-        }
+        // 会话数+1（不设上限——数量由后台分级回收按内存信号动态治理，
+        // 开启不拦、闲置即回收：用时舒适/不用时安静）
+        original.sessionTabCount = original.sessionTabCount + 1
+        DataManager.getInstance().replaceWebApp(original)
         val newTab = original.sessionTabCount - 1
         // 保存当前快照（异步）→ CLEAR_TOP 复用实例重载到新标签（不销毁，单实例）
         CookieSessionManager.saveSnapshot(activity, activity.webappID, activity.webappTabIndex)

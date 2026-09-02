@@ -101,6 +101,7 @@ import com.cylonid.nativealpha.util.LoadFailureClassifier
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.StatsRecorder
 import com.cylonid.nativealpha.util.WebViewSetup
+import com.cylonid.nativealpha.util.WebviewRecycleRegistry
 import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.util.Utility
 import com.cylonid.nativealpha.ui.showShortcutMenuOverlay
@@ -805,6 +806,43 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
 
         loadURL(wv!!, webapp.baseUrl)
         quitOnNextBackpress = true
+    }
+
+    /** 后台回收标记：true=WebView 实例已被分级回收，onStart 需重建 */
+    private var recycled = false
+
+    override fun onStart() {
+        super.onStart()
+        // 回前台：注销后台登记；被回收过则重建 WebView 并重载站点
+        // （AI 会话数据在服务端，重载无损——用户拍板）
+        WebviewRecycleRegistry.unregister(this)
+        if (recycled) {
+            recycled = false
+            handleIntent(intent)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // 进后台：登记 LRU，等待系统内存信号分级回收（用时舒适/不用时安静）
+        WebviewRecycleRegistry.register(this)
+    }
+
+    /**
+     * 后台分级回收入口（WebviewRecycleRegistry 调用）：官方销毁范式
+     * （removeView→stopLoading→onPause→destroy，与矩阵 releaseCell 同规），
+     * 保留 Activity 骨架——多任务卡片不消失，切回时 onStart 重建重载。
+     */
+    internal fun recycleWebView() {
+        if (recycled || isFinishing) return
+        val webview = wv ?: return
+        (webview.parent as? android.view.ViewGroup)?.removeView(webview)
+        webview.stopLoading()
+        webview.onPause()
+        webview.destroy()
+        wv = null
+        recycled = true
+        com.cylonid.nativealpha.util.FeatureMetrics.count("webview", "background_recycled")
     }
 
     override fun onResume() {
