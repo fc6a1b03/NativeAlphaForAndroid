@@ -35,7 +35,7 @@ class ScanResultRouterTest {
     @Test
     fun invalid_onBrokenShareLink_noHttpFallback() {
         val good = SiteShareCodec.buildShareLink("https://example.com", "S")!!
-        assertEquals(Action.Invalid, ScanResultRouter.route(good.replace("v=1", "v=9")))
+        assertEquals(Action.Invalid, ScanResultRouter.route(good.replace("v=2", "v=9")))
     }
 
     /** http/https → 直接进页面 */

@@ -415,7 +415,7 @@
     <string name="site_health_recent_failure">本次会话内最近一次加载失败</string>
     <!-- ===== 站点分享（二维码+深链，借鉴 happier 配对纪律） ===== -->
     <string name="share_site_entry">分享此站点</string>
-    <string name="share_hint_scan">让对方用相机扫描这个二维码即可添加。</string>
+    <string name="share_hint_scan">让对方用相机扫描这个二维码，站点与设置一次带入。</string>
     <string name="share_close">关闭</string>
     <string name="share_invalid_url">无法生成分享码：站点地址似乎无效。</string>
     <string name="share_invalid_link">这不是有效的站点分享链接。</string>

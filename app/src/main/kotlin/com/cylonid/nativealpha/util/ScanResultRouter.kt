@@ -17,7 +17,7 @@ object ScanResultRouter {
 
     sealed interface Action {
         data object Ignore : Action
-        data class AddSite(val url: String, val name: String) : Action
+        data class AddSite(val url: String, val name: String, val configJson: String? = null) : Action
         data class OpenPage(val url: String) : Action
         data object Invalid : Action
     }
@@ -27,7 +27,7 @@ object ScanResultRouter {
         if (text.isEmpty()) return Action.Ignore
         if (text.startsWith(SiteShareCodec.SCHEME + "://", ignoreCase = true)) {
             val parsed = SiteShareCodec.parseShareLink(text) ?: return Action.Invalid
-            return Action.AddSite(parsed.url, parsed.name)
+            return Action.AddSite(parsed.url, parsed.name, parsed.configJson)
         }
         val uri = try {
             URI(text)

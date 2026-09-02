@@ -46,7 +46,7 @@ internal fun SiteShareDialog(
     onDismiss: () -> Unit
 ) {
     val shareLink = remember(webApp.ID, webApp.baseUrl, webApp.title) {
-        SiteShareCodec.buildShareLink(webApp.baseUrl, webApp.title)
+        SiteShareCodec.buildShareLink(webApp.baseUrl, webApp.title, webApp)
     }
     val qrBitmap by produceState<Bitmap?>(initialValue = null, shareLink) {
         if (shareLink != null) {

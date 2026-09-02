@@ -176,6 +176,7 @@ fun MainScreen(
                                     Intent(context, AddWebAppActivity::class.java)
                                         .putExtra(AddWebAppActivity.EXTRA_PREFILL_URL, action.url)
                                         .putExtra(AddWebAppActivity.EXTRA_PREFILL_NAME, action.name)
+                                        .putExtra(AddWebAppActivity.EXTRA_PREFILL_CONFIG, action.configJson)
                                 )
                             is ScanResultRouter.Action.OpenPage ->
                                 WebViewLauncher.startRawUrl(action.url, context)
