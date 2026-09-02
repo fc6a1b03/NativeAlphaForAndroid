@@ -231,7 +231,10 @@ object UpdateChecker {
                 val json = JSONObject(body)
                 val tag = json.optString("tag_name", "")
                 // 更新说明（release body，可能含 Markdown；截断防过长）
-                val notes = json.optString("body", "").take(500)
+                // 完整 release body（不截断——硬截 500 字符会把更新预览的变更记录
+                // 掐成残缺 id）。展示端 MdRenderer 滚动渲染完整内容；宽松上限
+                // 仅防御异常巨体（64K 字符远超正常 release body）
+                val notes = json.optString("body", "").take(65536)
                 // 找 APK 资产（优先 arm64-v8a，其次任意 .apk）
                 val assets = json.optJSONArray("assets")
                 if (assets == null || assets.length() == 0) {
