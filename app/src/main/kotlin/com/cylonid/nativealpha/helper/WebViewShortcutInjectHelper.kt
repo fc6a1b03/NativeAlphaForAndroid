@@ -18,6 +18,32 @@ import java.util.Locale
  */
 class WebViewShortcutInjectHelper(private val activity: WebViewActivity) {
 
+    companion object {
+        /**
+         * 组合键串生成（纯函数可单测）：主键单字符统一大写，与录入面板
+         * ShortcutKeyEditor.buildCombo 的大写格式对齐——历史版本直接拼
+         * keyCodeToChar 的小写返回值，大小写不一致致已绑定组合键永不命中。
+         * 返回 null=非候选（无修饰键/主键不可识别）。
+         */
+        internal fun comboString(
+            ctrl: Boolean,
+            shift: Boolean,
+            alt: Boolean,
+            key: String?
+        ): String? {
+            if (key == null) return null
+            // 仅捕获组合键（Ctrl/Shift/Alt 单独按下不处理）
+            if (!ctrl && !shift && !alt) return null
+            val normalized = if (key.length == 1) key.uppercase() else key
+            val sb = StringBuilder()
+            if (ctrl) sb.append("Ctrl+")
+            if (shift) sb.append("Shift+")
+            if (alt) sb.append("Alt+")
+            sb.append(normalized)
+            return sb.toString()
+        }
+    }
+
     /** 快捷键注入入口：JS 合成 + KeyEvent 双路（原实现逐行对应） */
     fun sendShortcutToPage(shortcut: String?) {
         if (activity.wv == null || shortcut.isNullOrEmpty()) return
@@ -148,27 +174,14 @@ class WebViewShortcutInjectHelper(private val activity: WebViewActivity) {
      */
     fun tryInterceptShortcutKey(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false
-        val ctrl = event.isCtrlPressed
-        val shift = event.isShiftPressed
-        val alt = event.isAltPressed
-        // 仅捕获组合键（Ctrl/Shift/Alt 单独按下不处理）
-        if (!ctrl && !shift && !alt) return false
-        val key = keyCodeToChar(event.keyCode, shift) ?: return false
-        val shortcut = buildShortcutString(ctrl, shift, alt, key)
+        val key = keyCodeToChar(event.keyCode, event.isShiftPressed)
+        val combo = comboString(
+            event.isCtrlPressed, event.isShiftPressed, event.isAltPressed, key
+        ) ?: return false
         // 已绑定快捷键：拦截发送（不触发浏览器默认）
-        if (!isBoundShortcut(shortcut)) return false
-        sendShortcutToPage(shortcut)
+        if (!isBoundShortcut(combo)) return false
+        sendShortcutToPage(combo)
         return true
-    }
-
-    /** 构建组合键字符串（Ctrl+S / Ctrl+Shift+S） */
-    fun buildShortcutString(ctrl: Boolean, shift: Boolean, alt: Boolean, key: String): String {
-        val sb = StringBuilder()
-        if (ctrl) sb.append("Ctrl+")
-        if (shift) sb.append("Shift+")
-        if (alt) sb.append("Alt+")
-        sb.append(key)
-        return sb.toString()
     }
 
     /** keyCode → 字符（字母/数字/功能键） */
