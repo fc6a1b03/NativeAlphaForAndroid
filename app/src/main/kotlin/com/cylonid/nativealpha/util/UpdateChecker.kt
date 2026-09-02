@@ -139,7 +139,7 @@ object UpdateChecker {
     }
 
     /** 当前应用 versionName */
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION") // minSdk 31 < 33，legacy getPackageInfo 分支仍需覆盖 API 31/32
     fun currentVersionName(context: Context): String {
         return try {
             val pm = context.packageManager

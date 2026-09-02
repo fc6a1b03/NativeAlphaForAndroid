@@ -18,6 +18,32 @@ import java.util.Locale
  */
 class WebViewShortcutInjectHelper(private val activity: WebViewActivity) {
 
+    companion object {
+        /**
+         * 组合键串生成（纯函数可单测）：主键单字符统一大写，与录入面板
+         * ShortcutKeyEditor.buildCombo 的大写格式对齐——历史版本直接拼
+         * keyCodeToChar 的小写返回值，大小写不一致致已绑定组合键永不命中。
+         * 返回 null=非候选（无修饰键/主键不可识别）。
+         */
+        internal fun comboString(
+            ctrl: Boolean,
+            shift: Boolean,
+            alt: Boolean,
+            key: String?
+        ): String? {
+            if (key == null) return null
+            // 仅捕获组合键（Ctrl/Shift/Alt 单独按下不处理）
+            if (!ctrl && !shift && !alt) return null
+            val normalized = if (key.length == 1) key.uppercase() else key
+            val sb = StringBuilder()
+            if (ctrl) sb.append("Ctrl+")
+            if (shift) sb.append("Shift+")
+            if (alt) sb.append("Alt+")
+            sb.append(normalized)
+            return sb.toString()
+        }
+    }
+
     /** 快捷键注入入口：JS 合成 + KeyEvent 双路（原实现逐行对应） */
     fun sendShortcutToPage(shortcut: String?) {
         if (activity.wv == null || shortcut.isNullOrEmpty()) return
@@ -141,14 +167,21 @@ class WebViewShortcutInjectHelper(private val activity: WebViewActivity) {
         return w != null && w.keyShortcuts.contains(shortcut)
     }
 
-    /** 构建组合键字符串（Ctrl+S / Ctrl+Shift+S） */
-    fun buildShortcutString(ctrl: Boolean, shift: Boolean, alt: Boolean, key: String): String {
-        val sb = StringBuilder()
-        if (ctrl) sb.append("Ctrl+")
-        if (shift) sb.append("Shift+")
-        if (alt) sb.append("Alt+")
-        sb.append(key)
-        return sb.toString()
+    /**
+     * dispatchKeyEvent 组合键拦截（重构时自 WebViewActivity 逐行迁移，零语义变更）：
+     * 已绑定组合键拦截发送（不触发浏览器默认），管理在设置页点选录入。
+     * 返回 true 表示已消费（Activity 不再下传）。
+     */
+    fun tryInterceptShortcutKey(event: KeyEvent): Boolean {
+        if (event.action != KeyEvent.ACTION_DOWN) return false
+        val key = keyCodeToChar(event.keyCode, event.isShiftPressed)
+        val combo = comboString(
+            event.isCtrlPressed, event.isShiftPressed, event.isAltPressed, key
+        ) ?: return false
+        // 已绑定快捷键：拦截发送（不触发浏览器默认）
+        if (!isBoundShortcut(combo)) return false
+        sendShortcutToPage(combo)
+        return true
     }
 
     /** keyCode → 字符（字母/数字/功能键） */

@@ -1,7 +1,6 @@
 package com.cylonid.nativealpha.ui
 
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
@@ -13,11 +12,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.Crossfade
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,29 +20,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -64,32 +49,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.IconCompat
-import androidx.core.content.pm.ShortcutInfoCompat
-import androidx.core.content.pm.ShortcutManagerCompat
 import com.cylonid.nativealpha.util.SystemBars
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.WebApp
-import com.cylonid.nativealpha.util.App
-import com.cylonid.nativealpha.util.IconGenerator
-import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.UrlUtils
 import com.cylonid.nativealpha.util.WebAppDataFetcher
 import com.cylonid.nativealpha.util.WebAppIconManager
-import com.cylonid.nativealpha.util.WebViewLauncher
-import com.cylonid.nativealpha.util.ShortcutIconUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -423,211 +397,5 @@ private fun Step1Content(
             enabled = urlText.isNotBlank(),
             modifier = Modifier.fillMaxWidth()
         ) { Text(stringResource(R.string.next)) }
-    }
-}
-
-@Composable
-private fun Step2Content(
-    urlText: String,
-    nameText: String,
-    onNameChange: (String) -> Unit,
-    isFetching: Boolean,
-    isSaving: Boolean,
-    fetchFailed: Boolean,
-    fetchedFavicon: Bitmap?,
-    customIcon: Bitmap?,
-    onPickImage: () -> Unit,
-    onResetIcon: () -> Unit,
-    onRetry: () -> Unit,
-    onFinish: () -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        // 名称（自动识别回填，可编辑）
-        OutlinedTextField(
-            value = nameText,
-            onValueChange = onNameChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.display_name_hint)) },
-            placeholder = { Text(stringResource(R.string.display_name_auto)) },
-            leadingIcon = { Icon(Icons.Default.Visibility, contentDescription = null) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { onFinish() })
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // 图标区域
-        Text(
-            text = stringResource(R.string.shortcut_icon),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center
-        ) {
-            when {
-                isFetching -> Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.fetching_icon),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                customIcon != null || fetchedFavicon != null -> {
-                    val iconBmp = customIcon ?: fetchedFavicon
-                    if (iconBmp != null) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            IconPreview(bmp = iconBmp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            TextButton(onClick = onResetIcon) {
-                                Text(stringResource(R.string.use_dynamic_icon))
-                            }
-                        }
-                    } else {
-                        // 两个源都为空（异常分支）：提示用动态图标
-                        Text(
-                            text = stringResource(R.string.icon_will_be_generated),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                fetchFailed -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = stringResource(R.string.fetch_failed_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(onClick = onRetry) {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.retry))
-                    }
-                }
-
-                else -> Text(
-                    text = stringResource(R.string.icon_will_be_generated),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 自定义图标入口
-        OutlinedButton(
-            onClick = onPickImage,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(Icons.Default.Image, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.custom_icon))
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // 完成按钮（保存中禁用+转圈：坏站 favicon 补拉 20s+，防连点重复创建）
-        Button(
-            onClick = onFinish,
-            enabled = !isSaving,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            if (isSaving) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            } else {
-                Icon(Icons.Default.Add, contentDescription = null)
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(if (isSaving) R.string.saving else R.string.add_to_home_screen))
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = urlText,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun IconPreview(bmp: Bitmap) {
-    Image(
-        bitmap = bmp.asImageBitmap(),
-        contentDescription = null,
-        modifier = Modifier
-            .size(96.dp)
-            .clip(RoundedCornerShape(20.dp))
-    )
-}
-
-/** 创建桌面快捷方式（复用 ShortcutDialogFragment 的 pin 逻辑）。
- *  图标与列表同源：resolveIconCached（iconPath→字母渐变，**无网络**——本方法在 UI 线程调用）。
- *  favicon 补拉已在 onFinish 后台完成（成功则 iconPath 已持久化），此处不重复拉网。 */
-private fun requestPinShortcut(webapp: WebApp) {
-    val context = App.getAppContext()
-    val intent = WebViewLauncher.createWebViewIntent(webapp, context) ?: return
-
-    val icon = IconCompat.createWithBitmap(
-        WebAppIconManager.resolveIconCached(context, webapp)
-    )
-
-    val title = webapp.title
-    val safeTitle = if (title.isNullOrBlank()) "Unknown" else title
-
-    val shortId = ShortcutIconUtils.pinnedShortcutId(webapp.ID)  // 稳定 ID（title 会变——快捷方式 id 不变，可后续更新）
-    val pinInfo = ShortcutInfoCompat.Builder(context, shortId)
-        .setIcon(icon)
-        .setShortLabel(safeTitle)
-        .setLongLabel(safeTitle)
-        .setIntent(intent)
-        .build()
-    // 1) 注册 Dynamic Shortcut（同 ID）——可随时 updateShortcuts 更新图标（桌面图标跟随列表）
-    // 2) requestPinShortcut 弹系统确认（固定到桌面）
-    // 注：先 dynamic 后 pin——Launcher 识别同 ID 关联，后续 updateShortcuts 能刷新已 pin 的
-    try {
-        ShortcutManagerCompat.addDynamicShortcuts(context, listOf(pinInfo))
-    } catch (e: Exception) {
-        // 动态注册失败不阻塞 pin（部分旧 Launcher 不支持）
-    }
-    if (ShortcutManagerCompat.isRequestPinShortcutSupported(context)) {
-        ShortcutManagerCompat.requestPinShortcut(context, pinInfo, null)
-    }
-}
-
-/** 更新已注册快捷方式的图标（图标就绪时调用——桌面跟随列表图标）。
- *  resolveIconCached 无网络（UI 线程安全）；此时 favicon 补拉已完成，iconPath 要么持久化要么用字母。 */
-fun updateShortcutIcon(context: Context, webapp: WebApp) {
-    try {
-        val bmp = WebAppIconManager.resolveIconCached(context, webapp)
-        val intent = WebViewLauncher.createWebViewIntent(webapp, context) ?: return
-        val title = webapp.title
-        val safeTitle = if (title.isNullOrBlank()) "Unknown" else title
-        val info = ShortcutInfoCompat.Builder(context, ShortcutIconUtils.pinnedShortcutId(webapp.ID))
-            .setIcon(IconCompat.createWithBitmap(bmp))
-            .setShortLabel(safeTitle)
-            .setLongLabel(safeTitle)
-            .setIntent(intent)
-            .build()
-        ShortcutManagerCompat.updateShortcuts(context, listOf(info))
-    } catch (e: Exception) {
-        // 更新失败静默（下次列表刷新再试）
     }
 }
