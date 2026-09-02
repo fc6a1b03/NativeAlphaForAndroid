@@ -7,6 +7,7 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import android.os.Bundle
 import android.os.Process
+import kotlinx.coroutines.launch
 import android.util.Log
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.util.ErrorReporter
@@ -34,10 +35,16 @@ class App : Application() {
                 SystemBars.installInsetGuard(activity)
             }
 
-            override fun onActivityStarted(activity: Activity) = Unit
+            override fun onActivityStarted(activity: Activity) {
+                startedActivityCount++
+            }
+
+            override fun onActivityStopped(activity: Activity) {
+                startedActivityCount--
+            }
+
             override fun onActivityResumed(activity: Activity) = Unit
             override fun onActivityPaused(activity: Activity) = Unit
-            override fun onActivityStopped(activity: Activity) = Unit
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
             override fun onActivityDestroyed(activity: Activity) = Unit
         })
@@ -78,6 +85,15 @@ class App : Application() {
      */
     private var loggedTrimLevel = 0
 
+    /** 可见 Activity 计数（started-started 差值）：进程退出双保险判定 */
+    @Volatile
+    private var startedActivityCount = 0
+
+    /** 退出前刷盘等异步收尾（非 UI 协程作用域，Supervisor 隔离） */
+    private val appScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default
+    )
+
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         if (!shouldLogMemoryPressure(level, loggedTrimLevel)) return
@@ -94,6 +110,20 @@ class App : Application() {
             this, "Memory", "memory pressure: $levelName (java heap used ${heapMb}MB)",
             level = AppErrorEntry.LEVEL_WARNING
         )
+
+        // 后台 WebView 分级回收（用户理念：用时舒适/不用时透明安静）——
+        // 系统发令（trim 分级），应用按 LRU 执行，最久未用的后台页先回收
+        WebviewRecycleRegistry.recycleOldest(level)
+
+        // COMPLETE（后台 LRU 最深层）：全清后干净退出进程——不留僵尸。
+        // startedActivityCount==0 双保险（COMPLETE 官方语义即仅后台触发）；
+        // 退出前刷盘（awaitPendingSave 挂起等待在途写落盘，与 onStop 同款）
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE && startedActivityCount == 0) {
+            appScope.launch {
+                DataManager.getInstance().awaitPendingSave()
+                kotlin.system.exitProcess(0)
+            }
+        }
     }
 
     companion object {
