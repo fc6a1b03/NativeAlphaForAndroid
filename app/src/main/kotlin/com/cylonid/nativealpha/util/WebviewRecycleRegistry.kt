@@ -42,6 +42,7 @@ object WebviewRecycleRegistry {
      * 级别语义见 ComponentCallbacks2——越深的后台 LRU 级别越激进释放
      * （进程越濒死，官方建议越深越主动）。
      */
+    @Suppress("DEPRECATION") // TRIM_* 常量 API 35 标废（系统自 34 起不保证后台级别通知）但无替代常量；onTrimMemory 仍为推荐机制，本处消费实际到达的信号，COMPLETE 语义风险已在 v2.2.17 适配
     fun recycleCount(trimLevel: Int, backgroundCount: Int): Int {
         if (backgroundCount <= 0) return 0
         return when (trimLevel) {

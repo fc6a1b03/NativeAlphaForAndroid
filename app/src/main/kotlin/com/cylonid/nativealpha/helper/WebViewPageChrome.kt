@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION")
 
 package com.cylonid.nativealpha.helper
 
@@ -9,6 +8,7 @@ import android.graphics.drawable.AnimationDrawable
 import android.net.Uri
 import android.os.Environment
 import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.webkit.CookieManager
@@ -53,7 +53,7 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
     /** 页面加载完成标记（白屏检测调度窗口判定） */
     private var pageLoadFinished = false
 
-    private val blankScreenHandler = Handler()
+    private val blankScreenHandler = Handler(Looper.getMainLooper())
 
     /** 断线自动恢复监视器（加载失败后探测站点可达性，恢复即自动重载） */
     private val reconnectSupervisor by lazy {
@@ -389,7 +389,6 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
                         )
                         request.addRequestHeader("User-Agent", userAgent)
                         request.setTitle(fileName)
-                        request.allowScanningByMediaScanner()
                         request.setNotificationVisibility(
                             DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
                         )

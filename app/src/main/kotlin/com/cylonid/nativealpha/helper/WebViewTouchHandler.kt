@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.os.Handler
+import android.os.Looper
 import android.view.GestureDetector
 import android.view.InputDevice
 import android.view.MotionEvent
@@ -62,7 +63,7 @@ class WebViewTouchHandler(private val activity: WebViewActivity) {
             !canPanHorizontally && kotlin.math.abs(dxPx) > TRESHOLD
     }
 
-    private val longPressHandler = Handler()
+    private val longPressHandler = Handler(Looper.getMainLooper())
     private var longPressRunnable: Runnable? = null
 
     /** 收起软键盘（双击空白弹小菜单时调用，避免输入法和小菜单打架） */
@@ -182,7 +183,6 @@ class WebViewTouchHandler(private val activity: WebViewActivity) {
                 }
                 request.setTitle(fileName)
                 request.setDescription(activity.getString(R.string.file_download_started))
-                request.allowScanningByMediaScanner()
                 request.setNotificationVisibility(
                     android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
                 )

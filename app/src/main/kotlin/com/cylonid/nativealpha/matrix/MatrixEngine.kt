@@ -484,6 +484,7 @@ internal class MatrixEngine(
      * ≥ RUNNING_LOW 顶栏警示条（忽略后本会话不弹）；
      * ≥ COMPLETE 自动降档 + Snackbar 告知（系统行为不询问）。
      */
+    @Suppress("DEPRECATION") // TRIM_* 常量 API 35 标废（系统自 34 起不保证后台级别通知）但无替代常量；onTrimMemory 仍为推荐机制，本处消费实际到达的信号，COMPLETE 语义风险已在 v2.2.17 适配
     fun onTrimMemory(level: Int) {
         if (level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE) {
             forceDegrade()
