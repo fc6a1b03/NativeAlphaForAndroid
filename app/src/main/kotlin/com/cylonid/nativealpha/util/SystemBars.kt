@@ -1,6 +1,7 @@
 package com.cylonid.nativealpha.util
 
 import android.app.Activity
+import android.os.Build
 import android.view.ViewGroup
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -60,9 +61,14 @@ object SystemBars {
      * 真全屏（沉浸）：隐藏状态栏+导航栏，内容铺满含挖孔区；下滑临时唤出
      * （半透明悬浮，不挤压布局）。调用方通常同时实现 [SelfManagedInsets]。
      */
+    @Suppress("DEPRECATION") // setDecorFitsSystemWindows 仅 API<35 生效，分支内引用静态报警
     fun enterImmersive(activity: Activity) {
-        // minSdk=31，WindowInsetsController API 始终可用
-        activity.window.setDecorFitsSystemWindows(false)
+        // minSdk=31，WindowInsetsController API 始终可用；
+        // setDecorFitsSystemWindows 仅 API<35 有意义（35+ 系统强制 edge-to-edge，
+        // 该调用废弃且无效，内容避让由 installInsetGuard/applyContentInsets 承担）
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            activity.window.setDecorFitsSystemWindows(false)
+        }
         val controller = activity.window.insetsController ?: return
         controller.hide(
             android.view.WindowInsets.Type.statusBars() or
@@ -73,8 +79,11 @@ object SystemBars {
     }
 
     /** 退出沉浸：对称恢复系统栏与内容贴合（与 [enterImmersive] 配对） */
+    @Suppress("DEPRECATION") // 同 enterImmersive：API<35 分支内合法引用
     fun exitImmersive(activity: Activity) {
-        activity.window.setDecorFitsSystemWindows(true)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            activity.window.setDecorFitsSystemWindows(true)
+        }
         activity.window.insetsController?.show(
             android.view.WindowInsets.Type.statusBars() or
                 android.view.WindowInsets.Type.navigationBars()

@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION")
 
 package com.cylonid.nativealpha.helper
 
@@ -20,7 +19,8 @@ import java.util.Calendar
 /**
  * 深色模式与系统栏控制器（重构刀 3，自 WebViewActivity 逐行迁移，零语义变更）。
  *
- * 职责：按站强制深色判定与 WebView 深色 API 分级应用（API 33 前后两路）、
+ * 职责：按站强制深色判定与 WebView 深色应用（统一 algorithmic darkening——
+ * 旧 setForceDark 系在 targetSdk>=33 被系统忽略，已清偿）、
  * 全屏沉浸开关、非全屏模式的内容避让 insets 监听。
  *
  * 设计约束：持有 Activity 实例引用（构造注入，非静态——防泄漏）；
@@ -29,12 +29,6 @@ import java.util.Calendar
 class WebViewDarkModeController(private val activity: WebViewActivity) {
 
     /** WebView 特性探测缓存：内核能力进程生命周期内不变，避免每次打开重复探测 */
-    private val featForceDark: Boolean by lazy {
-        WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)
-    }
-    private val featForceDarkStrategy: Boolean by lazy {
-        WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK_STRATEGY)
-    }
     private val featAlgorithmicDarkening: Boolean by lazy {
         WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)
     }
@@ -54,37 +48,18 @@ class WebViewDarkModeController(private val activity: WebViewActivity) {
             )
             || (!webapp.isUseTimespanDarkMode && webapp.isForceDarkMode)
 
-        // minSdk=31，强制深色能力始终可用；内部仍按 API 33 分界线处理废弃 API
-        // 特性探测缓存（featXxx lazy）：内核能力进程内不变
+        // 强制深色统一走 algorithmic darkening（webkit 新 API）：
+        // setForceDark 系在 targetSdk>=33 的应用上被 WebView 整体忽略
+        // （官方迁移口径，与设备 API 级别无关），targetSdk=37 下旧 API
+        // 分支全是无效调用，故不再按 API 33 分路
         val isAlgorithmicDarkeningSupported = featAlgorithmicDarkening
 
         if (needsForcedDarkMode) {
             wv.setBackgroundColor(Color.BLACK)
             activity.delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_YES
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // API 33+: setForceDark / setForceDarkStrategy / setForceDarkAllowed 已废弃且为 no-op
-                if (isAlgorithmicDarkeningSupported) {
-                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv.settings, true)
-                }
-            } else {
-                val isForceDarkSupported = featForceDark
-                val isForceDarkStrategySupported = featForceDarkStrategy
-                wv.setForceDarkAllowed(true)
-                if (isForceDarkSupported) {
-                    WebSettingsCompat.setForceDark(
-                        wv.settings, WebSettingsCompat.FORCE_DARK_ON
-                    )
-                }
-                if (isForceDarkStrategySupported) {
-                    WebSettingsCompat.setForceDarkStrategy(
-                        wv.settings,
-                        WebSettingsCompat.DARK_STRATEGY_PREFER_WEB_THEME_OVER_USER_AGENT_DARKENING
-                    )
-                }
-                if (isAlgorithmicDarkeningSupported) {
-                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv.settings, true)
-                }
+            if (isAlgorithmicDarkeningSupported) {
+                WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv.settings, true)
             }
         } else {
             activity.delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
@@ -100,28 +75,8 @@ class WebViewDarkModeController(private val activity: WebViewActivity) {
             }
             wv.setBackgroundColor(themeBg)
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // API 33+: setForceDark / setForceDarkStrategy / setForceDarkAllowed 已废弃且为 no-op
-                if (isAlgorithmicDarkeningSupported) {
-                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv.settings, false)
-                }
-            } else {
-                val isForceDarkSupported = featForceDark
-                val isForceDarkStrategySupported = featForceDarkStrategy
-                if (isForceDarkSupported) {
-                    WebSettingsCompat.setForceDark(
-                        wv.settings, WebSettingsCompat.FORCE_DARK_OFF
-                    )
-                }
-                if (isForceDarkStrategySupported) {
-                    WebSettingsCompat.setForceDarkStrategy(
-                        wv.settings,
-                        WebSettingsCompat.DARK_STRATEGY_WEB_THEME_DARKENING_ONLY
-                    )
-                }
-                if (isAlgorithmicDarkeningSupported) {
-                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv.settings, false)
-                }
+            if (isAlgorithmicDarkeningSupported) {
+                WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv.settings, false)
             }
         }
     }

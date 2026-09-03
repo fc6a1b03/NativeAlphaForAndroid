@@ -79,6 +79,7 @@ class App : Application() {
     private var loggedTrimLevel = 0
 
 
+    @Suppress("DEPRECATION") // TRIM_* 常量 API 35 标废（系统自 34 起不保证后台级别通知）但无替代常量；onTrimMemory 仍为推荐机制，本处消费实际到达的信号，COMPLETE 语义风险已在 v2.2.17 适配
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         if (!shouldLogMemoryPressure(level, loggedTrimLevel)) return
@@ -108,6 +109,7 @@ class App : Application() {
          * 内存压力记录判定（纯函数，可单测）：剔除 UI_HIDDEN 伪压力 +
          * 低于 RUNNING_LOW 的回调；同级别及以下已被记录过则去重。
          */
+        @Suppress("DEPRECATION") // TRIM_* 常量 API 35 标废（系统自 34 起不保证后台级别通知）但无替代常量；onTrimMemory 仍为推荐机制，本处消费实际到达的信号，COMPLETE 语义风险已在 v2.2.17 适配
         internal fun shouldLogMemoryPressure(level: Int, lastLoggedLevel: Int): Boolean {
             if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) return false
             if (level < ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) return false

@@ -77,7 +77,6 @@ internal object WebViewSetup {
         // JS 弹窗限制：禁止页面自动 window.open（用户手势触发的弹窗仍可用）
         webview.settings.javaScriptCanOpenWindowsAutomatically = !app.isJsPopupsRestricted
         webview.settings.domStorageEnabled = true
-        webview.settings.databaseEnabled = true
         webview.settings.blockNetworkLoads = false
 
         // ===== 禁用浏览器自带滚动条（网页内容本身的自定义滚动条不受影响） =====

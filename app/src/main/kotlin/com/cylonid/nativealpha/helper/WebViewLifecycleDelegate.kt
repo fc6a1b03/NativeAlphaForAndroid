@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION")
 
 package com.cylonid.nativealpha.helper
 
@@ -6,6 +5,7 @@ import android.content.ComponentCallbacks2
 import android.content.Intent
 import android.os.Build
 import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -275,7 +275,7 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
 
         val webapp = activity.webapp
         if (webapp != null && webapp.isAutoreload) {
-            reloadHandler = Handler()
+            reloadHandler = Handler(Looper.getMainLooper())
             reload()
         }
     }
