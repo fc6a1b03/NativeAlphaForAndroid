@@ -32,4 +32,8 @@ object Const {
     // ===== 统计 =====
     /** 白屏检测超时（20s 进度无推进判定白屏） */
     const val BLANK_SCREEN_TIMEOUT_MS = 20_000
+
+    // ===== 关于 =====
+    /** 项目源码仓库主页（应用内「关于」入口；更新检查仓库身份见 UpdateChecker.REPO） */
+    const val GITHUB_REPO_URL = "https://github.com/fc6a1b03/NativeAlphaForAndroid"
 }

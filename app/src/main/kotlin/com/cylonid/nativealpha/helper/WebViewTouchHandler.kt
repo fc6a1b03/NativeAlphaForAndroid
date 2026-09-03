@@ -414,7 +414,11 @@ class WebViewTouchHandler(private val activity: WebViewActivity) {
         // 防冲突（用户反馈）：只识别**屏幕左右边缘区**（起点在左右各 20% 内）——
         // 页面中间区域（表格/轮播等可横向滚动内容）完全交还 WebView，不拦截。
         // 触发距离 150px（比 TRESHOLD 更严），要求水平位移 > 垂直位移*1.2。
-        if (mode == SINGLE_FINGER && event.pointerCount == 1) {
+        // 默认关闭（全局设置 isEdgeSwipeNavigation）：前进/后退已有双指
+        // 导航与系统返回手势覆盖，边缘滑作为可选增强由用户显式开启。
+        if (mode == SINGLE_FINGER && event.pointerCount == 1 &&
+            DataManager.getInstance().settings.isEdgeSwipeNavigation
+        ) {
             val dx = stopX - startX
             val dy = kotlin.math.abs(stopY - startY)
             val screenW = activity.resources.displayMetrics.widthPixels

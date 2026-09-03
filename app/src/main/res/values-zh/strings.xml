@@ -3,6 +3,10 @@
     <string name="global_settings">全局设置</string>
     <string name="these_settings_are_applied_globally_and_override_app_specific_settings">所有 Web App 的默认设置。应用跟随全局时继承这些值；一旦修改了某个应用的自身设置，该应用不再跟随全局，直到点击「同步全局设置」。</string>
     <string name="use_three_finger_swipes_to_switch_between_web_apps_experimental">使用三指滑动在 Web App 之间切换（实验性）</string>
+    <string name="use_edge_swipe_navigation">使用屏幕边缘左右滑前进/后退</string>
+    <string name="about_section">关于</string>
+    <string name="about_app_version" translatable="false">WebNative v%1$s</string>
+    <string name="about_license_line">GPL-3.0 自由软件 · 基于 Native Alpha</string>
     <string name="select_ui_mode">选择界面模式</string>
     <string name="save">保存</string>
     <string name="loading">加载中…</string>
@@ -172,6 +176,7 @@
     <string name="desc_multitouch_reload">双指下滑即可刷新页面。</string>
     <string name="desc_two_finger_nav">双指左右滑动进行后退/前进。</string>
     <string name="desc_three_finger_switch">三指左右滑动在多个 Web App 之间切换。</string>
+    <string name="desc_edge_swipe_nav">从屏幕左右边缘横向滑动切换上一页/下一页。默认关闭。</string>
     <string name="desc_show_progressbar">页面加载时在底部显示加载进度条。</string>
     <string name="desc_always_show_buttons">在全屏页面中保持系统导航按钮可见。</string>
     <string name="desc_allow_js">大多数现代网站正常运行所必需。</string>

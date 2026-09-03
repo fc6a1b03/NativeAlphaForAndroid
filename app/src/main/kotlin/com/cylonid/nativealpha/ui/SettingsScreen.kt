@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Restore
@@ -61,10 +62,14 @@ import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import androidx.appcompat.app.AppCompatDelegate
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import com.cylonid.nativealpha.BuildConfig
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.GlobalSettings
 import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.ThemeUtils
 
 /**
@@ -253,6 +258,12 @@ fun GlobalSettingsScreen(
                     description = stringResource(R.string.desc_three_finger_switch)
                 )
                 SettingsSwitchRow(
+                    title = stringResource(R.string.use_edge_swipe_navigation),
+                    checked = modified.isEdgeSwipeNavigation,
+                    onCheckedChange = { modified = modified.copy(isEdgeSwipeNavigation = it) },
+                    description = stringResource(R.string.desc_edge_swipe_nav)
+                )
+                SettingsSwitchRow(
                     title = stringResource(R.string.show_progress_bar_during_page_load),
                     checked = modified.isShowProgressbar,
                     onCheckedChange = { modified = modified.copy(isShowProgressbar = it) },
@@ -353,6 +364,24 @@ fun GlobalSettingsScreen(
                         if (updateChecking) return@SettingsActionRow
                         updateChecking = true
                         onCheckUpdate { updateChecking = false }
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 关于区块：版本 + 开源许可/上游致谢（GPL 分发内的许可声明入口，点击进源码仓库）
+            SettingsSectionTitle(stringResource(R.string.about_section))
+            SettingsCard {
+                val context = LocalContext.current
+                SettingsActionRow(
+                    icon = { Icon(Icons.Default.Info, contentDescription = null) },
+                    title = stringResource(R.string.about_app_version, BuildConfig.VERSION_NAME),
+                    subtitle = stringResource(R.string.about_license_line),
+                    onClick = {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse(Const.GITHUB_REPO_URL))
+                        )
                     }
                 )
             }
