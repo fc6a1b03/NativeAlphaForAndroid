@@ -5,7 +5,7 @@
 [versions]
 # 构建工具
 agp = "9.4.0"
-kotlin = "2.3.20"
+kotlin = "2.4.10"
 gradle = "9.7.1"
 
 # SDK
@@ -24,8 +24,7 @@ coreKtx = "1.19.0"
 appcompat = "1.8.0"
 material = "1.14.0"
 activityCompose = "1.13.0"
-#noinspection GradleDependency
-composeBom = "2026.06.01"
+composeBom = "2026.08.00"
 lifecycleRuntimeKtx = "2.11.0"
 webkit = "1.17.0"
 profileInstaller = "1.4.1"
