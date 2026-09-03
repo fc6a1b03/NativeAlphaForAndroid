@@ -35,10 +35,10 @@
 
 | 组件               | 版本                                                                     |
 |--------------------|--------------------------------------------------------------------------|
-| Kotlin             | 2.3.20（built-in Kotlin）                                                |
-| Compose            | Material 3 + BOM 2026.06.01                                              |
-| AGP                | 9.3.1                                                                    |
-| Gradle             | 9.7.0                                                                    |
+| Kotlin             | 2.4.10（built-in Kotlin）                                                |
+| Compose            | Material 3 + BOM 2026.08.00（Compose 1.12）                              |
+| AGP                | 9.4.0                                                                    |
+| Gradle             | 9.7.1                                                                    |
 | minSdk / targetSdk | 31 / 37                                                                  |
 | 持久化             | DataStore（错误日志/统计）+ Gson + SharedPreferences（WebApp 列表/设置） |
 
@@ -95,7 +95,6 @@ A: Android 12（API 31）及以上。
 * [ZXing core](https://github.com/zxing/zxing) — 二维码生成与解码
 * [Gson](https://github.com/google/gson) — 数据持久化
 * [JSoup](https://jsoup.org/) — favicon/标题抓取
-* [Vico Compose M3](https://github.com/patrykandpatrick/vico) — 统计图表
 * [Markwon](https://github.com/noties/Markwon) — Markdown 渲染（更新日志）
 
 完整开源库依赖声明见 `app/build.gradle` 与 [gradle/libs.versions.toml](gradle/libs.versions.toml)。
