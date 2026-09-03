@@ -63,7 +63,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.appcompat.app.AppCompatDelegate
 import android.app.Activity
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import com.cylonid.nativealpha.BuildConfig
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.DataManager
@@ -380,7 +380,7 @@ fun GlobalSettingsScreen(
                     subtitle = stringResource(R.string.about_license_line),
                     onClick = {
                         context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse(Const.GITHUB_REPO_URL))
+                            Intent(Intent.ACTION_VIEW, Const.GITHUB_REPO_URL.toUri())
                         )
                     }
                 )

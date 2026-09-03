@@ -17,7 +17,8 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -43,7 +44,9 @@ internal fun CellAdjustSheet(
     val cell = engine.cells.value.getOrNull(cellIndex) ?: return
     var zoomPct by remember { mutableFloatStateOf(cell.zoomPercent.toFloat()) }
     var textPct by remember { mutableFloatStateOf(cell.textZoomPercent.toFloat()) }
-    val configuration = LocalConfiguration.current
+    // Compose 1.12 新口径：窗口内容区尺寸取 LocalWindowInfo.containerSize（px），density 换 dp
+    val containerWidthPx = LocalWindowInfo.current.containerSize.width
+    val density = LocalDensity.current
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -63,7 +66,7 @@ internal fun CellAdjustSheet(
             // 缩进格子，显示效果与单屏一致（字号等比缩小，可再手动调）
             OutlinedButton(
                 onClick = {
-                    val screenCss = configuration.screenWidthDp
+                    val screenCss = with(density) { containerWidthPx.toDp() }.value.toInt()
                     val cols = MatrixLayoutMath.columnCountOf(
                         engine.windowCount.value, cellIndex
                     )

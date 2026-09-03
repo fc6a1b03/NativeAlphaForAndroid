@@ -135,7 +135,6 @@
     <string name="allow_microphone_access">Allow microphone access</string>
     <string name="shortcut_already_exists">A shortcut with this name already exists. Please choose another name or delete the existing shortcut.</string>
     <string name="back">Back</string>
-    <string name="forward">Forward</string>
         <string name="app_icon">App icon</string>
     <string name="app_icon_hint">Pick or restore website icon</string>
     <string name="app_icon_dialog_hint">Choose a photo or use the letter icon</string>
@@ -147,12 +146,7 @@
     <string name="search_webapps">Search apps</string>
     <string name="clear_search">Clear search</string>
     <string name="no_search_result">No matching apps</string>
-    <string name="share">Share</string>
-    <string name="reload">Reload</string>
     <string name="activate_two_finger_zoom">Enable Pinch-To-Zoom</string>
-    <string name="more">More</string>
-    <string name="close_web_app">Close Web App</string>
-    <string name="to_main_menu">To Main Menu</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
     <string name="yes">Yes</string>
@@ -313,7 +307,6 @@
     <string name="session_switch_failed">Session switch failed</string>
     <string name="session_item">Session %1$d</string>
     <string name="session_item_current">Session %1$d (current)</string>
-    <string name="session_isolated_hint">Each session keeps its login state independently.</string>
     <string name="confirm_bind">Bind</string>
     <string name="stats_back">Back</string>
     <string name="stats_error_log">Error log</string>
@@ -346,8 +339,7 @@
     <string name="matrix_reduce_confirm_body">The window content will be discarded.</string>
     <string name="matrix_memory_warning">Memory low, fewer windows advised</string>
     <string name="matrix_window_crashed">Window recovered, tap to re-pick</string>
-        <string name="matrix_cancel_loading">Cancel loading</string>
-    <string name="matrix_loading">Loading…</string>
+        <string name="matrix_loading">Loading…</string>
     <string name="matrix_enlarge">Enlarge</string>
     <string name="matrix_collapse">Exit enlarged view</string>
     <string name="matrix_adjust">Adjust display</string>
@@ -367,7 +359,6 @@
     <!-- ===== Web event rules (P5) ===== -->
     <string name="webevent_channel_name">Web event notifications</string>
     <string name="webevent_channel_desc">Reminders when watched web pages fire events</string>
-    <string name="webevent_fallback_site">Watched site</string>
     <string name="webevent_merged_summary">%1$d rules triggered</string>
     <string name="webevent_notif_selector_fired">Target element appeared</string>
     <string name="webevent_perm_degraded">Notification permission is off; reminders degrade to in-app toast</string>
@@ -434,5 +425,4 @@
     <string name="scan_hint">Align a QR code in the frame to scan</string>
     <string name="scan_torch">Torch</string>
     <string name="scan_permission_denied">Camera permission is needed to scan. Enable it in system settings.</string>
-    <string name="use_standard_context_menu_temporarily">Temporarily use standard context menu</string>
 </resources>

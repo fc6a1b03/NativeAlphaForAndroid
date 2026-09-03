@@ -1,6 +1,8 @@
 package com.cylonid.nativealpha.ui
 
 import android.graphics.Bitmap
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.set
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -108,10 +110,10 @@ private fun generateQrBitmap(content: String, sizePx: Int = 512): Bitmap? = try 
         content, BarcodeFormat.QR_CODE, sizePx, sizePx,
         mapOf(EncodeHintType.MARGIN to 1)
     )
-    val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val bitmap = createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
     for (x in 0 until sizePx) {
         for (y in 0 until sizePx) {
-            bitmap.setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            bitmap[x, y] = if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
         }
     }
     bitmap

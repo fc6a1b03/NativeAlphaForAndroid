@@ -1,6 +1,7 @@
 package com.cylonid.nativealpha.webevent
 
 import android.content.Context
+import android.annotation.SuppressLint
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -54,6 +55,7 @@ internal object EventRuleStore {
 
     private data class Snapshot(val rules: List<EventRule>, val muted: Set<Int>)
 
+    @SuppressLint("StaticFieldLeak") // 持有 App.onCreate 注入的 applicationContext，非 Activity Context
     private var contextRef: Context? = null
 
     /**
