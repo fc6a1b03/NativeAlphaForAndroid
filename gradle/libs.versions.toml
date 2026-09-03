@@ -38,7 +38,7 @@ jsoup = "1.23.2"
 markwon = "4.6.2"
 
 # 测试
-coroutinesTest = "1.10.2"
+coroutinesTest = "1.11.0"
 junit = "4.13.2"
 robolectric = "4.16.1"
 mockitoCore = "5.23.0"
