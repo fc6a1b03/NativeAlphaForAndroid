@@ -4,6 +4,10 @@
     <string name="global_settings">Global Settings</string>
     <string name="these_settings_are_applied_globally_and_override_app_specific_settings">Default settings for all Web Apps. An app inherits these when it follows global settings; once you change an app\'s own settings, that app no longer follows global until you tap "Sync with global".</string>
     <string name="use_three_finger_swipes_to_switch_between_web_apps_experimental">Use three-finger swipes ⇄ to switch between Web Apps (experimental)</string>
+    <string name="use_edge_swipe_navigation">Use edge swipes for back/forward</string>
+    <string name="about_section">About</string>
+    <string name="about_app_version" translatable="false">WebNative v%1$s</string>
+    <string name="about_license_line">Free software under GPL-3.0 · Based on Native Alpha</string>
     <string name="select_ui_mode">Select UI mode</string>
     <string name="save">Save</string>
     <string name="loading">Loading…</string>
@@ -171,6 +175,7 @@
     <string name="desc_multitouch_reload">Swipe down with two fingers to reload the page.</string>
     <string name="desc_two_finger_nav">Swipe left/right with two fingers to go back or forward.</string>
     <string name="desc_three_finger_switch">Swipe left/right with three fingers to switch between Web Apps.</string>
+    <string name="desc_edge_swipe_nav">Swipe horizontally from the left or right screen edge to go back or forward. Off by default.</string>
     <string name="desc_show_progressbar">Show a loading progress bar at the bottom during page load.</string>
     <string name="desc_always_show_buttons">Keep the system navigation buttons visible in full-screen pages.</string>
     <string name="desc_allow_js">Required by most modern websites to work correctly.</string>

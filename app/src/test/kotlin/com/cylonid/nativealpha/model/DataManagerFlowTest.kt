@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.WebApp
 import com.google.gson.Gson
+import kotlinx.coroutines.runBlocking
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,10 +18,17 @@ import org.robolectric.annotation.Config
  * DataManager P2 响应式改造行为测试：
  * 写路径收口（commitChanges）发射 webAppsFlow、invalidate 逃生门拾取外部写入。
  * Robolectric 提供真 SharedPreferences；单例跨用例残留状态用 invalidate 基线归零。
+ *
+ * L3 保存调度器是进程级单例（debounce 500ms），跨用例/跨测试类存活——
+ * 每个用例结束后排空在途保存，防晚到落盘把后续用例写入 SP 的数据覆盖回去
+ * （曾致 invalidate 用例全量跑偶发读到旧数据、单跑必绿的类间污染）。
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class DataManagerFlowTest {
+
+    @After
+    fun drainPendingSaves() = runBlocking { DataManager.getInstance().awaitPendingSave() }
 
     @Test
     fun `addWebsite emits flow with new entry`() {
@@ -51,6 +60,8 @@ class DataManagerFlowTest {
     fun `invalidate picks up external sp writes`() {
         val dm = DataManager.getInstance()
         dm.invalidate()
+        // 排空前面用例/类的在途保存：防其晚到落盘覆盖下方写入的外部 JSON
+        runBlocking { dm.awaitPendingSave() }
         // 模拟收口遗漏的野写路径：绕过 DataManager 直接写 SP
         val json = Gson().toJson(arrayListOf(WebApp("https://external.example.com", 999, 0)))
         val context = ApplicationProvider.getApplicationContext<Context>()

@@ -23,7 +23,7 @@
 * **站点分享**：把任意站点连同全部设置打成二维码/深链（`webnative://add`，差异编码只带非默认项），对方扫一下即进添加向导；新设置字段自动纳入分享，无需追补；fail-closed 校验（版本门/URL 白名单/userinfo 剥离）
 * **站点健康**：本会话内加载失败的站点在列表与矩阵选站面板标注「最近加载失败」；加载失败按证书/地址/瞬态分类，仅瞬态走断线自动重连
 * **网页事件提醒**：把网页事件转成手机系统通知/Toast——网页通知拦截、标题变化、元素出现三类触发器，三步大白话向导配置，支持按站静音；例：AI 任务完成自动提醒
-* **多手势导航**：双指前进/后退、双指下滑刷新、三指切换
+* **多手势导航**：双指前进/后退、双指下滑刷新、三指切换；屏幕边缘左右滑前进/后退为可选项（设置内开启，默认关闭）
 * **安全加固**：文件/内容访问、混合内容、JS 弹窗、Safe Browsing 五重防护（全局+每站两级，默认全开）
 * **按站统计**：打开次数、加载耗时分布、缓存占用、错误日志——独立统计页（KPI 卡 + 图表），支持导入/导出
 * **组合快捷键**：手机点选录入（Ctrl/Shift/Alt + 主键），小菜单一键发送到页面，不触发浏览器默认
@@ -91,9 +91,12 @@ A: Android 12（API 31）及以上。
 
 * [AndroidX WebKit](https://developer.android.com/jetpack/androidx/releases/webkit) — WebView 现代化能力
 * [Jetpack Compose (Material 3)](https://developer.android.com/jetpack/compose) — UI
+* [CameraX](https://developer.android.com/jetpack/androidx/releases/camera) — 应用内扫码相机栈
+* [ZXing core](https://github.com/zxing/zxing) — 二维码生成与解码
 * [Gson](https://github.com/google/gson) — 数据持久化
 * [JSoup](https://jsoup.org/) — favicon/标题抓取
-* [AboutLibraries](https://github.com/mikepenz/AboutLibraries) — 开源声明
+* [Vico Compose M3](https://github.com/patrykandpatrick/vico) — 统计图表
+* [Markwon](https://github.com/noties/Markwon) — Markdown 渲染（更新日志）
 
 完整开源库依赖声明见 `app/build.gradle` 与 [gradle/libs.versions.toml](gradle/libs.versions.toml)。
 
@@ -113,14 +116,25 @@ A: Android 12（API 31）及以上。
 
 > 截图基于 Android 模拟器（Pixel 9a, API 37）实测采集。
 
-## License
+## Credits & License
 
-**WebNative** is a fork of
-[NativeAlphaForAndroid](https://github.com/cylonid/NativeAlphaForAndroid)
-(by [cylonid](https://github.com/cylonid)) with extensive modifications — UI rebuild, feature changes and optimizations.
-All changes are released under the same license as the original project.
+WebNative 基于 [cylonid](https://github.com/cylonid) 的自由软件项目
+[Native Alpha](https://github.com/cylonid/NativeAlphaForAndroid) 深度修改而来：
 
-WebNative is Free Software: You can use, study share and improve it at your will. Specifically you can redistribute
-and/or modify it under the terms of the
-[GNU General Public License](https://www.gnu.org/licenses/gpl.html) as published by the Free Software Foundation, either
-version 3 of the License, or (at your option) any later version.
+* **Native Alpha（上游）** — Copyright © cylonid 及其贡献者，本项目继承的全部上游代码
+* **WebNative（修改部分）** — Copyright © 2026
+  [fc6a1b03](https://github.com/fc6a1b03)，自 2026-08-19 起的持续重写：Jetpack
+  Compose 全面重建 UI、多窗矩阵、网页事件提醒、应用内扫码、文本流渲染优化等
+
+作为上游的修改版本，本项目依 GPL-3.0 第 5 条声明上述修改，并继续以
+**GNU GPL v3 或（你自选的）任意更高版本**整体授权（完整许可证文本见
+[LICENSE](LICENSE)）。你可以自由地使用、学习、分享和改进本程序：
+
+> This program is free software: you can redistribute it and/or modify it
+> under the terms of the GNU General Public License as published by the Free
+> Software Foundation, either version 3 of the License, or (at your option)
+> any later version.
+
+本程序按「现状」分发，不附带任何形式的担保（详见 LICENSE 第 15~17 条）；
+再分发时须同样遵循 GPL-3.0，包括提供对应源代码。向 Native Alpha
+的原作者与所有贡献者致谢。

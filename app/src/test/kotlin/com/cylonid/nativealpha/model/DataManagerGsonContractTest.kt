@@ -90,6 +90,16 @@ class DataManagerGsonContractTest {
         assertFalse(loaded.statLogNetworkErrors)
     }
 
+    /** 边缘滑导航开关：新键默认关闭 + 旧备份缺字段时不误开（误触面控制口径锁） */
+    @Test
+    fun globalSettings_missingEdgeSwipeField_defaultsToOff() {
+        assertFalse(GlobalSettings().isEdgeSwipeNavigation)
+
+        val legacyJson = """{"themeId":1}"""
+        val loaded = gson.fromJson(legacyJson, GlobalSettings::class.java)
+        assertFalse(loaded.isEdgeSwipeNavigation)
+    }
+
     /** 全局合并链路：copySettings 复制 textZoom；DataManager 合并后再覆盖回自身外观值 */
     @Test
     fun copySettings_globalMerge_keepsAppearanceAndStats() {
