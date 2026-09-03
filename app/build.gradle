@@ -120,7 +120,6 @@ dependencies {
     implementation libs.gson
     implementation libs.jsoup
     // Vico Compose 图表（统计页）
-    implementation libs.vico.compose.m3
     // Markdown 渲染（更新内容 GitHub release notes 支持 md）
     implementation libs.markwon
 

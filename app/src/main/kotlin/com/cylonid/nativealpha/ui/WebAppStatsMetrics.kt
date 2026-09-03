@@ -38,7 +38,7 @@ private const val SUGGEST_ERROR_COUNT = 10
 /** 缓存占用超过该值（B）提示清理（约 50MB） */
 private const val SUGGEST_CACHE_BYTES = 50L * 1024 * 1024
 
-/** 加载耗时分布柱状图（Vico ColumnChart，按次） */
+/** 加载耗时分布横条图（纯 Compose 自绘比例条，按次数占比） */
 @Composable
 internal fun LoadTimeChart(webapp: WebApp) {
     // 真实分布：按耗时区间分桶（标签见常量），展示最近 20 次

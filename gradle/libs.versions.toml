@@ -1,13 +1,12 @@
 # WebNative Version Catalog — 依赖版本唯一来源
 # 所有版本统一在此管理，build 文件只引用不写死
-# 查询时间：2026-08-19（Google Maven / Maven Central 最新稳定版）
+# 查询时间：2026-09-03（Google Maven / Maven Central 最新稳定版）
 
 [versions]
 # 构建工具
-agp = "9.3.2"
-#noinspection NewerVersionAvailable
+agp = "9.4.0"
 kotlin = "2.3.20"
-gradle = "9.7.0"
+gradle = "9.7.1"
 
 # SDK
 compileSdk = "37"
@@ -15,10 +14,10 @@ minSdk = "31"
 targetSdk = "37"
 
 # 站点分享二维码（纯 Java core，无 GMS/android 传递依赖）
-zxingCore = "3.5.3"
+zxingCore = "3.5.4"
 
 # 应用内扫码相机栈（谷歌推荐 CameraX；解码复用 zxing-core，无 GMS）
-androidxCamera = "1.5.3"
+androidxCamera = "1.6.2"
 
 # AndroidX
 coreKtx = "1.19.0"
@@ -36,9 +35,7 @@ datastore = "1.2.1"
 
 # 第三方
 gson = "2.14.0"
-jsoup = "1.16.1"
-#noinspection NewerVersionAvailable
-vico = "2.2.1"
+jsoup = "1.23.2"
 markwon = "4.6.2"
 
 # 测试
@@ -83,7 +80,6 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 
 # 第三方
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
-vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 markwon = { group = "io.noties.markwon", name = "core", version.ref = "markwon" }
 
