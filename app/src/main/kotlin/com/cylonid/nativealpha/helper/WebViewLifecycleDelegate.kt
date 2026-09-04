@@ -27,6 +27,7 @@ import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.StatsRecorder
 import com.cylonid.nativealpha.util.UrlUtils
+import com.cylonid.nativealpha.util.WebShareBridge
 import com.cylonid.nativealpha.util.WebViewLauncher
 import com.cylonid.nativealpha.util.WebViewSetup
 import com.cylonid.nativealpha.util.WebviewRecycleRegistry
@@ -187,6 +188,9 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         val webview = activity.findViewById<WebView>(R.id.webview).also { activity.wv = it }
         // 网页事件桥注册（P5：仅配规则站；JS 侧经 hook 代理转发）
         WebeventRuntime.attachBridge(webview, activity.webappID)
+
+        // navigator.share 桥：站点分享按钮 → 系统分享面板
+        WebShareBridge.attach(webview, activity)
 
         // 仅 debug 包开启 WebView 远程调试（chrome://inspect + CDP 自动化验证）；
         // release 永不开启——远程调试是安全敏感面，不得泄漏到生产

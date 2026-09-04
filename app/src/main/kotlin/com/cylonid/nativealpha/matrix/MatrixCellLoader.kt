@@ -1,9 +1,11 @@
 package com.cylonid.nativealpha.matrix
 
+import android.app.Activity
 import android.webkit.WebView
 import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.LocaleUtils
+import com.cylonid.nativealpha.util.WebShareBridge
 import com.cylonid.nativealpha.util.WebViewSetup
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -57,6 +59,8 @@ internal class MatrixCellLoader(private val engine: MatrixEngine) {
         }
         webview.webViewClient = MatrixCellClient(MatrixCellContext(engine, cellIndex, webapp.ID))
         webview.webChromeClient = MatrixCellChromeClient(engine, cellIndex)
+        // navigator.share 桥（与宿主同源；activityContext 即 MatrixActivity）
+        WebShareBridge.attach(webview, engine.activityContext as Activity)
         return webview
     }
 

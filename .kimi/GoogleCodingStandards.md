@@ -18,7 +18,7 @@
 | Gradle 用户手册    | https://docs.gradle.org/current/userguide/userguide.html |
 | AGP 构建文档       | https://developer.android.com/build                      |
 
-取向：优先采用新版本稳定特性（Kotlin 2.3 / AGP 9 / Compose BOM 2026.06），同等实现选低损耗方案（懒初始化、集合容量预估、避免无效拷贝）。
+取向：优先采用新版本稳定特性（Kotlin 2.4 / AGP 9 / Compose BOM 2026.08），同等实现选低损耗方案（懒初始化、集合容量预估、避免无效拷贝）。
 
 ---
 
@@ -105,8 +105,8 @@
 
 ## 2. 语言与构建（项目指引）
 
-- Java 17 字节码，Kotlin 2.3.20（AGP 9 内置）；依赖版本唯一来源 `gradle/libs.versions.toml`
-- Compose BOM 固定 `2026.06.01`（禁止升不兼容 beta）
+- Java 17 字节码，Kotlin 2.4.10（AGP 9 内置）；依赖版本唯一来源 `gradle/libs.versions.toml`
+- Compose BOM 升级必须与 Kotlin 联动验证（BOM 2026.08.00 / Compose 1.12 实测基线）
 
 ---
 
