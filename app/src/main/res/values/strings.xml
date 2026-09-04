@@ -235,6 +235,14 @@
     <string name="vitals_fcp">FCP</string>
     <string name="vitals_lcp">LCP</string>
     <string name="vitals_caption">Latest page load · %1$s DOM nodes</string>
+    <string name="review_title">Usage review</string>
+    <string name="review_active_days">Active days</string>
+    <string name="review_streak">Weekly streak</string>
+    <string name="stats_hero_streak_weeks_only">%1$d weeks</string>
+    <string name="review_busiest_day">Busiest day</string>
+    <string name="review_busiest_day_value">%1$s (%2$d opens)</string>
+    <string name="review_fastest">Fastest load</string>
+    <string name="review_open_entry">View monthly review</string>
     <string name="stats_companionship">Companionship</string>
     <string name="stats_hero_streak">%1$s · %2$d-week streak</string>
     <string name="stats_section_performance">Performance</string>

@@ -23,6 +23,9 @@ internal object StatAccent {
     /** 回退色：M3 靛蓝 seed（#4F46E5，README 品牌色）——非动态主题下的稳定兜底 */
     private const val FALLBACK_COLOR_HEX = "#4F46E5"
 
+    /** 饱和度门槛：低于此值（黑白/灰图标）视为无有效主色，回退品牌色 */
+    private const val MIN_SATURATION = 0.15f
+
     /** 主色缓存（站点 ID → ARGB int；32 站覆盖全站列表绰绰有余） */
     private val cache = LruCache<Int, Int>(32)
 
@@ -33,17 +36,28 @@ internal object StatAccent {
     fun accent(context: Context, webApp: WebApp): androidx.compose.ui.graphics.Color {
         val cached = cache.get(webApp.ID)
         if (cached != null) return androidx.compose.ui.graphics.Color(cached)
-        val argb = extract(context, webApp) ?: fallbackArgb()
+        val extracted = extract(context, webApp)
+        // 主流做法（Material 跟随色源同类处理）：无彩色源（黑白灰图标）不硬用灰——
+        // 回退品牌靛蓝，保证统计页始终有色感
+        val argb = if (extracted != null && isColorful(extracted)) extracted else fallbackArgb()
         cache.put(webApp.ID, argb)
         return androidx.compose.ui.graphics.Color(argb)
     }
 
+    /** 有效性：HSV 饱和度 ≥ 门槛才算「有颜色」（灰白图标不算） */
+    private fun isColorful(argb: Int): Boolean {
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(argb, hsv)
+        return hsv[1] >= MIN_SATURATION
+    }
+
     /**
-     * 热力图 5 档色阶：强调色按 alpha 梯度生成（低→高活跃）。
-     * 统一视觉语言：色阶只由强调色派生，不引入第二色相。
+     * 热力图 5 档色阶：低→高活跃。档位取值对齐主流参照（GitHub contributions：
+     * 最低活跃档即明显可辨，仅空态用容器色）——纯低 alpha 在浅色底会淡到不可辨，
+     * 故低档 35% 起步、高档全饱和。色相仍只由强调色派生（不引入第二色相）。
      */
     fun heatScale(base: androidx.compose.ui.graphics.Color): List<androidx.compose.ui.graphics.Color> =
-        listOf(0x1A, 0x40, 0x66, 0x99, 0xFF).map { base.copy(alpha = it / 255f) }
+        listOf(0x59, 0x8C, 0xB8, 0xE0, 0xFF).map { base.copy(alpha = it / 255f) }
 
     /** Palette 提取：优先 Vibrant，退而求其次取任意有代表性行；失败返回 null 走兜底 */
     private fun extract(context: Context, webApp: WebApp): Int? {

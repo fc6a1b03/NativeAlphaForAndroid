@@ -73,6 +73,7 @@ fun WebAppStatsScreen(
     onClearCache: () -> Unit,
     onClearStats: () -> Unit,
     onClearErrors: () -> Unit,
+    onOpenReview: () -> Unit,
     snackbarHostState: SnackbarHostState,
 ) {
     val context = LocalContext.current
@@ -142,6 +143,15 @@ fun WebAppStatsScreen(
                 modifier = Modifier.statsEnter(3)
             )
             Spacer(modifier = Modifier.height(16.dp))
+            // §3.5 月度回顾入口（活跃≥7 天才显示——回顾需要数据积累支撑；
+            // 判定与 ReviewData.build 同一纯函数，防口径漂移）
+            if (ReviewData.activeDays(daily) >= ReviewData.MIN_ACTIVE_DAYS) {
+                OutlinedButton(
+                    onClick = onOpenReview,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(stringResource(R.string.review_open_entry)) }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
             // §4 自动化
             StatsAutomationCard(Modifier.statsEnter(3))
             Spacer(modifier = Modifier.height(16.dp))

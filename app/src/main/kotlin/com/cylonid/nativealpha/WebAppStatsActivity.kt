@@ -1,6 +1,7 @@
 package com.cylonid.nativealpha
 
 import android.os.Bundle
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -80,6 +81,11 @@ class WebAppStatsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
                     onClearCache = { clearCache() },
                     onClearStats = { clearStats() },
                     onClearErrors = { clearErrors() },
+                    onOpenReview = {
+                        val intent = Intent(this, StatsReviewActivity::class.java)
+                        intent.putExtra(Const.INTENT_WEBAPPID, webappID)
+                        startActivity(intent)
+                    },
                     snackbarHostState = snackbarHostState
                 )
             }

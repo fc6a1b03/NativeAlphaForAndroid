@@ -234,6 +234,14 @@
     <string name="vitals_fcp">首次绘制</string>
     <string name="vitals_lcp">最大内容</string>
     <string name="vitals_caption">最近一次加载 · %1$s 个 DOM 节点</string>
+    <string name="review_title">使用回顾</string>
+    <string name="review_active_days">活跃天数</string>
+    <string name="review_streak">连续使用</string>
+    <string name="stats_hero_streak_weeks_only">%1$d 周</string>
+    <string name="review_busiest_day">最活跃的一天</string>
+    <string name="review_busiest_day_value">%1$s（%2$d 次）</string>
+    <string name="review_fastest">最快加载</string>
+    <string name="review_open_entry">查看本月回顾</string>
     <string name="stats_companionship">相伴记录</string>
     <string name="stats_hero_streak">%1$s · 连续 %2$d 周</string>
     <string name="stats_section_performance">性能</string>

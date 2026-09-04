@@ -32,8 +32,8 @@ import com.cylonid.nativealpha.util.WebAppIconManager
 /** 英雄卡圆角 28dp（视觉语言两档之二，全页唯一大圆角色块） */
 private val HeroCardShape = RoundedCornerShape(28.dp)
 
-/** favicon 主色在渐变底中的强度（低饱和，文字对比度不受侵扰） */
-private const val HERO_TINT_ALPHA = 0.22f
+/** favicon 主色在渐变底中的强度（对齐主流 tint 卡 0.3~0.5 区间；文字为 onSurface 深色对比度达标） */
+private const val HERO_TINT_ALPHA = 0.38f
 
 /**
  * §0 英雄卡：站点身份 + 相伴天数 + 打开次数（CountUp）。
