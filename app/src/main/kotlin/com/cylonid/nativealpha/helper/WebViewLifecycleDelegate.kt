@@ -27,6 +27,7 @@ import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.StatsRecorder
 import com.cylonid.nativealpha.util.UrlUtils
+import com.cylonid.nativealpha.util.WebPerfBridge
 import com.cylonid.nativealpha.util.WebShareBridge
 import com.cylonid.nativealpha.util.WebViewLauncher
 import com.cylonid.nativealpha.util.WebViewSetup
@@ -191,6 +192,8 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
 
         // navigator.share 桥：站点分享按钮 → 系统分享面板
         WebShareBridge.attach(webview, activity)
+        // Web Vitals 采集桥：页面加载细分（DNS/TCP/TTFB/FCP/LCP）落统计页
+        WebPerfBridge.attach(webview, activity.webappID, activity.applicationContext)
 
         // 仅 debug 包开启 WebView 远程调试（chrome://inspect + CDP 自动化验证）；
         // release 永不开启——远程调试是安全敏感面，不得泄漏到生产
@@ -258,7 +261,7 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         webview.destroy()
         activity.wv = null
         recycled = true
-        FeatureMetrics.count("webview", "background_recycled")
+        FeatureMetrics.count(FeatureMetrics.MODULE_WEBVIEW, "background_recycled")
     }
 
     fun onHostResume() {

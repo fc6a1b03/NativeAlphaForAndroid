@@ -30,9 +30,9 @@
     <string name="re_create_shortcut">重新创建快捷方式</string>
     <string name="use_two_finger_swipes_for_browser_forward_and_backward_navigation">使用双指滑动进行浏览器前进/后退导航</string>
     <string-array name="ui_modes">
-        <item>System default</item>
-        <item>Light Mode</item>
-        <item>Dark Mode</item>
+        <item>跟随系统</item>
+        <item>浅色模式</item>
+        <item>深色模式</item>
     </string-array>
     <string name="icon_fetch_failed_line1">无法获取 %1$s 的图标。
 可能的原因：
@@ -224,11 +224,45 @@
     <string name="gesture_no_next_page">没有下一页了</string>
 
 <string name="stats_title">统计 · %1$s</string>
+    <plurals name="stats_hero_days">
+        <item quantity="other">已相伴 %1$d 天</item>
+    </plurals>
+    <string name="stats_save_traffic">缓存已避免重新下载 %1$s</string>
+    <string name="vitals_dns">域名解析</string>
+    <string name="vitals_tcp">连接</string>
+    <string name="vitals_ttfb">首字节</string>
+    <string name="vitals_fcp">首次绘制</string>
+    <string name="vitals_lcp">最大内容</string>
+    <string name="vitals_caption">最近一次加载 · %1$s 个 DOM 节点</string>
+    <string name="review_title">使用回顾</string>
+    <string name="review_active_days">活跃天数</string>
+    <string name="review_streak">连续使用</string>
+    <string name="stats_hero_streak_weeks_only">%1$d 周</string>
+    <string name="review_busiest_day">最活跃的一天</string>
+    <string name="review_busiest_day_value">%1$s（%2$d 次）</string>
+    <string name="review_fastest">最快加载</string>
+    <string name="review_open_entry">查看本月回顾</string>
+    <string name="stats_companionship">相伴记录</string>
+    <string name="stats_hero_streak">%1$s · 连续 %2$d 周</string>
+    <string name="stats_section_performance">性能</string>
+    <string name="stats_section_automation">自动化</string>
+    <string name="stats_section_habits">使用习惯</string>
+    <string name="stats_section_storage">存储与清理</string>
+    <string name="stats_history_meta">历史与维护</string>
+    <string name="stats_automation_subtitle">任务自动提醒</string>
+    <string name="stats_automation_matched">条件匹配</string>
+    <string name="stats_automation_fired">规则触发</string>
+    <string name="stats_habit_shortcuts">快捷键使用</string>
+    <string name="stats_habit_share">站内分享</string>
+    <string name="stats_habit_matrix">矩阵格加载</string>
+    <string name="insight_night_owl">深夜型用户——%1$s%% 的打开在深夜</string>
+    <string name="insight_speed_smooth">平均加载 %1$s，几乎无感</string>
+    <string name="insight_cache">已缓存 %1$s，站点秒开不重复下载</string>
     <string name="stat_launches">打开次数</string>
     <string name="stat_avg_load">平均主体加载</string>
     <string name="stat_http_cache">HTTP 缓存</string>
     <string name="stat_page_errors">页面错误</string>
-    <string name="load_time_chart">加载耗时分布</string>
+
     <string name="load_time_hint">主体加载耗时（不含流式内容生成）</string>
     <string name="load_chart_empty">使用 2 次后展示分布图</string>
     <string name="load_summary">平均 %1$s · 最快 %2$s · 最慢 %3$s</string>
@@ -239,12 +273,15 @@
     <string name="clear_cache_confirm">将清除本应用的全部 WebView 缓存与站点存储，确定？</string>
     <string name="confirm">确定</string>
     <string name="clear_stats">清空统计</string>
-    <string name="clear_stats_confirm">将重置本应用的打开次数、加载耗时与错误计数，确定？</string>
+    <string name="clear_stats_confirm">将重置打开次数、加载耗时、错误计数与全部错误日志。</string>
     <string name="no_errors">✅ 此站点无错误记录</string>
     <string name="first_used">首次使用</string>
     <string name="last_used">最近使用</string>
-    <string name="suggestions_title">使用建议</string>
+
     <string name="suggestion_slow_load">平均加载 %1$s 偏慢，可在设置中尝试「桌面版请求」或检查网络</string>
+    <plurals name="insight_notification">
+        <item quantity="other">AI 帮您盯了 %1$d 次任务</item>
+    </plurals>
     <plurals name="suggestion_errors">
         <item quantity="other">已有 %1$d 次页面错误，建议查看下方错误日志定位问题</item>
     </plurals>
@@ -297,7 +334,7 @@
         <item quantity="other">每个应用最多 %1$d 个快捷键</item>
     </plurals>
 
-<string name="load_count_times">%1$d次</string>
+
     <string name="shortcut_focus_hint">与电脑浏览器一致：先点击页面输入框聚焦，再发送快捷键</string>
 
     <string name="isolated_session">登录态隔离</string>

@@ -1,6 +1,7 @@
 package com.cylonid.nativealpha
 
 import android.os.Bundle
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -8,6 +9,8 @@ import android.webkit.WebStorage
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
@@ -20,6 +23,7 @@ import com.cylonid.nativealpha.ui.WebAppStatsScreen
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.DateUtils
+import com.cylonid.nativealpha.util.StatsClearer
 import com.cylonid.nativealpha.util.ThemeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -35,6 +39,9 @@ class WebAppStatsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
     private val snackbarHostState = SnackbarHostState()
     // 当前 WebApp（响应式：清缓存/清空统计后刷新重组）
     private var webappState by mutableStateOf<WebApp?>(null)
+    // 数据版本号：统计清空/缓存清理为原地修改（对象引用不变，Compose 按
+    // 参数等值 skip 重组）——以递增版本号作为变化载荷驱动 UI 重读字段
+    private var statsRevision by mutableIntStateOf(0)
 
     // 导出页面错误（SAF 新 API）
     private val exportLauncher = registerForActivityResult(
@@ -62,6 +69,7 @@ class WebAppStatsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
                 }
                 WebAppStatsScreen(
                     webapp = webapp,
+                    revision = statsRevision,
                     onBack = { finish() },
                     onExport = {
                         try {
@@ -73,6 +81,11 @@ class WebAppStatsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
                     onClearCache = { clearCache() },
                     onClearStats = { clearStats() },
                     onClearErrors = { clearErrors() },
+                    onOpenReview = {
+                        val intent = Intent(this, StatsReviewActivity::class.java)
+                        intent.putExtra(Const.INTENT_WEBAPPID, webappID)
+                        startActivity(intent)
+                    },
                     snackbarHostState = snackbarHostState
                 )
             }
@@ -98,8 +111,9 @@ class WebAppStatsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
                     original.statCacheHttpBytes = 0L
                     original.statCacheStoreBytes = 0L
                     DataManager.getInstance().replaceWebApp(original)
-                    // 刷新统计页数据（重组重读最新值）
+                    // 刷新统计页数据（版本号载荷驱动 UI 重读——同引用赋值会被 skip）
                     webappState = DataManager.getInstance().getWebApp(webappID)
+                    statsRevision++
                 }
                 snackbarHostState.showSnackbar(getString(R.string.cache_cleared))
             } catch (e: Exception) {
@@ -115,23 +129,11 @@ class WebAppStatsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
     private fun clearStats() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val original = DataManager.getInstance().getWebAppIgnoringGlobalOverride(webappID, true)
-                if (original != null) {
-                    original.statLaunches = 0
-                    original.statLoadTimeSum = 0L
-                    original.statLoadTimeCount = 0
-                    original.statMaxLoadTime = 0L
-                    original.statErrors = 0
-                    original.statLastError = null
-                    original.statLoadTimes = mutableListOf()
-                    original.statFirstLoadedAt = 0L
-                    original.statLastUsedAt = 0L
-                    DataManager.getInstance().replaceWebApp(original)
-                    // 刷新统计页数据（重组重读最新值）
-                    webappState = DataManager.getInstance().getWebApp(webappID)
-                }
-                // 清空该站页面错误日志（DataStore）
-                PageErrorRepository.clearForSite(applicationContext, webappID)
+                // 清空范围由 StatsClearer 统一编排（A8：新增存储面只改编排点）
+                StatsClearer.clearAll(applicationContext, webappID)
+                // 刷新统计页数据（版本号载荷驱动 UI 重读——同引用赋值会被 skip）
+                webappState = DataManager.getInstance().getWebApp(webappID)
+                statsRevision++
                 snackbarHostState.showSnackbar(getString(R.string.stats_cleared))
             } catch (e: Exception) {
                 snackbarHostState.showSnackbar(getString(R.string.stats_clear_failed))

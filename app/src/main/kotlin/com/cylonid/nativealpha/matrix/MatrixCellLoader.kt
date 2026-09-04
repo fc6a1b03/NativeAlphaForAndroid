@@ -5,6 +5,7 @@ import android.webkit.WebView
 import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.LocaleUtils
+import com.cylonid.nativealpha.util.WebPerfBridge
 import com.cylonid.nativealpha.util.WebShareBridge
 import com.cylonid.nativealpha.util.WebViewSetup
 import kotlinx.coroutines.delay
@@ -32,7 +33,7 @@ internal class MatrixCellLoader(private val engine: MatrixEngine) {
                 }
                 val webview = createCellWebView(cellIndex, webapp)
                 engine.cellPool.install(cellIndex, webview)
-                FeatureMetrics.count("matrix", "cell_load")
+                FeatureMetrics.count(FeatureMetrics.MODULE_MATRIX, "cell_load")
                 webview.loadUrl(webapp.baseUrl, buildLoadHeaders(webapp))
             }
         )
@@ -61,6 +62,8 @@ internal class MatrixCellLoader(private val engine: MatrixEngine) {
         webview.webChromeClient = MatrixCellChromeClient(engine, cellIndex)
         // navigator.share 桥（与宿主同源；activityContext 即 MatrixActivity）
         WebShareBridge.attach(webview, engine.activityContext as Activity)
+        // Web Vitals 采集桥（矩阵格与宿主同源采集；applicationContext 防泄漏）
+        WebPerfBridge.attach(webview, webapp.ID, engine.appContext.applicationContext)
         return webview
     }
 

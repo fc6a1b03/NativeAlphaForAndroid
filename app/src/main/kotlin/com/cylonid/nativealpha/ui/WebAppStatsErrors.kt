@@ -41,12 +41,12 @@ import com.cylonid.nativealpha.model.PageErrorEntry
 import com.cylonid.nativealpha.util.DateUtils
 
 /**
- * 统计页错误日志区块（自 WebAppStatsScreen 整块迁移，零行为变更）：
- * 错误卡片（导出/清空按钮 + 按类型分组列表）+ 错误详情对话框 + 清空确认对话框。
+ * 统计页错误日志内容（外层卡片容器已上移 StatsSection 统一抽象）：
+ * 分类占比条 + 导出/清空按钮 + 按类型分组列表 + 详情/清空确认对话框。
  * 区块内交互状态（分组展开/选中错误/清空确认）在此自管——仅本区块消费。
  */
 @Composable
-internal fun StatsErrorSection(
+internal fun StatsErrorContent(
     errors: List<PageErrorEntry>,
     onExport: () -> Unit,
     onClearErrors: () -> Unit,
@@ -58,7 +58,7 @@ internal fun StatsErrorSection(
     // 清空错误日志确认对话框
     var showClearErrorsDialog by remember { mutableStateOf(false) }
 
-    StatsCard {
+    Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 stringResource(R.string.stats_error_log),
@@ -80,6 +80,7 @@ internal fun StatsErrorSection(
             }
         }
         Spacer(modifier = Modifier.height(4.dp))
+        ErrorMixBar(errors)
         if (errors.isEmpty()) {
             Text(
                 stringResource(R.string.no_errors),
@@ -238,6 +239,28 @@ private fun ErrorRow(entry: PageErrorEntry, onClick: () -> Unit) {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+/** 错误分类占比条：单条横向堆叠，宽度=类型占比（色沿用 errorColor 语义映射） */
+@Composable
+private fun ErrorMixBar(errors: List<PageErrorEntry>) {
+    if (errors.isEmpty()) return
+    val grouped = errors.groupBy { it.type }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(8.dp)
+            .clip(RoundedCornerShape(4.dp))
+    ) {
+        grouped.forEach { (_, entries) ->
+            Box(
+                modifier = Modifier
+                    .weight(entries.size.toFloat())
+                    .height(8.dp)
+                    .background(errorColor(entries.first().type))
+            )
+        }
     }
 }
 

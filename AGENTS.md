@@ -134,9 +134,19 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── AddWebAppShortcut.kt     # 桌面快捷方式 pin/更新（MainScreen 同用）
 │   ├── SettingsScreen.kt        # 全局设置 Compose UI
 │   ├── WebAppSettingsScreen.kt  # WebApp 设置 Compose UI
-│   ├── WebAppStatsScreen.kt     # 统计图表页（骨架 + KPI/缓存/元信息卡）
+│   ├── WebAppStatsScreen.kt     # 统计页「站点故事」七章编排（英雄/洞察/性能/热力/自动化/习惯/收纳）
+│   ├── StatsSection.kt          # 统计区块统一抽象（圆角/折叠/零值灰化唯一实现）
+│   ├── StatsHero.kt             # 英雄卡（favicon 主色渐变+相伴天数+Launches CountUp）
+│   ├── StatsInsights.kt         # 洞察策略引擎（注册表开闭，一句话洞察点击轮换）
+│   ├── StatsPerformanceCard.kt  # 性能卡（五桶柱状+Vitals 瀑布+缓存省流量）
+│   ├── StatsHeatmapCard.kt      # 陪伴热力图（12 周×7 天格网，4 档色阶）
+│   ├── StatsAutomationCard.kt   # 自动化卡（通知累计大数字+规则明细）
+│   ├── StatsHabitsCard.kt       # 习惯卡（快捷键频次/分享/矩阵）
+│   ├── StatsAnim.kt             # 统计动效封装（CountUp/stagger，respect reduced-motion）
+│   ├── StatsReviewScreen.kt     # 月度回顾页（Wrapped 式单页叙事）
+│   ├── StatsReviewData.kt       # 回顾数据聚合（纯函数；活跃<7 天不生成）
 │   ├── WebAppStatsErrors.kt     # 统计页错误日志区块（分组/详情/清空，状态自管）
-│   ├── WebAppStatsMetrics.kt    # 统计页图表/格式化/使用建议（纯函数可单测）
+│   ├── WebAppStatsMetrics.kt    # 统计页图表/格式化/分桶（纯函数可单测）
 │   ├── ShortcutRecreateDialog.kt# 重新创建快捷方式弹窗
 │   ├── ShortcutMenuOverlay.kt   # 快捷方式菜单浮层
 │   └── WebViewMenuOverlay.kt    # WebView 页面菜单浮层
@@ -174,7 +184,15 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── WebViewLauncher.kt       # 启动 WebViewActivity 的封装
 │   ├── WebViewSetup.kt          # WebView 创建配置纯函数（宿主/矩阵同源，禁双路径漂移）
 │   ├── WebShareBridge.kt        # navigator.share 桥（document-start 注入 + WebMessageListener → 系统分享面板）
-│   ├── StatsRecorder.kt         # 加载耗时/缓存等统计记录
+│   ├── StatsRecorder.kt         # 加载耗时/缓存等统计记录（单线程埋点队列）
+│   ├── WebBridgeKit.kt          # WebView 桥统一安装器（特性探测/document-start/listener）
+│   ├── WebShareBridge.kt        # navigator.share 桥（document-start 注入 + WebMessageListener → 系统分享面板）
+│   ├── WebPerfBridge.kt         # Web Vitals 采集桥（NavigationTiming/FCP/LCP → 统计页瀑布）
+│   ├── JsonPrefsStore.kt        # JSON 载荷 DataStore 仓库模板（A2 模板方法）
+│   ├── StatsDailyStore.kt       # 按日活动快照（opens+hour 桶，90 天滚动；热力图/streak 数据源）
+│   ├── WebVitalsStore.kt        # Web Vitals 明细（每站最近 10 条）
+│   ├── StatAccent.kt            # 统计强调色门面（Palette 提取+饱和度回退+热力色阶）
+│   ├── StatsClearer.kt          # 统计清空统一编排（清空范围唯一声明处）
 │   ├── FeatureMetrics.kt        # 功能观测门面：计数聚合 + 阈值批量落盘
 │   ├── NotificationUtils.kt     # 通知/Toast 等
 │   ├── UrlUtils.kt              # URL 规范化、校验、host 提取

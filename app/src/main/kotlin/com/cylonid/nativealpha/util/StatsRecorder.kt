@@ -86,6 +86,8 @@ object StatsRecorder {
                 if (w.statFirstLoadedAt == 0L) w.statFirstLoadedAt = now
                 w.statLastUsedAt = now
             }
+            // 按日快照（热力图/streak/时段洞察数据源）；同队列串行，失败静默不影响主功能
+            recordSuspend { StatsDailyStore.appendOpen(App.getAppContext()) }
         }
     }
 
