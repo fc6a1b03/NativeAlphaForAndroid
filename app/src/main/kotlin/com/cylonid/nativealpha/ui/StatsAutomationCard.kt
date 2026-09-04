@@ -23,7 +23,7 @@ import com.cylonid.nativealpha.util.FeatureMetrics
  */
 @Composable
 internal fun StatsAutomationCard(modifier: Modifier = Modifier) {
-    val stats = FeatureMetrics.moduleSnapshot("webevent")
+    val stats = FeatureMetrics.moduleSnapshot(FeatureMetrics.MODULE_WEBEVENT)
     val notified = (stats["notification_shown"] ?: 0L).toInt()
     StatsSection(
         title = stringResource(R.string.stats_section_automation),

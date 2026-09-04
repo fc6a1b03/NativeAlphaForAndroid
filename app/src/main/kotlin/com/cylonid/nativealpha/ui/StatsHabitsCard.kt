@@ -31,8 +31,8 @@ import com.cylonid.nativealpha.util.FeatureMetrics
  */
 @Composable
 internal fun StatsHabitsCard(webapp: WebApp, modifier: Modifier = Modifier) {
-    val share = FeatureMetrics.moduleSnapshot("share")
-    val matrix = FeatureMetrics.moduleSnapshot("matrix")
+    val share = FeatureMetrics.moduleSnapshot(FeatureMetrics.MODULE_SHARE)
+    val matrix = FeatureMetrics.moduleSnapshot(FeatureMetrics.MODULE_MATRIX)
     val shortcuts = webapp.keyShortcutSendCounts.entries.sortedByDescending { it.value }.take(3)
     val shares = share["sent"] ?: 0L
     val cellLoads = matrix["cell_load"] ?: 0L

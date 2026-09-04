@@ -39,7 +39,7 @@ internal object WebeventRuntime {
                         ).show()
                         else -> if (WebeventNotifier.isPermissionGranted(context)) {
                             WebeventNotifier.show(context, event, hitCount)
-                            FeatureMetrics.count("webevent", "notification_shown")
+                            FeatureMetrics.count(FeatureMetrics.MODULE_WEBEVENT, "notification_shown")
                         } else {
                             // 权限拒绝降级：Toast 兜底 + 计数（规格权限链路）
                             Toast.makeText(
@@ -47,7 +47,7 @@ internal object WebeventRuntime {
                                 context.getString(R.string.webevent_perm_degraded),
                                 Toast.LENGTH_LONG
                             ).show()
-                            FeatureMetrics.count("webevent", "permission_denied")
+                            FeatureMetrics.count(FeatureMetrics.MODULE_WEBEVENT, "permission_denied")
                         }
                     }
                 }

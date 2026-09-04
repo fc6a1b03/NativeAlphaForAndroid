@@ -33,7 +33,7 @@ internal class MatrixCellLoader(private val engine: MatrixEngine) {
                 }
                 val webview = createCellWebView(cellIndex, webapp)
                 engine.cellPool.install(cellIndex, webview)
-                FeatureMetrics.count("matrix", "cell_load")
+                FeatureMetrics.count(FeatureMetrics.MODULE_MATRIX, "cell_load")
                 webview.loadUrl(webapp.baseUrl, buildLoadHeaders(webapp))
             }
         )

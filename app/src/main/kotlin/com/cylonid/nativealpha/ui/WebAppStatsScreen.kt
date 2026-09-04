@@ -54,6 +54,7 @@ import com.cylonid.nativealpha.util.DateUtils
 import com.cylonid.nativealpha.util.StatAccent
 import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.StatsDailyStore
+import com.cylonid.nativealpha.util.WebVitalsEntry
 import com.cylonid.nativealpha.util.WebVitalsStore
 
 /**
@@ -77,45 +78,16 @@ fun WebAppStatsScreen(
     snackbarHostState: SnackbarHostState,
 ) {
     val context = LocalContext.current
-    var pageErrors by remember { mutableStateOf<List<PageErrorEntry>>(emptyList()) }
-    var showClearCacheDialog by remember { mutableStateOf(false) }
-    var showClearStatsDialog by remember { mutableStateOf(false) }
-    // 清理后触发错误日志重载（防列表不刷新）
-    var reloadKey by remember { mutableIntStateOf(0) }
-    // revision 入 key：清空/清理后（原地修改同引用）强制重读全部统计字段
-    LaunchedEffect(webapp.ID, revision, reloadKey) {
-        pageErrors = PageErrorRepository.getForSite(context, webapp.ID)
-    }
-    // FeatureMetrics 快照同步读取（内存聚合，无 IO；清理后随 reloadKey 重读）
-    val automation = remember(webapp.ID, reloadKey) { FeatureMetrics.moduleSnapshot("webevent") }
+    var reloadTrigger by remember { mutableIntStateOf(0) }
+    val data = rememberStatsPageData(webapp, revision, reloadTrigger)
     val accent = StatAccent.accent(context, webapp)
-    // 按日快照（DataStore 异步；revision/reloadKey 变化强制重读）
-    var daily by remember { mutableStateOf(StatsDailyStore.Snapshot()) }
-    var vitals by remember { mutableStateOf<List<com.cylonid.nativealpha.util.WebVitalsEntry>>(emptyList()) }
-    LaunchedEffect(webapp.ID, revision, reloadKey) {
-        daily = StatsDailyStore.snapshot(context)
-        vitals = WebVitalsStore.getForSite(context, webapp.ID)
-    }
     // 洞察/热力图输入聚合（24 小时桶由按日快照归并）
     val hourBuckets = IntArray(24)
-    daily.days.values.forEach { e -> e.hours.forEachIndexed { h, c -> hourBuckets[h] += c } }
-    val opensPerDay = daily.days.mapValues { it.value.opens }
+    data.daily.days.values.forEach { e -> e.hours.forEachIndexed { h, c -> hourBuckets[h] += c } }
+    val opensPerDay = data.daily.days.mapValues { it.value.opens }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.stats_title, webapp.title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.stats_back))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        },
+        topBar = { StatsTopBar(webapp.title, onBack) },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         Column(
@@ -127,13 +99,13 @@ fun WebAppStatsScreen(
                 .padding(horizontal = 20.dp)
         ) {
             // §0 英雄卡（相伴天数 + 打开次数）
-            StatsHero(webapp, daysTogether(webapp), daily.streakWeeks(), Modifier.statsEnter(0))
+            StatsHero(webapp, daysTogether(webapp), data.daily.streakWeeks(), Modifier.statsEnter(0))
             Spacer(modifier = Modifier.height(16.dp))
             // §1 洞察句（点击轮换；无命中不占位）
-            InsightCard(webapp, automation, hourBuckets, Modifier.statsEnter(1))
+            InsightCard(webapp, data.automation, hourBuckets, Modifier.statsEnter(1))
             Spacer(modifier = Modifier.height(16.dp))
             // §2 性能
-            StatsPerformanceCard(webapp, accent, vitals, Modifier.statsEnter(2))
+            StatsPerformanceCard(webapp, accent, data.vitals, Modifier.statsEnter(2))
             Spacer(modifier = Modifier.height(16.dp))
             // §3 陪伴热力图（按日快照；无任何活跃时不占位）
             StatsHeatmapCard(
@@ -145,7 +117,7 @@ fun WebAppStatsScreen(
             Spacer(modifier = Modifier.height(16.dp))
             // §3.5 月度回顾入口（活跃≥7 天才显示——回顾需要数据积累支撑；
             // 判定与 ReviewData.build 同一纯函数，防口径漂移）
-            if (ReviewData.activeDays(daily) >= ReviewData.MIN_ACTIVE_DAYS) {
+            if (ReviewData.activeDays(data.daily) >= ReviewData.MIN_ACTIVE_DAYS) {
                 OutlinedButton(
                     onClick = onOpenReview,
                     modifier = Modifier.fillMaxWidth()
@@ -153,101 +125,23 @@ fun WebAppStatsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
             // §4 自动化
-            StatsAutomationCard(Modifier.statsEnter(3))
+            StatsAutomationCard(Modifier.statsEnter(4))
             Spacer(modifier = Modifier.height(16.dp))
             // §5 使用习惯
-            StatsHabitsCard(webapp, Modifier.statsEnter(4))
+            StatsHabitsCard(webapp, Modifier.statsEnter(5))
             Spacer(modifier = Modifier.height(16.dp))
-            // §6 收纳（工具性内容折叠降权）
-            StatsSection(
-                title = stringResource(R.string.stats_section_storage),
-                modifier = Modifier.statsEnter(5),
-                collapsible = true,
-                initiallyCollapsed = true
-            ) {
-                RowData(stringResource(R.string.cache_http_total), formatBytes(webapp.statCacheHttpBytes))
-                RowData(stringResource(R.string.cache_site_storage), formatBytes(webapp.statCacheStoreBytes))
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = { showClearCacheDialog = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.clear_cache))
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            StatsSection(
-                title = stringResource(R.string.stats_history_meta),
-                modifier = Modifier.statsEnter(6),
-                collapsible = true,
-                initiallyCollapsed = true
-            ) {
-                RowData(
-                    stringResource(R.string.first_used),
-                    if (webapp.statFirstLoadedAt > 0) DateUtils.formatTimestamp(webapp.statFirstLoadedAt) else "—"
-                )
-                RowData(
-                    stringResource(R.string.last_used),
-                    if (webapp.statLastUsedAt > 0) DateUtils.formatTimestamp(webapp.statLastUsedAt) else "—"
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = { showClearStatsDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.clear_stats))
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            // 错误日志（导出/清空对称；折叠收纳）
-            StatsSection(
-                title = stringResource(R.string.stats_error_log),
-                modifier = Modifier.statsEnter(7),
-                collapsible = true,
-                initiallyCollapsed = true,
-                isEmpty = pageErrors.isEmpty()
-            ) {
-                StatsErrorContent(
-                    errors = pageErrors,
-                    onExport = onExport,
-                    onClearErrors = {
-                        onClearErrors()
-                        reloadKey++
-                    }
-                )
-            }
+            // §6 收纳（工具性内容折叠降权；交互状态在区块内自管）
+            StatsMaintenanceSections(
+                webapp = webapp,
+                pageErrors = data.pageErrors,
+                onExport = onExport,
+                onClearCache = onClearCache,
+                onClearStats = onClearStats,
+                onClearErrors = onClearErrors,
+                onErrorsChanged = { reloadTrigger++ }
+            )
             Spacer(modifier = Modifier.height(32.dp))
         }
-    }
-    // 确认对话框（状态驱动，防误触；保持与原页一致的防误触语义）
-    if (showClearCacheDialog) {
-        ConfirmDialog(
-            title = stringResource(R.string.clear_cache),
-            text = stringResource(R.string.clear_cache_confirm),
-            onConfirm = {
-                showClearCacheDialog = false
-                onClearCache()
-            },
-            onDismiss = { showClearCacheDialog = false }
-        )
-    }
-    if (showClearStatsDialog) {
-        ConfirmDialog(
-            title = stringResource(R.string.clear_stats),
-            text = stringResource(R.string.clear_stats_confirm),
-            onConfirm = {
-                showClearStatsDialog = false
-                onClearStats()
-            },
-            onDismiss = { showClearStatsDialog = false }
-        )
     }
 }
 
@@ -304,6 +198,152 @@ private fun InsightCard(
             )
         }
     }
+}
+
+/** 页面数据装配（A7 单一数据源）：错误日志/自动化计数/按日快照/Vitals 一次装配 */
+internal data class StatsPageData(
+    val pageErrors: List<com.cylonid.nativealpha.model.PageErrorEntry> = emptyList(),
+    val automation: Map<String, Long> = emptyMap(),
+    val daily: StatsDailyStore.Snapshot = StatsDailyStore.Snapshot(),
+    val vitals: List<WebVitalsEntry> = emptyList()
+)
+
+/** 数据装配（组合期一次性执行；revision/reloadKey 变化强制重读——同引用赋值会被 skip） */
+@Composable
+private fun rememberStatsPageData(webapp: WebApp, revision: Int, reloadKey: Int): StatsPageData {
+    val context = LocalContext.current
+    var pageErrors by remember { mutableStateOf(emptyList<com.cylonid.nativealpha.model.PageErrorEntry>()) }
+    var daily by remember { mutableStateOf(StatsDailyStore.Snapshot()) }
+    var vitals by remember { mutableStateOf(emptyList<WebVitalsEntry>()) }
+    LaunchedEffect(webapp.ID, revision, reloadKey) {
+        pageErrors = PageErrorRepository.getForSite(context, webapp.ID)
+        daily = StatsDailyStore.snapshot(context)
+        vitals = WebVitalsStore.getForSite(context, webapp.ID)
+    }
+    // FeatureMetrics 快照同步读取（内存聚合，无 IO；清理后随 reloadKey 重读）
+    val automation = remember(webapp.ID, reloadKey) { FeatureMetrics.moduleSnapshot(FeatureMetrics.MODULE_WEBEVENT) }
+    return StatsPageData(pageErrors, automation, daily, vitals)
+}
+
+/**
+ * §6 收纳区（存储/历史维护/错误日志三折叠）。
+ * 交互状态（折叠展开/清空确认对话框）在此自管——遵循错误区块自管先例，
+ * 主编排函数只传回调不持有对话框状态。
+ */
+@Composable
+private fun StatsMaintenanceSections(
+    webapp: WebApp,
+    pageErrors: List<com.cylonid.nativealpha.model.PageErrorEntry>,
+    onExport: () -> Unit,
+    onClearCache: () -> Unit,
+    onClearStats: () -> Unit,
+    onClearErrors: () -> Unit,
+    onErrorsChanged: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showClearCacheDialog by remember { mutableStateOf(false) }
+    var showClearStatsDialog by remember { mutableStateOf(false) }
+    StatsSection(
+        title = stringResource(R.string.stats_section_storage),
+        modifier = modifier.statsEnter(5),
+        collapsible = true,
+        initiallyCollapsed = true
+    ) {
+        RowData(stringResource(R.string.cache_http_total), formatBytes(webapp.statCacheHttpBytes))
+        RowData(stringResource(R.string.cache_site_storage), formatBytes(webapp.statCacheStoreBytes))
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = { showClearCacheDialog = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(stringResource(R.string.clear_cache))
+        }
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+    StatsSection(
+        title = stringResource(R.string.stats_history_meta),
+        modifier = Modifier.statsEnter(6),
+        collapsible = true,
+        initiallyCollapsed = true
+    ) {
+        RowData(
+            stringResource(R.string.first_used),
+            if (webapp.statFirstLoadedAt > 0) com.cylonid.nativealpha.util.DateUtils.formatTimestamp(webapp.statFirstLoadedAt) else "—"
+        )
+        RowData(
+            stringResource(R.string.last_used),
+            if (webapp.statLastUsedAt > 0) com.cylonid.nativealpha.util.DateUtils.formatTimestamp(webapp.statLastUsedAt) else "—"
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = { showClearStatsDialog = true },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+        ) {
+            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(stringResource(R.string.clear_stats))
+        }
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+    StatsSection(
+        title = stringResource(R.string.stats_error_log),
+        modifier = Modifier.statsEnter(7),
+        collapsible = true,
+        initiallyCollapsed = true,
+        isEmpty = pageErrors.isEmpty()
+    ) {
+        StatsErrorContent(
+            errors = pageErrors,
+            onExport = onExport,
+            onClearErrors = {
+                onClearErrors()
+                onErrorsChanged()
+            }
+        )
+    }
+    if (showClearCacheDialog) {
+        ConfirmDialog(
+            title = stringResource(R.string.clear_cache),
+            text = stringResource(R.string.clear_cache_confirm),
+            onConfirm = {
+                showClearCacheDialog = false
+                onClearCache()
+            },
+            onDismiss = { showClearCacheDialog = false }
+        )
+    }
+    if (showClearStatsDialog) {
+        ConfirmDialog(
+            title = stringResource(R.string.clear_stats),
+            text = stringResource(R.string.clear_stats_confirm),
+            onConfirm = {
+                showClearStatsDialog = false
+                onClearStats()
+            },
+            onDismiss = { showClearStatsDialog = false }
+        )
+    }
+}
+
+/** 顶栏（标题+返回，M3 primaryContainer 语义色） */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StatsTopBar(title: String, onBack: () -> Unit) {
+    TopAppBar(
+        title = { Text(stringResource(R.string.stats_title, title)) },
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.stats_back))
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    )
 }
 
 /** 危险操作确认对话框（清缓存/清空统计共用） */

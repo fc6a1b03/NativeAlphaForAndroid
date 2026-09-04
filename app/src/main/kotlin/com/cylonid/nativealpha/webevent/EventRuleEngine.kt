@@ -112,7 +112,7 @@ internal object EventRuleEngine {
             matchedAny = true
             scheduleDispatch(rule, event, nowMs)
         }
-        if (matchedAny) FeatureMetrics.count("webevent", "rule_matched")
+        if (matchedAny) FeatureMetrics.count(FeatureMetrics.MODULE_WEBEVENT, "rule_matched")
     }
 
     /** 命中入同站合并窗口：首条开窗定时 flush，窗口内后续命中并入批次 */
@@ -134,7 +134,7 @@ internal object EventRuleEngine {
         pendingJobs.remove(webappId)?.cancel()
         val dispatcher = actionDispatcher ?: return
         dispatcher.dispatch(batch.firstRule, batch.event, batch.hitCount)
-        FeatureMetrics.count("webevent", "fired")
+        FeatureMetrics.count(FeatureMetrics.MODULE_WEBEVENT, "fired")
     }
 
     /** 站点级联清理时同步引擎运行态（P5-3；冷却表全局清空——低频场景） */

@@ -261,7 +261,7 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         webview.destroy()
         activity.wv = null
         recycled = true
-        FeatureMetrics.count("webview", "background_recycled")
+        FeatureMetrics.count(FeatureMetrics.MODULE_WEBVIEW, "background_recycled")
     }
 
     fun onHostResume() {

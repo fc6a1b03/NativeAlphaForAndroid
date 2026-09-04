@@ -1,10 +1,12 @@
 package com.cylonid.nativealpha.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -23,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.util.WebVitalsEntry
 
 
 /**
@@ -33,7 +36,7 @@ import com.cylonid.nativealpha.model.WebApp
 internal fun StatsPerformanceCard(
     webapp: WebApp,
     accent: Color,
-    vitals: List<com.cylonid.nativealpha.util.WebVitalsEntry>,
+    vitals: List<WebVitalsEntry>,
     modifier: Modifier = Modifier
 ) {
     val avgLoad = avgLoadMs(webapp)
@@ -90,8 +93,8 @@ internal fun StatsPerformanceCard(
 internal fun RowData(label: String, value: String, emphasized: Boolean = false) {
     androidx.compose.foundation.layout.Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
         Text(
@@ -107,7 +110,7 @@ internal fun RowData(label: String, value: String, emphasized: Boolean = false) 
  * 条长按五段最大值归一（各自独立行，非堆叠时序——移动端窄幅更可读）。
  */
 @Composable
-private fun VitalsWaterfall(latest: com.cylonid.nativealpha.util.WebVitalsEntry, accent: Color) {
+private fun VitalsWaterfall(latest: WebVitalsEntry, accent: Color) {
     val rows = listOf(
         stringResource(R.string.vitals_dns) to latest.dns,
         stringResource(R.string.vitals_tcp) to latest.tcp,
@@ -130,7 +133,8 @@ private fun VitalsWaterfall(latest: com.cylonid.nativealpha.util.WebVitalsEntry,
             Text(
                 label,
                 style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.width(40.dp)
+                maxLines = 1,
+                modifier = Modifier.width(56.dp)
             )
             Box(
                 modifier = Modifier

@@ -1,5 +1,6 @@
 package com.cylonid.nativealpha.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,11 +28,13 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.util.StatAccent
 
 /**
  * 月度回顾页（Phase 4，Wrapped 式单页叙事）。
@@ -46,9 +49,7 @@ internal fun StatsReviewScreen(
     onBack: () -> Unit,
     snackbarHostState: SnackbarHostState
 ) {
-    val accent = com.cylonid.nativealpha.util.StatAccent.accent(
-        androidx.compose.ui.platform.LocalContext.current, webapp
-    )
+    val accent = StatAccent.accent(LocalContext.current, webapp)
     Scaffold(
         topBar = {
             TopAppBar(
@@ -145,7 +146,7 @@ private fun ReviewBigNumber(value: String, label: String) {
 private fun ReviewRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)

@@ -25,6 +25,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
  */
 object FeatureMetrics {
 
+    // 模块名常量（跨文件埋点/读数同一口径，R2：禁止多处字面量重复）
+    const val MODULE_WEBVIEW = "webview"
+    const val MODULE_MATRIX = "matrix"
+    const val MODULE_WEBEVENT = "webevent"
+    const val MODULE_SHARE = "share"
+
     /** 每模块累计计数达此值触发一次 DataStore 落盘（覆盖写全量快照，幂等） */
     private const val FLUSH_THRESHOLD = 20
 

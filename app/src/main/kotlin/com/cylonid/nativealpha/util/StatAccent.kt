@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.util.LruCache
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.core.graphics.toColorInt
 import androidx.palette.graphics.Palette
 import com.cylonid.nativealpha.model.WebApp
@@ -33,15 +34,15 @@ internal object StatAccent {
      * 站点强调色（同步：Palette 同步提取在统计页进入时一次性执行，
      * 图标已由 WebAppIconManager 内存/磁盘缓存，无解码放大风险）。
      */
-    fun accent(context: Context, webApp: WebApp): androidx.compose.ui.graphics.Color {
+    fun accent(context: Context, webApp: WebApp): ComposeColor {
         val cached = cache.get(webApp.ID)
-        if (cached != null) return androidx.compose.ui.graphics.Color(cached)
+        if (cached != null) return ComposeColor(cached)
         val extracted = extract(context, webApp)
         // 主流做法（Material 跟随色源同类处理）：无彩色源（黑白灰图标）不硬用灰——
         // 回退品牌靛蓝，保证统计页始终有色感
         val argb = if (extracted != null && isColorful(extracted)) extracted else fallbackArgb()
         cache.put(webApp.ID, argb)
-        return androidx.compose.ui.graphics.Color(argb)
+        return ComposeColor(argb)
     }
 
     /** 有效性：HSV 饱和度 ≥ 门槛才算「有颜色」（灰白图标不算） */
@@ -56,7 +57,7 @@ internal object StatAccent {
      * 最低活跃档即明显可辨，仅空态用容器色）——纯低 alpha 在浅色底会淡到不可辨，
      * 故低档 35% 起步、高档全饱和。色相仍只由强调色派生（不引入第二色相）。
      */
-    fun heatScale(base: androidx.compose.ui.graphics.Color): List<androidx.compose.ui.graphics.Color> =
+    fun heatScale(base: ComposeColor): List<ComposeColor> =
         listOf(0x59, 0x8C, 0xB8, 0xE0, 0xFF).map { base.copy(alpha = it / 255f) }
 
     /** Palette 提取：优先 Vibrant，退而求其次取任意有代表性行；失败返回 null 走兜底 */

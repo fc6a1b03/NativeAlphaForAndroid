@@ -97,4 +97,7 @@ internal object StatsDailyStore {
     suspend fun clear(context: Context) = store.write(context, Snapshot())
 
     private fun dateFormat() = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+
+    /** 日期键（yyyy-MM-dd，US locale——与存储/裁剪同源；热力图复用避免格式双份） */
+    internal fun dateKey(calendar: Calendar): String = dateFormat().format(calendar.time)
 }

@@ -45,7 +45,7 @@ class StatsReviewActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
         lifecycleScope.launch(Dispatchers.IO) {
             val context = applicationContext
             val daily = StatsDailyStore.snapshot(context)
-            val notificationShown = FeatureMetrics.moduleSnapshot("webevent")["notification_shown"] ?: 0L
+            val notificationShown = FeatureMetrics.moduleSnapshot(FeatureMetrics.MODULE_WEBEVENT)["notification_shown"] ?: 0L
             val webapp = DataManager.getInstance().getWebApp(webappID)
             reviewState = webapp?.let { ReviewData.build(it, daily, notificationShown) }
         }

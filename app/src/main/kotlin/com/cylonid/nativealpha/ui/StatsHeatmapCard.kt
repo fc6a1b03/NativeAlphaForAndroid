@@ -21,9 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cylonid.nativealpha.util.StatAccent
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Locale
 
 /**
  * §3 陪伴热力图（Phase 2）：近 12 周 × 7 天活跃格网（GitHub contributions 式）。
@@ -59,7 +57,6 @@ private const val CELL_GAP_DP = 2
 /** 热力图格网：12 列周 × 7 行日（末列为本周） */
 @Composable
 private fun HeatmapGrid(opensPerDay: Map<String, Int>, scale: List<Color>) {
-    val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     val today = Calendar.getInstance()
     val cursor = (today.clone() as Calendar).apply {
         set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
@@ -75,7 +72,7 @@ private fun HeatmapGrid(opensPerDay: Map<String, Int>, scale: List<Color>) {
         repeat(12) {
             Column(verticalArrangement = Arrangement.spacedBy(CELL_GAP_DP.dp)) {
                 repeat(7) {
-                    val key = fmt.format(cursor.time)
+                    val key = com.cylonid.nativealpha.util.StatsDailyStore.dateKey(cursor)
                     val opens = opensPerDay[key] ?: 0
                     val future = cursor.after(today)
                     // 次数→档位：1 / 2-3 / 4-7 / 8+（4 档活跃，0 档空态）

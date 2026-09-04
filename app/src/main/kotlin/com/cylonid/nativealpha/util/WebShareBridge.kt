@@ -90,7 +90,7 @@ internal object WebShareBridge {
         val intent = buildShareIntent(payload)
         if (intent != null) {
             // 分享成功发起计数（统计页习惯卡数据源；观测通道不阻塞主流程）
-            FeatureMetrics.count("share", "sent")
+            FeatureMetrics.count(FeatureMetrics.MODULE_SHARE, "sent")
             try {
                 activity.startActivity(Intent.createChooser(intent, null))
             } catch (ignored: ActivityNotFoundException) {

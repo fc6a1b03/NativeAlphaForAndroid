@@ -74,14 +74,14 @@ internal class MatrixCellContext(
     }
 
     override fun recordPageLoadDuration(durationMs: Long) {
-        FeatureMetrics.count("matrix", "cell_load_ms")
+        FeatureMetrics.count(FeatureMetrics.MODULE_MATRIX, "cell_load_ms")
     }
 
     override fun recordPageError(errorType: String, code: String, desc: String) {
         // 错误收集定位（用户定调）：网络/SSL/HTTP 类页面错误属环境
         // 观测非应用缺陷——降为计数（错误日志只收应用致命问题：崩溃/
         // OOM/内存压力/渲染崩溃）。观测计数见 feature_metrics_matrix
-        FeatureMetrics.count("matrix", "PageError:$errorType")
+        FeatureMetrics.count(FeatureMetrics.MODULE_MATRIX, "PageError:$errorType")
     }
 
     override fun startReconnectWatch() {

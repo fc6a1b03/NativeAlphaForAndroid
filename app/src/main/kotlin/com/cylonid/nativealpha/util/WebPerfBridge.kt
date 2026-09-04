@@ -1,6 +1,8 @@
 package com.cylonid.nativealpha.util
 
 import android.webkit.WebView
+import org.json.JSONException
+import org.json.JSONObject
 
 /**
  * Web Vitals 采集桥（Phase 3，三档数据）：document-start 注入采集脚本，
@@ -75,7 +77,7 @@ internal object WebPerfBridge {
     internal fun buildVitalsEntry(payload: String?, at: Long = System.currentTimeMillis()): WebVitalsEntry? {
         if (payload.isNullOrBlank()) return null
         return try {
-            val o = org.json.JSONObject(payload)
+            val o = JSONObject(payload)
             WebVitalsEntry(
                 dns = clampMs(o.optDouble("dns", 0.0)),
                 tcp = clampMs(o.optDouble("tcp", 0.0)),
@@ -85,7 +87,7 @@ internal object WebPerfBridge {
                 domNodes = o.optInt("domNodes", 0).coerceIn(0, 100_000),
                 at = at
             )
-        } catch (e: org.json.JSONException) {
+        } catch (e: JSONException) {
             null
         }
     }
