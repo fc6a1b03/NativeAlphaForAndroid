@@ -146,5 +146,18 @@ internal object WebViewSetup {
             webview.settings.setSupportZoom(true)
             webview.settings.builtInZoomControls = true
         }
+
+        // ===== Passkey（WebAuthn）：WebView 桥接系统 Credential Manager =====
+        // 官方接法仅此一处开关（凭据协商全程在内核与系统凭据提供方之间，
+        // app 侧无需 credentials 依赖，零体积增量）。FOR_APP 档：仅对经
+        // Digital Asset Links 与本应用关联的站点放行（自托管站点用户可自行
+        // 配置 assetlinks.json），未关联站点不受影响。特性探测防旧内核缺
+        // API 抛 UnsupportedOperationException。
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION)) {
+            WebSettingsCompat.setWebAuthenticationSupport(
+                webview.settings,
+                WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_APP
+            )
+        }
     }
 }

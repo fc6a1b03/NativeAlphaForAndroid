@@ -21,6 +21,8 @@
 * **矩阵全屏满铺 + 可移动窗数胶囊**：窗口零间隙铺满可用区域（状态栏/导航条保留）；全局控制收进一枚可拖动胶囊——自由摆放、贴边隐藏、点开即出「窗数步进 + 退出」快捷菜单，挂机 2 秒自动吸附收纳
 * **应用内扫码**：主页扫码（CameraX 相机栈 + 品牌化取景框）——扫到 `webnative://add` 一键添加为应用，扫到 http/https 直接进页面浏览（不注册站点）
 * **站点分享**：把任意站点连同全部设置打成二维码/深链（`webnative://add`，差异编码只带非默认项），对方扫一下即进添加向导；新设置字段自动纳入分享，无需追补；fail-closed 校验（版本门/URL 白名单/userinfo 剥离）
+* **网页分享桥**：站点页面里的「分享」按钮（navigator.share）直接调起系统分享面板——WebView 原生不支持 Web Share API，WebNative 用内核 document-start 注入补齐，宿主与矩阵同源生效
+* **Passkey 支持**：支持 Passkey/生物识别登录的站点可在 WebNative 里直接使用（WebAuthn 桥接系统凭据管理器；自托管站点可通过 Digital Asset Links 关联启用，公共站点取决于其自身声明）
 * **站点健康**：本会话内加载失败的站点在列表与矩阵选站面板标注「最近加载失败」；加载失败按证书/地址/瞬态分类，仅瞬态走断线自动重连
 * **网页事件提醒**：把网页事件转成手机系统通知/Toast——网页通知拦截、标题变化、元素出现三类触发器，三步大白话向导配置，支持按站静音；例：AI 任务完成自动提醒
 * **多手势导航**：双指前进/后退、双指下滑刷新、三指切换；屏幕边缘左右滑前进/后退为可选项（设置内开启，默认关闭）
@@ -59,8 +61,8 @@
 打 tag 自动触发 GitHub Actions 发版（签名 APK + AAB → GitHub Release）：
 
 ```bash
-git tag -a v2.2.24 -m "v2.2.24"
-git push origin v2.2.24
+git tag -a v2.3.0 -m "v2.3.0"
+git push origin v2.3.0
 ```
 
 首次需在仓库 Settings → Secrets 配置：`KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`。
