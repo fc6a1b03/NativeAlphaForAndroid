@@ -228,6 +228,8 @@
         <item quantity="other">已相伴 %1$d 天</item>
     </plurals>
     <string name="stats_save_traffic">缓存已避免重新下载 %1$s</string>
+    <string name="stats_companionship">相伴记录</string>
+    <string name="stats_hero_streak">%1$s · 连续 %2$d 周</string>
     <string name="stats_section_performance">性能</string>
     <string name="stats_section_automation">自动化</string>
     <string name="stats_section_habits">使用习惯</string>
@@ -239,6 +241,7 @@
     <string name="stats_habit_shortcuts">快捷键使用</string>
     <string name="stats_habit_share">站内分享</string>
     <string name="stats_habit_matrix">矩阵格加载</string>
+    <string name="insight_night_owl">深夜型用户——%1$s%% 的打开在深夜</string>
     <string name="insight_speed_smooth">平均加载 %1$s，几乎无感</string>
     <string name="insight_cache">已缓存 %1$s，站点秒开不重复下载</string>
     <string name="stat_launches">打开次数</string>

@@ -229,6 +229,8 @@
         <item quantity="other">Together for %1$d days</item>
     </plurals>
     <string name="stats_save_traffic">Cache avoided re-downloading %1$s</string>
+    <string name="stats_companionship">Companionship</string>
+    <string name="stats_hero_streak">%1$s · %2$d-week streak</string>
     <string name="stats_section_performance">Performance</string>
     <string name="stats_section_automation">Automation</string>
     <string name="stats_section_habits">Habits</string>
@@ -240,6 +242,7 @@
     <string name="stats_habit_shortcuts">Shortcut usage</string>
     <string name="stats_habit_share">Shares from page</string>
     <string name="stats_habit_matrix">Matrix cell loads</string>
+    <string name="insight_night_owl">Night owl — %1$s%% of opens after 10pm</string>
     <string name="insight_speed_smooth">Avg load %1$s — imperceptible</string>
     <string name="insight_cache">%1$s cached — no re-downloads</string>
     <string name="stat_launches">Launches</string>

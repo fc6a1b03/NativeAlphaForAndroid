@@ -40,7 +40,7 @@ private const val HERO_TINT_ALPHA = 0.22f
  * 页面唯一大色块——favicon 主色低饱和渐变底（主观个性；色彩三源之一）。
  */
 @Composable
-internal fun StatsHero(webapp: WebApp, daysTogether: Int, modifier: Modifier = Modifier) {
+internal fun StatsHero(webapp: WebApp, daysTogether: Int, streakWeeks: Int = 0, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val accent = StatAccent.accent(context, webapp)
     val surface = MaterialTheme.colorScheme.surfaceContainerLow
@@ -71,9 +71,14 @@ internal fun StatsHero(webapp: WebApp, daysTogether: Int, modifier: Modifier = M
             )
             if (daysTogether > 0) {
                 Spacer(modifier = Modifier.height(2.dp))
+                val daysText = pluralStringResource(R.plurals.stats_hero_days, daysTogether, daysTogether)
+                // streak≥2 周才叠加展示（第 1 周人人都有，不构成信号）
+                val text = if (streakWeeks >= 2) {
+                    stringResource(R.string.stats_hero_streak, daysText, streakWeeks)
+                } else daysText
                 Text(
                     // 0 天（未使用过）不占位：空态语义交给各数据卡
-                    pluralStringResource(R.plurals.stats_hero_days, daysTogether, daysTogether),
+                    text,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

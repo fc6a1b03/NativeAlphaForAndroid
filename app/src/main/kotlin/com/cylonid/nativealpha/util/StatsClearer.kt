@@ -35,5 +35,7 @@ internal object StatsClearer {
         }
         // 页面错误明细一并清空（现状语义：清空统计=统计字段+错误日志）
         PageErrorRepository.clearForSite(context, webappId)
+        // 按日活动快照（热力图/streak/时段洞察）——全局性数据，随任一站清空一并重置
+        StatsDailyStore.clear(context)
     }
 }

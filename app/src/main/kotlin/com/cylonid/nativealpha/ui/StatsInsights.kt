@@ -17,11 +17,15 @@ import java.util.Locale
  * 禁止编造对比基线。文案 resId 由 UI 层 stringResource 解析（R1：组合期取文案）。
  */
 
-/** 洞察上下文：规则评估的全部输入（只读快照，无行为） */
+/** 洞察上下文：规则评估的全部输入（只读快照，无行为，保持纯 JVM 可测） */
 internal data class InsightContext(
     val webapp: WebApp,
     /** FeatureMetrics 模块快照（webevent/matrix/share），key=event，value=累计次数 */
-    val automation: Map<String, Long>
+    val automation: Map<String, Long>,
+    /** 按日打开次数（yyyy-MM-dd → 次数；无快照为空） */
+    val opensPerDay: Map<String, Int> = emptyMap(),
+    /** 24 小时打开桶（按日快照聚合；Phase 1 无快照时全零） */
+    val hourBuckets: IntArray = IntArray(24)
 )
 
 /** 单条洞察：文案资源（单句 textRes 或复数 pluralsRes 二选一）+ 权重（越大越先展示） */
@@ -48,6 +52,12 @@ internal const val SUGGEST_SLOW_LOAD_MS = 3000L
 internal const val SUGGEST_ERROR_COUNT = 10
 /** 缓存占用超过该值（B）提示清理（约 50MB，原建议阈值） */
 private const val SUGGEST_CACHE_BYTES = 50L * 1024 * 1024
+/** 时段洞察最小样本（次）——低于此值不判「深夜型」 */
+private const val INSIGHT_MIN_SAMPLE = 5
+/** 「深夜」小时集合（22/23/0-3 点） */
+private val NIGHT_HOURS = listOf(22, 23, 0, 1, 2, 3)
+/** 深夜占比阈值（%）——过半才称「深夜型」 */
+private const val INSIGHT_NIGHT_PERCENT = 55
 
 /** 洞察规则注册表：一行一条，weight 决定展示优先级 */
 internal val INSIGHT_STRATEGIES: List<InsightStrategy> = listOf(
@@ -86,6 +96,16 @@ internal val INSIGHT_STRATEGIES: List<InsightStrategy> = listOf(
         ctx.webapp.statCacheHttpBytes.takeIf { it > 0 }?.let {
             Insight(textRes = R.string.insight_cache, args = listOf(formatBytes(it)), weight = 20)
         }
+    },
+    // 时段型：深夜占比过半（样本≥5 次才下结论——诚实红线：不拿 2 次开涮）
+    InsightStrategy { ctx ->
+        val total = ctx.hourBuckets.sum()
+        if (total < INSIGHT_MIN_SAMPLE) return@InsightStrategy null
+        val night = NIGHT_HOURS.fold(0) { acc, h -> acc + ctx.hourBuckets[h] }
+        val percent = night * 100 / total
+        if (percent >= INSIGHT_NIGHT_PERCENT) {
+            Insight(textRes = R.string.insight_night_owl, args = listOf(percent.toString()), weight = 35)
+        } else null
     },
     // 缓存清理提示（原建议合流；体量大到值得清理才打扰）
     InsightStrategy { ctx ->

@@ -53,6 +53,7 @@ import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.DateUtils
 import com.cylonid.nativealpha.util.StatAccent
 import com.cylonid.nativealpha.util.FeatureMetrics
+import com.cylonid.nativealpha.util.StatsDailyStore
 
 /**
  * 统计页「站点故事」：7 章叙事排版（英雄/洞察/性能/陪伴(P2)/自动化/习惯/收纳）。
@@ -86,6 +87,15 @@ fun WebAppStatsScreen(
     // FeatureMetrics 快照同步读取（内存聚合，无 IO；清理后随 reloadKey 重读）
     val automation = remember(webapp.ID, reloadKey) { FeatureMetrics.moduleSnapshot("webevent") }
     val accent = StatAccent.accent(context, webapp)
+    // 按日快照（DataStore 异步；revision/reloadKey 变化强制重读）
+    var daily by remember { mutableStateOf(StatsDailyStore.Snapshot()) }
+    LaunchedEffect(webapp.ID, revision, reloadKey) {
+        daily = StatsDailyStore.snapshot(context)
+    }
+    // 洞察/热力图输入聚合（24 小时桶由按日快照归并）
+    val hourBuckets = IntArray(24)
+    daily.days.values.forEach { e -> e.hours.forEachIndexed { h, c -> hourBuckets[h] += c } }
+    val opensPerDay = daily.days.mapValues { it.value.opens }
 
     Scaffold(
         topBar = {
@@ -113,15 +123,22 @@ fun WebAppStatsScreen(
                 .padding(horizontal = 20.dp)
         ) {
             // §0 英雄卡（相伴天数 + 打开次数）
-            StatsHero(webapp, daysTogether(webapp), Modifier.statsEnter(0))
+            StatsHero(webapp, daysTogether(webapp), daily.streakWeeks(), Modifier.statsEnter(0))
             Spacer(modifier = Modifier.height(16.dp))
             // §1 洞察句（点击轮换；无命中不占位）
-            InsightCard(webapp, automation, Modifier.statsEnter(1))
+            InsightCard(webapp, automation, hourBuckets, Modifier.statsEnter(1))
             Spacer(modifier = Modifier.height(16.dp))
             // §2 性能
             StatsPerformanceCard(webapp, accent, Modifier.statsEnter(2))
             Spacer(modifier = Modifier.height(16.dp))
-            // §3 陪伴热力图：Phase 2（按日快照）数据就绪后插入
+            // §3 陪伴热力图（按日快照；无任何活跃时不占位）
+            StatsHeatmapCard(
+                title = stringResource(R.string.stats_companionship),
+                opensPerDay = opensPerDay,
+                accent = accent,
+                modifier = Modifier.statsEnter(3)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
             // §4 自动化
             StatsAutomationCard(Modifier.statsEnter(3))
             Spacer(modifier = Modifier.height(16.dp))
@@ -230,9 +247,14 @@ internal fun daysTogether(webapp: WebApp): Int {
 
 /** 洞察卡：一次一条权重最高，点击轮换全部命中（Wrapped 式叙事；空池不占位） */
 @Composable
-private fun InsightCard(webapp: WebApp, automation: Map<String, Long>, modifier: Modifier = Modifier) {
-    val insights = remember(webapp, automation) {
-        buildInsights(InsightContext(webapp, automation))
+private fun InsightCard(
+    webapp: WebApp,
+    automation: Map<String, Long>,
+    hourBuckets: IntArray,
+    modifier: Modifier = Modifier
+) {
+    val insights = remember(webapp, automation, hourBuckets) {
+        buildInsights(InsightContext(webapp, automation, hourBuckets = hourBuckets))
     }
     if (insights.isEmpty()) return
     var index by remember { mutableIntStateOf(0) }
