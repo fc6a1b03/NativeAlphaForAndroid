@@ -229,6 +229,12 @@
         <item quantity="other">Together for %1$d days</item>
     </plurals>
     <string name="stats_save_traffic">Cache avoided re-downloading %1$s</string>
+    <string name="vitals_dns">DNS</string>
+    <string name="vitals_tcp">TCP</string>
+    <string name="vitals_ttfb">TTFB</string>
+    <string name="vitals_fcp">FCP</string>
+    <string name="vitals_lcp">LCP</string>
+    <string name="vitals_caption">Latest page load · %1$s DOM nodes</string>
     <string name="stats_companionship">Companionship</string>
     <string name="stats_hero_streak">%1$s · %2$d-week streak</string>
     <string name="stats_section_performance">Performance</string>

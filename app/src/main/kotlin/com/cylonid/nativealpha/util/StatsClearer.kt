@@ -37,5 +37,7 @@ internal object StatsClearer {
         PageErrorRepository.clearForSite(context, webappId)
         // 按日活动快照（热力图/streak/时段洞察）——全局性数据，随任一站清空一并重置
         StatsDailyStore.clear(context)
+        // Web Vitals 明细（按站清）
+        WebVitalsStore.clearForSite(context, webappId)
     }
 }

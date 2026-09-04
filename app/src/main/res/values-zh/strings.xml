@@ -228,6 +228,12 @@
         <item quantity="other">已相伴 %1$d 天</item>
     </plurals>
     <string name="stats_save_traffic">缓存已避免重新下载 %1$s</string>
+    <string name="vitals_dns">域名解析</string>
+    <string name="vitals_tcp">连接</string>
+    <string name="vitals_ttfb">首字节</string>
+    <string name="vitals_fcp">首次绘制</string>
+    <string name="vitals_lcp">最大内容</string>
+    <string name="vitals_caption">最近一次加载 · %1$s 个 DOM 节点</string>
     <string name="stats_companionship">相伴记录</string>
     <string name="stats_hero_streak">%1$s · 连续 %2$d 周</string>
     <string name="stats_section_performance">性能</string>

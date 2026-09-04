@@ -112,7 +112,8 @@ internal fun bucketize(times: List<Long>): IntArray {
  * 旧实现用平均值冒充「Fastest」——技术债清偿（显示值必须与标签一致）。
  */
 internal fun minLoadTime(webapp: WebApp): Long =
-    webapp.statLoadTimes.minOrNull() ?: 0L
+    // 0ms 样本=缓存命中瞬间完成、计时未捕获的无效值——Fastest 取非零最快
+    webapp.statLoadTimes.filter { it > 0 }.minOrNull() ?: 0L
 
 /** 时长格式化（ms → 秒/分钟） */
 internal fun formatDuration(ms: Long): String {

@@ -54,6 +54,7 @@ import com.cylonid.nativealpha.util.DateUtils
 import com.cylonid.nativealpha.util.StatAccent
 import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.StatsDailyStore
+import com.cylonid.nativealpha.util.WebVitalsStore
 
 /**
  * 统计页「站点故事」：7 章叙事排版（英雄/洞察/性能/陪伴(P2)/自动化/习惯/收纳）。
@@ -89,8 +90,10 @@ fun WebAppStatsScreen(
     val accent = StatAccent.accent(context, webapp)
     // 按日快照（DataStore 异步；revision/reloadKey 变化强制重读）
     var daily by remember { mutableStateOf(StatsDailyStore.Snapshot()) }
+    var vitals by remember { mutableStateOf<List<com.cylonid.nativealpha.util.WebVitalsEntry>>(emptyList()) }
     LaunchedEffect(webapp.ID, revision, reloadKey) {
         daily = StatsDailyStore.snapshot(context)
+        vitals = WebVitalsStore.getForSite(context, webapp.ID)
     }
     // 洞察/热力图输入聚合（24 小时桶由按日快照归并）
     val hourBuckets = IntArray(24)
@@ -129,7 +132,7 @@ fun WebAppStatsScreen(
             InsightCard(webapp, automation, hourBuckets, Modifier.statsEnter(1))
             Spacer(modifier = Modifier.height(16.dp))
             // §2 性能
-            StatsPerformanceCard(webapp, accent, Modifier.statsEnter(2))
+            StatsPerformanceCard(webapp, accent, vitals, Modifier.statsEnter(2))
             Spacer(modifier = Modifier.height(16.dp))
             // §3 陪伴热力图（按日快照；无任何活跃时不占位）
             StatsHeatmapCard(
