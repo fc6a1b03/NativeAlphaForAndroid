@@ -30,9 +30,9 @@
     <string name="re_create_shortcut">重新创建快捷方式</string>
     <string name="use_two_finger_swipes_for_browser_forward_and_backward_navigation">使用双指滑动进行浏览器前进/后退导航</string>
     <string-array name="ui_modes">
-        <item>System default</item>
-        <item>Light Mode</item>
-        <item>Dark Mode</item>
+        <item>跟随系统</item>
+        <item>浅色模式</item>
+        <item>深色模式</item>
     </string-array>
     <string name="icon_fetch_failed_line1">无法获取 %1$s 的图标。
 可能的原因：
