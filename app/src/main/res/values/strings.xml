@@ -224,11 +224,29 @@
     <string name="gesture_no_next_page">No next page</string>
 
 <string name="stats_title">Statistics · %1$s</string>
+    <plurals name="stats_hero_days">
+        <item quantity="one">Together for %1$d day</item>
+        <item quantity="other">Together for %1$d days</item>
+    </plurals>
+    <string name="stats_save_traffic">Cache avoided re-downloading %1$s</string>
+    <string name="stats_section_performance">Performance</string>
+    <string name="stats_section_automation">Automation</string>
+    <string name="stats_section_habits">Habits</string>
+    <string name="stats_section_storage">Storage &amp; cleanup</string>
+    <string name="stats_history_meta">History &amp; maintenance</string>
+    <string name="stats_automation_subtitle">task reminders</string>
+    <string name="stats_automation_matched">Conditions matched</string>
+    <string name="stats_automation_fired">Rules fired</string>
+    <string name="stats_habit_shortcuts">Shortcut usage</string>
+    <string name="stats_habit_share">Shares from page</string>
+    <string name="stats_habit_matrix">Matrix cell loads</string>
+    <string name="insight_speed_smooth">Avg load %1$s — imperceptible</string>
+    <string name="insight_cache">%1$s cached — no re-downloads</string>
     <string name="stat_launches">Launches</string>
     <string name="stat_avg_load">Avg load</string>
     <string name="stat_http_cache">HTTP cache</string>
     <string name="stat_page_errors">Page errors</string>
-    <string name="load_time_chart">Load time distribution</string>
+
     <string name="load_time_hint">Main-frame load time (excludes streaming content)</string>
     <string name="load_chart_empty">Chart appears after 2 uses</string>
     <string name="load_summary">Avg %1$s · Fastest %2$s · Slowest %3$s</string>
@@ -239,12 +257,16 @@
     <string name="clear_cache_confirm">Clear all WebView cache and site storage?</string>
     <string name="confirm">Confirm</string>
     <string name="clear_stats">Clear statistics</string>
-    <string name="clear_stats_confirm">Reset launches, load times and error counts?</string>
+    <string name="clear_stats_confirm">Resets launches, load times, error counts and the error log.</string>
     <string name="no_errors">✅ No errors for this site</string>
     <string name="first_used">First used</string>
     <string name="last_used">Last used</string>
-    <string name="suggestions_title">Suggestions</string>
+
     <string name="suggestion_slow_load">Avg load %1$s is slow — try "Desktop site" or check network</string>
+    <plurals name="insight_notification">
+        <item quantity="one">The AI watched %1$d task for you</item>
+        <item quantity="other">The AI watched %1$d tasks for you</item>
+    </plurals>
     <plurals name="suggestion_errors">
         <item quantity="one">%1$d page error — check the error log below</item>
         <item quantity="other">%1$d page errors — check the error log below</item>
@@ -299,7 +321,7 @@
         <item quantity="other">Up to %1$d shortcuts per app</item>
     </plurals>
 
-<string name="load_count_times">%1$d×</string>
+
     <string name="shortcut_focus_hint">Like a desktop browser: tap the page input field first, then send the shortcut</string>
 
     <string name="isolated_session">Isolated session</string>

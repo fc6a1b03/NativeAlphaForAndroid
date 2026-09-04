@@ -94,6 +94,7 @@ dependencies {
     implementation libs.androidx.fragment.ktx
     implementation libs.androidx.lifecycle.runtime.ktx
     implementation libs.androidx.webkit
+    implementation libs.androidx.palette.ktx
     // DataStore（Google 官方推荐存储，替换 SharedPreferences）
     implementation libs.androidx.datastore.preferences
     // Baseline Profile 运行时安装（启动提速）

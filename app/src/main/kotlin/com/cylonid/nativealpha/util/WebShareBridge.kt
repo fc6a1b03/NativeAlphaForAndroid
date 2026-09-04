@@ -3,12 +3,7 @@ package com.cylonid.nativealpha.util
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.net.Uri
 import android.webkit.WebView
-import androidx.webkit.JavaScriptReplyProxy
-import androidx.webkit.WebMessageCompat
-import androidx.webkit.WebViewCompat
-import androidx.webkit.WebViewFeature
 import org.json.JSONException
 import org.json.JSONObject
 
@@ -16,12 +11,10 @@ import org.json.JSONObject
  * navigator.share 桥（Web Share API → 系统分享面板）。
  *
  * Android WebView 不实现 Web Share API：站点「分享」按钮调用 navigator.share
- * 在 WebView 里会静默失败（undefined）。此处用 webkit 官方双 API 组桥——
- * - [WebViewCompat.addDocumentStartJavaScript]：每次导航在 document-start
- *   覆盖 navigator.share/canShare（早于页面任何脚本执行，无「站点缓存了
- *   原引用」逃逸窗口；内核原生注入通道，非 evaluateJavascript 轮询）；
- * - [WebViewCompat.addWebMessageListener]：JS → 原生消息通道（仅主框架
- *   消息被接受，防 iframe 伪造分享）。
+ * 在 WebView 里会静默失败（undefined）。经 [WebBridgeKit] 统一安装器挂接——
+ * - document-start 注入覆盖 navigator.share/canShare（早于页面任何脚本执行，
+ *   无「站点缓存了原引用」逃逸窗口；内核原生注入通道，非轮询）；
+ * - WebMessageListener 接 JS → 原生消息（Kit 层已过滤非主框架，防伪造分享）。
  *
  * 性能纪律：脚本为纯字符串常量（无网络/无 IO/无 DOM 操作），单次导航仅由
  * 内核注入一次，运行时零轮询零监听——对页面加载无可测损耗。
@@ -40,13 +33,6 @@ internal object WebShareBridge {
     /** 分享回执：resolve 挂起的 navigator.share Promise 并清理句柄 */
     internal const val RESOLVE_JS =
         "window.__wnShareDone&&(__wnShareDone(),delete window.__wnShareDone)"
-
-    /**
-     * 全站启用："*" 是 origin 规则语法里唯一的全站通配写法（协议级通配
-     * 「https:// 加星号」不是合法规则）。Web Share 本就是通用 Web 能力，
-     * 且本桥无敏感数据回流（只上行分享载荷），isMainFrame 过滤已闭合伪造面。
-     */
-    private val ALLOWED_ORIGIN_RULES = setOf("*")
 
     /**
      * document-start 注入脚本：幂等覆盖 navigator.share/canShare。
@@ -82,38 +68,16 @@ internal object WebShareBridge {
 
     /**
      * 挂接分享桥。每 WebView 实例仅调用一次即可（宿主/矩阵格 WebView 均为
-     * 新建实例——矩阵池「重用一律新实例」，无重复挂载面）。
-     *
-     * 特性探测前置：两项 API 均带 RequiresFeature 前置要求，旧内核
-     * （WebView 版本不足）直接整体跳过——站点保持原生行为（navigator.share
-     * undefined），不降级不崩溃。
+     * 新建实例，无重复挂载面）。旧内核特性探测不通过时整体跳过——
+     * 站点保持原生行为（navigator.share undefined），不降级不崩溃。
      */
     fun attach(webView: WebView, activity: Activity) {
-        val documentStartSupported =
-            WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
-        val messageListenerSupported =
-            WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
-        if (!documentStartSupported || !messageListenerSupported) {
-            return
-        }
-        WebViewCompat.addDocumentStartJavaScript(
-            webView, SHARE_OVERRIDE_JS, ALLOWED_ORIGIN_RULES
-        )
-        WebViewCompat.addWebMessageListener(
-            webView, BRIDGE_NAME, ALLOWED_ORIGIN_RULES,
-            object : WebViewCompat.WebMessageListener {
-                override fun onPostMessage(
-                    view: WebView,
-                    message: WebMessageCompat,
-                    sourceOrigin: Uri,
-                    isMainFrame: Boolean,
-                    replyProxy: JavaScriptReplyProxy
-                ) {
-                    // iframe 内分享按钮一律忽略：载荷 url 不可信
-                    val payload = message.data ?: return
-                    if (!isMainFrame) return
-                    view.post { launchShareAndSettle(activity, view, payload) }
-                }
+        WebBridgeKit.install(
+            webView,
+            documentStartJs = SHARE_OVERRIDE_JS,
+            bridgeName = BRIDGE_NAME,
+            onMessage = { view, payload ->
+                view.post { launchShareAndSettle(activity, view, payload) }
             }
         )
     }
@@ -125,6 +89,8 @@ internal object WebShareBridge {
     private fun launchShareAndSettle(activity: Activity, view: WebView, payload: String) {
         val intent = buildShareIntent(payload)
         if (intent != null) {
+            // 分享成功发起计数（统计页习惯卡数据源；观测通道不阻塞主流程）
+            FeatureMetrics.count("share", "sent")
             try {
                 activity.startActivity(Intent.createChooser(intent, null))
             } catch (ignored: ActivityNotFoundException) {
