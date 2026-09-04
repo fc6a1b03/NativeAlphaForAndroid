@@ -72,6 +72,17 @@ class WebShareBridgeTest {
     }
 
     @Test
+    fun shareOverrideJs_rejectsFilesShareAndRunningShare() {
+        val js = WebShareBridge.SHARE_OVERRIDE_JS
+        // files 分享诚实拒答（壳不支持文件分享）
+        assertTrue(js.contains("d.files&&d.files.length)return false"))
+        // 进行中再 share 返回规范要求的 InvalidStateError
+        assertTrue(js.contains("'InvalidStateError'"))
+        // 桥不可用 reject 时必须清理挂起句柄（防状态残留锁死后续分享）
+        assertTrue(js.contains("catch(e){delete window.__wnShareDone"))
+    }
+
+    @Test
     fun resolveJs_settlesPendingPromise() {
         assertTrue(WebShareBridge.RESOLVE_JS.contains("__wnShareDone"))
     }

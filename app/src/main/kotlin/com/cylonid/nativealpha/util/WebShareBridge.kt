@@ -52,20 +52,28 @@ internal object WebShareBridge {
      * document-start 注入脚本：幂等覆盖 navigator.share/canShare。
      * 数据契约——分享载荷 JSON {title,text,url} 经 webnativeShare.postMessage
      * 上行；原生处理完执行 [RESOLVE_JS] 回执。
+     * 标准对齐：files 分享诚实拒答（canShare=false，壳不支持文件分享）；
+     * 进行中再 share 返回 InvalidStateError；桥不可用 reject 时同步清理
+     * 挂起句柄（防状态残留把后续分享误判为进行中）。
      */
     internal val SHARE_OVERRIDE_JS = """
         (function(){
         if(window.__wnShareInit)return;window.__wnShareInit=1;
-        var can=function(d){d=d||{};return!!(d.text||d.url||d.title)};
+        var can=function(d){d=d||{};
+          if(d.files&&d.files.length)return false;
+          return!!(d.text||d.url||d.title)};
         navigator.share=function(d){
           if(!can(d))return Promise.reject(new TypeError('Invalid share data'));
+          if(window.__wnShareDone)
+            return Promise.reject(new DOMException('share in progress','InvalidStateError'));
           return new Promise(function(res,rej){
             window.__wnShareDone=res;
             var p={title:d.title==null?'':String(d.title),
                    text:d.text==null?'':String(d.text),
                    url:d.url==null?'':String(d.url)};
             try{webnativeShare.postMessage(JSON.stringify(p))}
-            catch(e){rej(new DOMException('bridge unavailable','AbortError'))}
+            catch(e){delete window.__wnShareDone;
+                     rej(new DOMException('bridge unavailable','AbortError'))}
           });
         };
         navigator.canShare=can;
