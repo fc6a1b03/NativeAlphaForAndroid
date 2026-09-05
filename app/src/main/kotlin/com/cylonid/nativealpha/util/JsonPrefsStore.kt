@@ -30,10 +30,8 @@ internal abstract class JsonPrefsStore<T>(val key: Preferences.Key<String>) {
     suspend fun read(context: Context): T =
         try {
             val json = AppStorage.readString(context, key)
-            android.util.Log.i("JsonPrefsStore", "DBG read key=" + key.name + " len=" + json.length)
             if (json.isBlank()) empty() else decode(json)
         } catch (e: Exception) {
-            android.util.Log.i("JsonPrefsStore", "DBG read EXC " + e)
             empty()
         }
 
@@ -47,3 +45,11 @@ internal abstract class JsonPrefsStore<T>(val key: Preferences.Key<String>) {
         fun stringKey(name: String): Preferences.Key<String> = stringPreferencesKey(name)
     }
 }
+
+/**
+ * 条目级防御清洗（各 store 的 Gson decode 共用，R3 单一实现）：
+ * Gson 泛型解析在 R8 混淆下可能把集合元素退化为 LinkedTreeMap——
+ * 统一安全过滤丢弃坏条目，不使统计页崩溃。
+ */
+internal inline fun <reified T : Any> List<*>.filterInstances(): List<T> =
+    mapNotNull { it as? T }

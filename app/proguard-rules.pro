@@ -9,6 +9,15 @@
 -keep class com.cylonid.nativealpha.matrix.MatrixCellState { *; }
 # 事件规则模型（P5）：Gson 反射同款 + JS 桥 @JavascriptInterface 成员
 -keep class com.cylonid.nativealpha.webevent.EventRule { *; }
+
+# 统计页 Gson 模型（v2.3.5 实机 ClassCastException 修复）：与 model.** 同理，
+# 字段名混淆后 Gson 解析 List<WebVitalsEntry> 元素退化为 LinkedTreeMap，
+# UI 访问字段时强转崩溃——精确 keep 四个模型类，不宽化到包级
+-keep class com.cylonid.nativealpha.util.WebVitalsEntry { *; }
+-keep class com.cylonid.nativealpha.util.WebVitalsMap { *; }
+-keep class com.cylonid.nativealpha.util.StatsDailyStore$DayEntry { *; }
+-keep class com.cylonid.nativealpha.util.StatsDailyStore$Snapshot { *; }
+-keep class com.cylonid.nativealpha.util.StatsDailyStore$Raw { *; }
 -keepclassmembers class com.cylonid.nativealpha.webevent.WebEventBridge {
     public *;
 }

@@ -65,7 +65,12 @@ internal object StatsDailyStore {
         override fun empty() = Snapshot()
         override fun decode(json: String): Snapshot = try {
             val raw = gson.fromJson(json, Raw::class.java)
-            Snapshot(raw.days.mapValues { (_, v) -> DayEntry(v.opens, v.hours ?: IntArray(24)) })
+            // 防御清洗：同 WebVitalsStore（统一 filterInstances，坏条目丢弃）
+            val days = raw.days.mapNotNull { (key, v) ->
+                listOf(v).filterInstances<DayEntry>().firstOrNull()
+                    ?.let { key to DayEntry(it.opens, it.hours.clone()) }
+            }.toMap()
+            Snapshot(days)
         } catch (e: Exception) {
             empty()
         }
