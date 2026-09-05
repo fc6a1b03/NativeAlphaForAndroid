@@ -32,7 +32,12 @@ internal object WebVitalsStore {
         private val gson = com.google.gson.Gson()
         override fun empty() = WebVitalsMap()
         override fun decode(json: String): WebVitalsMap = try {
-            gson.fromJson(json, WebVitalsMap::class.java)
+            val raw = gson.fromJson(json, WebVitalsMap::class.java)
+            // 防御清洗：Gson 泛型解析退化时元素可能是 LinkedTreeMap（R8 混淆场景），
+            // 统一走 filterInstances 丢弃坏条目——宁可缺数据不让统计页崩溃
+            WebVitalsMap(raw.perSite.mapValues { (_, list) ->
+                list.filterInstances<WebVitalsEntry>()
+            })
         } catch (e: Exception) {
             empty()
         }
