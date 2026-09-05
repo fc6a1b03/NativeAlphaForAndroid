@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -72,6 +73,12 @@ internal fun MatrixScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
+            // IME 避让（v2.3.6 实机修复）：SelfManagedInsets 跳过了全局兜底
+            // 而全局兜底本就不含 IME——矩阵此前无人消费 ime()，targetSdk 35+
+            // 强制 edge-to-edge 下 adjustResize 失效，键盘弹出直接盖住格底
+            // 输入框（宿主由 applyContentInsets 对称处理）。imePadding 消费
+            // 键盘 insets 顶起整面布局，收起自动还原。
+            .imePadding()
             // 四边零边距（用户定调：矩阵窗口上下左右必须撑满；Activity
             // 侧全屏沉浸已隐藏系统栏，格子铺满物理屏幕）
             .onSizeChanged { chromeContainer = it }
