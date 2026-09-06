@@ -98,6 +98,10 @@ internal class MatrixActivity : ComponentActivity(), SystemBars.SelfManagedInset
         engine = MatrixEngine(this, applicationContext)
         engine.restoreSession()
         installImeGuard()
+        // 满铺设计（用户定调矩阵撑满物理屏）：隐藏系统栏。此前从未实现——
+        // MatrixScreen 注释宣称「Activity 侧已隐藏」实为缺失（三键/状态栏
+        // 显示且遮挡格底内容）。onResume 重复调用兜底 transient 唤出后回归。
+        SystemBars.enterImmersive(this)
         // QB 入口预检：进矩阵即预检预算（fail-open），不足整页劝退；
         // 恢复的占位格不占渲染内存，预检结果与闸门首窗判定一致
         engine.observeNotices(this)
@@ -126,6 +130,8 @@ internal class MatrixActivity : ComponentActivity(), SystemBars.SelfManagedInset
 
     override fun onResume() {
         super.onResume()
+        // 沉浸兜底：系统 transient 唤出/导航模式切换后回归时重新隐藏系统栏
+        SystemBars.enterImmersive(this)
         engine.onResumeCells()
     }
 
