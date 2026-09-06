@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- FileProvider 路径：版本更新 APK 下载目录（公共下载目录，安装权限授予） -->
+<!-- FileProvider 路径：版本更新 APK 下载目录（公共下载目录，安装权限授予）；
+     chooser/ 为文件选择归一化暂存（无读权限的返回 URI 拷贝后经 FileProvider 交给 WebView） -->
 <paths>
     <external-path name="downloads" path="Download/" />
+    <cache-path name="chooser" path="chooser/" />
 </paths>

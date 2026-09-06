@@ -3,8 +3,6 @@ package com.cylonid.nativealpha.helper
 
 import android.annotation.SuppressLint
 import android.graphics.Color
-import android.os.Build
-import android.util.TypedValue
 import android.view.View
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
@@ -12,26 +10,19 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.cylonid.nativealpha.WebViewActivity
-import com.cylonid.nativealpha.util.DateUtils
 import com.cylonid.nativealpha.util.SystemBars
-import java.util.Calendar
+import com.cylonid.nativealpha.util.WebViewSetup
 
 /**
- * 深色模式与系统栏控制器（重构刀 3，自 WebViewActivity 逐行迁移，零语义变更）。
+ * 深色模式与系统栏控制器（重构刀 3，自 WebViewActivity 逐行迁移）。
  *
- * 职责：按站强制深色判定与 WebView 深色应用（统一 algorithmic darkening——
- * 旧 setForceDark 系在 targetSdk>=33 被系统忽略，已清偿）、
- * 全屏沉浸开关、非全屏模式的内容避让 insets 监听。
+ * 职责：按站强制深色判定与 WebView 深色应用（判定与 WebView 侧收编
+ * WebViewSetup，宿主/矩阵同源；本类保留宿主专属的 Activity localNightMode
+ * 切换）、全屏沉浸开关、非全屏模式的内容避让 insets 监听。
  *
- * 设计约束：持有 Activity 实例引用（构造注入，非静态——防泄漏）；
- * 方法体与原实现逐行对应，行为差异零容忍。
+ * 设计约束：持有 Activity 实例引用（构造注入，非静态——防泄漏）。
  */
 class WebViewDarkModeController(private val activity: WebViewActivity) {
-
-    /** WebView 特性探测缓存：内核能力进程生命周期内不变，避免每次打开重复探测 */
-    private val featAlgorithmicDarkening: Boolean by lazy {
-        WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)
-    }
 
     @SuppressLint("RequiresFeature")
     fun setDarkModeIfNeeded() {
@@ -40,44 +31,26 @@ class WebViewDarkModeController(private val activity: WebViewActivity) {
         if (webapp == null || wv == null) {
             return
         }
-        val needsForcedDarkMode = webapp.isUseTimespanDarkMode &&
-            DateUtils.isInInterval(
-                DateUtils.convertStringToCalendar(webapp.timespanDarkModeBegin)!!,
-                Calendar.getInstance(),
-                DateUtils.convertStringToCalendar(webapp.timespanDarkModeEnd)!!
-            )
-            || (!webapp.isUseTimespanDarkMode && webapp.isForceDarkMode)
+        // 强制深色判定与 WebView 侧应用收编 WebViewSetup（宿主/矩阵同源——
+        // 矩阵此前完全没接，同一站点宿主暗/矩阵亮）；本类保留宿主专属的
+        // Activity 主题切换（localNightMode）
+        val needsForcedDarkMode = WebViewSetup.needsForcedDarkMode(webapp)
+
+        if (needsForcedDarkMode) {
+            wv.setBackgroundColor(Color.BLACK)
+            activity.delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_YES
+        } else {
+            activity.delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            // 加载页背景跟随应用主题（不固定白底）：深色主题下避免加载白屏闪瞎
+            wv.setBackgroundColor(WebViewSetup.resolveThemeBackground(activity))
+        }
 
         // 强制深色统一走 algorithmic darkening（webkit 新 API）：
         // setForceDark 系在 targetSdk>=33 的应用上被 WebView 整体忽略
         // （官方迁移口径，与设备 API 级别无关），targetSdk=37 下旧 API
         // 分支全是无效调用，故不再按 API 33 分路
-        val isAlgorithmicDarkeningSupported = featAlgorithmicDarkening
-
-        if (needsForcedDarkMode) {
-            wv.setBackgroundColor(Color.BLACK)
-            activity.delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_YES
-
-            if (isAlgorithmicDarkeningSupported) {
-                WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv.settings, true)
-            }
-        } else {
-            activity.delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-            // 加载页背景跟随应用主题（不固定白底）：深色主题下避免加载白屏闪瞎
-            // 读当前主题 colorBackground（浅色 #FBF8FF / 深色 #131318）
-            var themeBg = Color.WHITE
-            try {
-                val tv = TypedValue()
-                if (activity.theme.resolveAttribute(android.R.attr.colorBackground, tv, true)) {
-                    themeBg = tv.data
-                }
-            } catch (ignored: Exception) {
-            }
-            wv.setBackgroundColor(themeBg)
-
-            if (isAlgorithmicDarkeningSupported) {
-                WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv.settings, false)
-            }
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+            WebSettingsCompat.setAlgorithmicDarkeningAllowed(wv.settings, needsForcedDarkMode)
         }
     }
 

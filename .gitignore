@@ -17,3 +17,4 @@ key.properties
 /doc/*.png
 /.kimi-code/
 /.kimi-code/handoff-*.md
+.zcode/handoff-*.md

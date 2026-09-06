@@ -31,7 +31,7 @@
 * **组合快捷键**：手机点选录入（Ctrl/Shift/Alt + 主键），小菜单一键发送到页面，不触发浏览器默认
 * **应用错误日志**：崩溃兜底记录 + 导出近 3 天日志（全局设置备份区）
 * **数据备份**：版本化 JSON 导出/导入（含校验和验证）
-* **极低损耗**：R8 全量压缩，仅保留 arm64-v8a 原生库，release APK 实测约 5.35MB（v2.2.12 引入 CameraX 扫码 +0.65MB；v2.2.22 升级 Kotlin 2.4/Compose 1.12 +0.3MB）；无 GMS 依赖；敏感权限（相机/麦克风/定位）不在启动时索取，仅网页功能触发时按需向用户申请
+* **极低损耗**：R8 全量压缩，仅保留 arm64-v8a 原生库，release APK 实测约 5.68MB（v2.3.10 实测；v2.2.12 引入 CameraX 扫码 +0.65MB；v2.3.x 累计增量来自 passkey 桥、统计站点故事与矩阵能力对齐）；无 GMS 依赖；敏感权限（相机/麦克风/定位）不在启动时索取，仅网页功能触发时按需向用户申请
 
 ## Tech Stack
 
@@ -61,8 +61,8 @@
 打 tag 自动触发 GitHub Actions 发版（签名 APK + AAB → GitHub Release）：
 
 ```bash
-git tag -a v2.3.9 -m "v2.3.9"
-git push origin v2.3.9
+git tag -a v2.3.10 -m "v2.3.10"
+git push origin v2.3.10
 ```
 
 首次需在仓库 Settings → Secrets 配置：`KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`。

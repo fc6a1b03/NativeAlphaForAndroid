@@ -103,6 +103,7 @@
     <string name="allow_drm_content">允许 DRM 内容</string>
     <string name="file_download">文件正在下载…</string>
     <string name="file_download_started">已开始下载</string>
+    <string name="filechooser_unreadable_file">无法读取所选文件，请重新选择或换一个文件</string>
     <string name="custom_icon">选择自定义图标</string>
     <string name="show_progress_bar_during_page_load">页面加载时显示进度条</string>
     <string name="use_custom_user_agent">使用自定义 User Agent</string>

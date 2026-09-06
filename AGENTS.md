@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.3.9`（`versionCode 2309`）
+- **当前版本**：`2.3.10`（`versionCode 2310`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -188,6 +188,9 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── WebBridgeKit.kt          # WebView 桥统一安装器（特性探测/document-start/listener）
 │   ├── WebShareBridge.kt        # navigator.share 桥（document-start 注入 + WebMessageListener → 系统分享面板）
 │   ├── WebPerfBridge.kt         # Web Vitals 采集桥（NavigationTiming/FCP/LCP → 统计页瀑布）
+│   ├── FileChooserDelegate.kt   # 文件选择统一委托（宿主/矩阵同源三分发+诊断取证）
+│   ├── FileChooserUriNormalizer.kt  # 选中 URI 归一化（可读直通/file 物化/不可读透传+降级提示）
+│   ├── WebViewDownloads.kt      # 下载监听统一装配（pdf 外跳/blob 解码/DownloadManager 入队）
 │   ├── JsonPrefsStore.kt        # JSON 载荷 DataStore 仓库模板（A2 模板方法）
 │   ├── StatsDailyStore.kt       # 按日活动快照（opens+hour 桶，90 天滚动；热力图/streak 数据源）
 │   ├── WebVitalsStore.kt        # Web Vitals 明细（每站最近 10 条）
@@ -316,4 +319,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-09-04（基于仓库当前实际内容整理，版本 2.3.9）。*
+*最后更新：2026-09-07（基于仓库当前实际内容整理，版本 2.3.10）。*
