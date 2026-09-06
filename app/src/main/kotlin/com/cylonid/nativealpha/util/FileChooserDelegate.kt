@@ -56,14 +56,15 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
                 "flags=0x${Integer.toHexString(data?.flags ?: 0)} " +
                 "dataUri=${data?.data} clipCount=${data?.clipData?.itemCount ?: 0}"
         )
-        val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, data)
-        // 用户实际做了选择（OK）却解析不出任何 URI：厂商文件管理器 resultCode/
-        // clipData 异常的取证点——写应用错误日志（设置 → 导出错误日志可见，
-        // 不依赖 adb）。用户取消（CANCELED）是正常操作不记。
+        val uris = extractChooserUris(result.resultCode, data)
+        // 用户实际做了选择（OK）却连 ClipData 兜底都提取不到任何 URI：厂商返回
+        // 彻底异常——写应用错误日志（设置 → 导出错误日志可见）。用户取消
+        // （CANCELED）与 ClipData 成功提取（厂商 clipData 形态兼容，见
+        // extractChooserUris KDoc）均不记，防噪音。
         if (uris == null && result.resultCode == Activity.RESULT_OK) {
             ErrorReporter.report(
                 activity, TAG,
-                "user picked a file but parseResult returned null " +
+                "user picked a file but no URI extractable " +
                     "(type=${data?.type} dataUri=${data?.data} " +
                     "clip=${data?.clipData?.itemCount ?: 0} " +
                     "flags=0x${Integer.toHexString(data?.flags ?: 0)})",
@@ -141,6 +142,29 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
 
     companion object {
         private const val TAG = "FileChooser"
+
+        /**
+         * 选择结果 URI 提取（实机日志实锤的根因修复）：厂商 ROM 把所选 URI
+         * 放进 ClipData 而 getData() 为 null（实机导出日志：code=OK、
+         * flags=0x1 带读权限、clip=1、dataUri=null），而 framework 的
+         * `WebChromeClient.FileChooserParams.parseResult` 只认 getData()，
+         * 此形态返回 null → 此前在此静默当「取消」，表现为「相册选截图
+         * 不进输入框」。
+         * 自提取完全取代 framework parseResult：ClipData 优先（单选/多选
+         * 统一）、data 兜底，与 Chromium 新版语义等价且行为跨厂商一致；
+         * 两者皆空返回 null（真异常，由调用方记错误日志）。
+         */
+        internal fun extractChooserUris(resultCode: Int, data: Intent?): Array<Uri>? {
+            if (resultCode != Activity.RESULT_OK || data == null) return null
+            val fromClip = data.clipData
+                ?.let { clip -> (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri } }
+                .orEmpty()
+            return when {
+                fromClip.isNotEmpty() -> fromClip.toTypedArray()
+                data.data != null -> arrayOf(data.data!!)
+                else -> null
+            }
+        }
 
         /**
          * 分发决策（纯函数，可单测）：
