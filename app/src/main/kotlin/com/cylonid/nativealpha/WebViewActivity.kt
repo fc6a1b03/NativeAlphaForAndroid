@@ -4,19 +4,15 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.net.Uri
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.webkit.GeolocationPermissions
 import android.webkit.HttpAuthHandler
-import android.webkit.ValueCallback
-import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.ImageView
 import android.widget.ProgressBar
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.cylonid.nativealpha.helper.WebViewDarkModeController
 import com.cylonid.nativealpha.helper.WebViewGestureHelper
@@ -103,7 +99,6 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
     internal var currentlyReloading = true
     internal var mGeoPermissionRequestCallback: GeolocationPermissions.Callback? = null
     internal var mGeoPermissionRequestOrigin: String? = null
-    var filePathCallback: ValueCallback<Array<Uri>>? = null
 
     // 权限审计：记录已发起过系统请求的权限（区分「首次请求」vs「永久拒绝」）
     internal val requestedPermissions = HashSet<String>()
@@ -126,21 +121,9 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
     // 统计埋点：页面加载开始时间（onPageStarted 到 onPageFinished 计算耗时）
     override var pageLoadStartTime: Long = 0L
 
-    /** 文件选择器 Activity Result Launcher（替换废弃的 startActivityForResult/onActivityResult）。
-     * registerForActivityResult 必须在 Activity 构造期完成——不能迁入 helper */
-    val fileChooserLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == RESULT_CANCELED) {
-            this.filePathCallback?.onReceiveValue(null)
-        } else if (result.resultCode == RESULT_OK) {
-            filePathCallback?.onReceiveValue(
-                WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
-            )
-        }
-        filePathCallback = null
-    }
-
+    /** 文件选择器统一委托（registerForActivityResult 必须在 Activity 构造期完成——不能迁入 helper）。
+     * 历史遗留的 fileChooserLauncher/filePathCallback 已删除：onShowFileChooser
+     * 自 v2.3.7 起统一走 FileChooserDelegate，二者零消费 */
     internal val fileChooserDelegate = FileChooserDelegate(this)
 
     // ===== 处理器装配（构造注入；delegate 依赖 pageChrome/darkMode，须在其后声明） =====

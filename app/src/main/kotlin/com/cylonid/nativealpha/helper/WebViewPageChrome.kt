@@ -1,17 +1,11 @@
 
 package com.cylonid.nativealpha.helper
 
-import android.app.DownloadManager
-import android.content.Context
-import android.content.Intent
 import android.graphics.drawable.AnimationDrawable
-import android.net.Uri
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
-import android.webkit.CookieManager
 import android.webkit.HttpAuthHandler
 import android.webkit.WebView
 import android.widget.EditText
@@ -25,13 +19,11 @@ import com.cylonid.nativealpha.util.LoadFailureClassifier
 import com.cylonid.nativealpha.util.LocaleUtils
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.SiteReconnectSupervisor
-import com.cylonid.nativealpha.util.Utility
+import com.cylonid.nativealpha.util.WebViewDownloads
 import com.cylonid.nativealpha.webevent.EventRuleStore
 import com.cylonid.nativealpha.webevent.JsHookScript
 import com.cylonid.nativealpha.webevent.WebeventRuntime
 import com.google.android.material.snackbar.Snackbar
-import java.io.UnsupportedEncodingException
-import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.Collections
 
@@ -353,61 +345,8 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
 
     // ===== 下载监听 =====
 
-    /** 装配下载监听（pdf 外跳、blob 解码、DownloadManager 入队）——原 setDownloadListener 逐行迁移 */
+    /** 装配下载监听：实现收编 WebViewDownloads（宿主/矩阵同源，矩阵此前缺失） */
     fun installDownloadListener(webview: WebView) {
-        webview.setDownloadListener { dlUrl, userAgent, contentDisposition, mimeType, _ ->
-            if (mimeType == "application/pdf") {
-                val i = Intent(Intent.ACTION_VIEW)
-                i.data = Uri.parse(dlUrl)
-                activity.startActivity(i)
-            } else {
-                if (dlUrl.isNotEmpty()) {
-                    var target = dlUrl
-                    if (target.startsWith("blob:")) {
-                        target = target.replace("blob:", "")
-                        try {
-                            target = URLDecoder.decode(target, "UTF-8")
-                        } catch (e: UnsupportedEncodingException) {
-                            e.printStackTrace()
-                        }
-                    }
-                    val request = try {
-                        DownloadManager.Request(Uri.parse(target))
-                    } catch (e: Exception) {
-                        NotificationUtils.showInfoSnackbar(
-                            activity, activity.getString(R.string.file_download),
-                            Snackbar.LENGTH_SHORT
-                        )
-                        null
-                    }
-                    if (request != null) {
-                        val fileName =
-                            Utility.getFileNameFromDownload(target, contentDisposition, mimeType)
-                        request.setMimeType(mimeType)
-                        request.addRequestHeader(
-                            "cookie", CookieManager.getInstance().getCookie(target)
-                        )
-                        request.addRequestHeader("User-Agent", userAgent)
-                        request.setTitle(fileName)
-                        request.setNotificationVisibility(
-                            DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
-                        )
-                        request.setDestinationInExternalPublicDir(
-                            Environment.DIRECTORY_DOWNLOADS, fileName
-                        )
-                        // minSdk=31，下载到公共目录无需存储权限，直接入队
-                        val dm = activity.getSystemService(Context.DOWNLOAD_SERVICE)
-                            as DownloadManager?
-                        if (dm != null) {
-                            dm.enqueue(request)
-                            NotificationUtils.showInfoSnackbar(
-                                activity, activity.getString(R.string.file_download),
-                                Snackbar.LENGTH_SHORT
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        WebViewDownloads.install(webview, activity)
     }
 }

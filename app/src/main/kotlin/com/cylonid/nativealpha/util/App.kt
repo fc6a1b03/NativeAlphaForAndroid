@@ -11,6 +11,7 @@ import android.util.Log
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.model.AppErrorLogRepository
+import com.cylonid.nativealpha.BuildConfig
 import com.cylonid.nativealpha.model.DataManager
 
 class App : Application() {
@@ -45,6 +46,12 @@ class App : Application() {
         // 进程启动即应用 UI 模式（themeId 持久化在 SharedPreferences，
         // 此时加载最可靠——早于任何 Activity 的 setTheme）
         ThemeUtils.applyUiMode()
+
+        // 仅 debug 包全局开 WebView 远程调试（CDP：宿主/矩阵格统一可查；
+        // release 永不开启——远程调试是安全敏感面，不得泄漏到生产）
+        if (BuildConfig.DEBUG) {
+            android.webkit.WebView.setWebContentsDebuggingEnabled(true)
+        }
 
         // 启动预热（异步/分段加载）：后台线程提前触发 DataManager 的
         // SP 磁盘 IO + Gson 解析——主线程首次 loadAppData() 时数据已就绪

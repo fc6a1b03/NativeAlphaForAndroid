@@ -1,6 +1,7 @@
 package com.cylonid.nativealpha.matrix
 
 import androidx.appcompat.app.AlertDialog
+import android.webkit.ConsoleMessage
 import android.webkit.JsPromptResult
 import android.webkit.JsResult
 import android.webkit.PermissionRequest
@@ -8,6 +9,7 @@ import android.webkit.WebChromeClient
 import android.net.Uri
 import android.webkit.WebView
 import android.widget.EditText
+import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.FileChooserDelegate
 
 /**
@@ -33,6 +35,16 @@ internal class MatrixCellChromeClient(
     override fun onReceivedTitle(view: WebView, title: String) {
         engine.onCellTitle(cellIndex, title)
         super.onReceivedTitle(view, title)
+    }
+
+    override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+        // 与宿主同语义的 JS 错误观测（矩阵 QC 口径=FeatureMetrics 计数）
+        if (consoleMessage != null &&
+            consoleMessage.messageLevel() == ConsoleMessage.MessageLevel.ERROR
+        ) {
+            FeatureMetrics.count(FeatureMetrics.MODULE_MATRIX, "console_error")
+        }
+        return false // 不阻断页面（仅采集）
     }
 
     override fun onShowFileChooser(

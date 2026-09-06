@@ -65,7 +65,8 @@ internal class MatrixCellContext(
     }
 
     override fun refreshDarkModeOnMainThread() {
-        // 矩阵格深色在创建时一次性应用（applyCellDarkMode），导航内不刷新
+        // 矩阵格深色在创建时一次性应用（WebViewSetup.applyDarkModeToWebView，
+        // MatrixCellLoader 接线；站点深色是 WebSettings 属性，导航内不需重放）
     }
 
     override fun loadSiteUrl(view: WebView, url: String) {
