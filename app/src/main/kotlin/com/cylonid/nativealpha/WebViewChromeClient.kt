@@ -190,19 +190,10 @@ internal class CustomWebChromeClient(
         pFilePathCallback: ValueCallback<Array<Uri>>,
         fileChooserParams: FileChooserParams
     ): Boolean {
-        host.filePathCallback = pFilePathCallback
-        return try {
-            val intent = fileChooserParams.createIntent()
-            host.fileChooserLauncher.launch(intent)
-            true
-        } catch (e: Exception) {
-            NotificationUtils.showInfoSnackbar(
-                host, host.getString(R.string.no_filemanager),
-                Snackbar.LENGTH_LONG
-            )
-            e.printStackTrace()
-            true
-        }
+        // 文件选择统一委托（图片类走系统 Photo Picker 实时相册；矩阵同源）
+        return host.fileChooserDelegate.onShowFileChooser(
+            host, fileChooserParams, pFilePathCallback
+        )
     }
 
     override fun getDefaultVideoPoster(): Bitmap {

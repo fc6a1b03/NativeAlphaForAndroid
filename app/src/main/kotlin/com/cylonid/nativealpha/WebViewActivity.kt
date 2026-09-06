@@ -22,6 +22,7 @@ import com.cylonid.nativealpha.helper.WebViewDarkModeController
 import com.cylonid.nativealpha.helper.WebViewGestureHelper
 import com.cylonid.nativealpha.helper.WebViewLifecycleDelegate
 import com.cylonid.nativealpha.helper.WebViewMenuHelper
+import com.cylonid.nativealpha.util.FileChooserDelegate
 import com.cylonid.nativealpha.helper.WebViewPageChrome
 import com.cylonid.nativealpha.helper.WebViewPermissionHelper
 import com.cylonid.nativealpha.helper.WebViewShortcutInjectHelper
@@ -139,6 +140,8 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
         }
         filePathCallback = null
     }
+
+    internal val fileChooserDelegate = FileChooserDelegate(this)
 
     // ===== 处理器装配（构造注入；delegate 依赖 pageChrome/darkMode，须在其后声明） =====
     internal val touchHandler = WebViewTouchHandler(this)

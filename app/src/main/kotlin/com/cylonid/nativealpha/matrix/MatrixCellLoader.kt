@@ -59,7 +59,9 @@ internal class MatrixCellLoader(private val engine: MatrixEngine) {
                 ((webapp.textZoom) * cell.textZoomPercent / 100f).toInt().coerceIn(50, 300)
         }
         webview.webViewClient = MatrixCellClient(MatrixCellContext(engine, cellIndex, webapp.ID))
-        webview.webChromeClient = MatrixCellChromeClient(engine, cellIndex)
+        webview.webChromeClient = MatrixCellChromeClient(
+            engine, cellIndex, engine.activityContext as MatrixActivity, (engine.activityContext as MatrixActivity).fileChooserDelegate
+        )
         // navigator.share 桥（与宿主同源；activityContext 即 MatrixActivity）
         WebShareBridge.attach(webview, engine.activityContext as Activity)
         // Web Vitals 采集桥（矩阵格与宿主同源采集；applicationContext 防泄漏）

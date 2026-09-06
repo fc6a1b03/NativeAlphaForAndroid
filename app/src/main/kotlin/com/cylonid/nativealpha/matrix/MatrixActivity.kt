@@ -2,8 +2,10 @@ package com.cylonid.nativealpha.matrix
 
 import android.os.Bundle
 import android.view.ViewGroup
+import android.webkit.PermissionRequest
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
@@ -16,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.padding
 import androidx.lifecycle.lifecycleScope
+import com.cylonid.nativealpha.util.FileChooserDelegate
 import com.cylonid.nativealpha.util.SystemBars
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.util.AppMaterialTheme
@@ -36,6 +39,30 @@ internal class MatrixActivity : ComponentActivity(), SystemBars.SelfManagedInset
 
     /** IME 避让挂载标记（onCreate 一次；SelfManagedInsets 下全局兜底跳过，须自挂） */
     private var imeGuardInstalled = false
+
+    /** 文件选择统一委托（矩阵格 onShowFileChooser 与宿主同源） */
+    val fileChooserDelegate = FileChooserDelegate(this)
+
+    /** 权限请求 launcher（结果授权/拒绝 pending 的 PermissionRequest） */
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val request = pendingPermissionRequest
+        pendingPermissionRequest = null
+        if (request != null) {
+            val granted = grants.filterValues { it }.keys.toTypedArray()
+            if (granted.isNotEmpty()) request.grant(granted) else request.deny()
+        }
+    }
+
+    /** 进行中的权限请求（回调回调时机=launcher 返回） */
+    private var pendingPermissionRequest: PermissionRequest? = null
+
+    /** 矩阵格权限请求入口（相机/麦克风——AI 语音对话） */
+    internal fun requestWebPermissions(resources: Array<String>, request: PermissionRequest) {
+        pendingPermissionRequest = request
+        permissionLauncher.launch(resources)
+    }
 
     /**
      * IME 避让（View 级，与宿主 applyContentInsets 同机制）：
@@ -71,6 +98,10 @@ internal class MatrixActivity : ComponentActivity(), SystemBars.SelfManagedInset
         engine = MatrixEngine(this, applicationContext)
         engine.restoreSession()
         installImeGuard()
+        // 满铺设计（用户定调矩阵撑满物理屏）：隐藏系统栏。此前从未实现——
+        // MatrixScreen 注释宣称「Activity 侧已隐藏」实为缺失（三键/状态栏
+        // 显示且遮挡格底内容）。onResume 重复调用兜底 transient 唤出后回归。
+        SystemBars.enterImmersive(this)
         // QB 入口预检：进矩阵即预检预算（fail-open），不足整页劝退；
         // 恢复的占位格不占渲染内存，预检结果与闸门首窗判定一致
         engine.observeNotices(this)
@@ -99,6 +130,8 @@ internal class MatrixActivity : ComponentActivity(), SystemBars.SelfManagedInset
 
     override fun onResume() {
         super.onResume()
+        // 沉浸兜底：系统 transient 唤出/导航模式切换后回归时重新隐藏系统栏
+        SystemBars.enterImmersive(this)
         engine.onResumeCells()
     }
 
