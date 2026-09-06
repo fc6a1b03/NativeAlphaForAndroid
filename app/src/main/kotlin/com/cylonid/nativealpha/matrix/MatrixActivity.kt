@@ -1,8 +1,12 @@
 package com.cylonid.nativealpha.matrix
 
 import android.os.Bundle
+import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -30,6 +34,29 @@ import kotlinx.coroutines.flow.onEach
  */
 internal class MatrixActivity : ComponentActivity(), SystemBars.SelfManagedInsets {
 
+    /** IME 避让挂载标记（onCreate 一次；SelfManagedInsets 下全局兜底跳过，须自挂） */
+    private var imeGuardInstalled = false
+
+    /**
+     * IME 避让（View 级，与宿主 applyContentInsets 同机制）：
+     * 消费量 = ime.bottom - navigationBars.bottom 的正数部分。
+     * 量化依据（模拟器实测）：三键导航下系统 ime insets 已含堆叠的导航条
+     * 高度（多报 100px），而全屏沉浸的矩阵内容本就铺满导航条区域——
+     * 全额消费会双重扣除，键盘上方悬空大段留白。
+     */
+    private fun installImeGuard() {
+        if (imeGuardInstalled) return
+        imeGuardInstalled = true
+        val content = findViewById<ViewGroup>(android.R.id.content) ?: return
+        ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            view.updatePadding(bottom = maxOf(0, ime - nav))
+            insets
+        }
+    }
+
+
     private lateinit var engine: MatrixEngine
 
     private val snackbarHostState = SnackbarHostState()
@@ -43,6 +70,7 @@ internal class MatrixActivity : ComponentActivity(), SystemBars.SelfManagedInset
 
         engine = MatrixEngine(this, applicationContext)
         engine.restoreSession()
+        installImeGuard()
         // QB 入口预检：进矩阵即预检预算（fail-open），不足整页劝退；
         // 恢复的占位格不占渲染内存，预检结果与闸门首窗判定一致
         engine.observeNotices(this)
