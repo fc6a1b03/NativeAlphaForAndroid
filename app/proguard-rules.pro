@@ -18,6 +18,10 @@
 -keep class com.cylonid.nativealpha.util.StatsDailyStore$DayEntry { *; }
 -keep class com.cylonid.nativealpha.util.StatsDailyStore$Snapshot { *; }
 -keep class com.cylonid.nativealpha.util.StatsDailyStore$Raw { *; }
+
+# Cookie 隔离快照载荷：读写同源自洽但跨版本字段重命名会丢隔离快照（登录态），
+# keep 保证键名稳定
+-keep class com.cylonid.nativealpha.util.CookieSessionManager$CookieSnapshots { *; }
 -keepclassmembers class com.cylonid.nativealpha.webevent.WebEventBridge {
     public *;
 }

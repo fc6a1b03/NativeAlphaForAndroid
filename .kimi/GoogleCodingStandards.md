@@ -211,6 +211,7 @@
 - 规则文件唯一：`app/proguard-rules.pro`；每条 `-keep`/`-dontwarn` 必须带「为什么」注释（现有范式：Gson 反射/jsoup 缺失类/Compose 运行时/profileinstaller）
 - **红线联动**：`com.cylonid.nativealpha.model.**` 全保留（Gson 反射依赖字段名——模型字段重命名=持久化破坏，AGENTS.md 坑 5）；新增 `@JavascriptInterface` 类必须手工加 keep（WebView JS 按名反射）
 - 调整 keep 规则后必须 `assembleRelease` 实测（debug 不跑 R8，问题只在 release 暴露）
+- **Gson 反射载荷类必须显式 keep（不限 model 包）**：凡 `gson.fromJson/toJson` 的载荷 data class（含集合嵌套元素类型）不在 `model.**` 范围的，必须在 proguard-rules.pro 精确 keep 并登记——否则字段名混淆后 Gson 解析退化，集合元素变 LinkedTreeMap，UI 取字段 ClassCastException 且只崩 release（v2.3.5 实机统计页崩溃案例）
 
 ---
 
@@ -238,6 +239,7 @@
 - `OutlinedTextFieldDefaults.colors` 参数名随 Material3 版本变化（避免新旧歧义参数）
 - CRLF 文件用 Python `newline=''` 处理（Edit 工具的 LF 匹配可能失败）
 - Gson 旧数据字段缺失 → getter 归一化（如 `sessionTabCount`/`textZoom`）
+- **Gson+R8 泛型退化**：keep 缺失的 Gson 载荷类，反序列化集合元素退化为 LinkedTreeMap——对象字段不报错、取字段才崩、只崩 release；排查靠 `app/build/outputs/mapping/release/mapping.txt` 反查混淆类名（如 `kq1 cannot be cast to v14`）；防御双保险=精确 keep+decode 条目 `filterInstances` 清洗（JsonPrefsStore 顶层 helper）
 - `copyStatsAndShortcuts` 保留统计/快捷键字段（防保存清空）
 
 ---
