@@ -64,13 +64,21 @@ class FileChooserUriNormalizerTest {
         val uri = Uri.fromFile(src)
         val out = FileChooserUriNormalizer.normalize(context, listOf(uri))!!
         assertEquals(1, out.uris!!.size)
-        assertEquals("file", out.uris!![0].scheme) // FileProvider 在此环境不可解析 → 透传原 file URI
-        assertEquals(listOf(uri), out.degraded) // FileProvider 环境性失败 = 降级透传
-        val materialized = File(context.cacheDir, "chooser")
-        assertTrue(materialized.isDirectory)
-        val copied = materialized.listFiles()!!.first()
+        // 拷贝落盘是环境无关的核心行为
+        val copiedDir = File(context.cacheDir, "chooser")
+        assertTrue(copiedDir.isDirectory)
+        val copied = copiedDir.listFiles()!!.first()
         assertEquals(3, copied.length())
         assertEquals("png", copied.extension) // MIME→扩展名保留
+        // URI 分支取决于运行环境 FileProvider root 解析（真机/CI Linux 成功返回
+        // content URI；Robolectric/Windows canonical path 差异失败则透传+降级），
+        // 两分支均为合法语义，不硬编码
+        if (out.degraded.isEmpty()) {
+            assertEquals("content", out.uris!![0].scheme)
+        } else {
+            assertEquals(listOf(uri), out.degraded)
+            assertEquals(uri, out.uris!![0])
+        }
     }
 
     @Test
