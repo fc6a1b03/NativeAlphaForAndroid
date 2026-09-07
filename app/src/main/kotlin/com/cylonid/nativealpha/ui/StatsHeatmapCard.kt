@@ -2,14 +2,15 @@ package com.cylonid.nativealpha.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -53,7 +54,7 @@ internal fun StatsHeatmapCard(
 /** 格间距（dp）——热力图视觉常量，仅此一处；单格宽由容器等分自适应 */
 private const val CELL_GAP_DP = 2
 
-/** 热力图格网：12 列周 × 7 行日（末列为本周）；列宽 weight 均分铺满容器 */
+/** 热力图格网：12 列周 × 7 行日（末列为本周）；单格尺寸由容器宽统一推算 */
 @Composable
 private fun HeatmapGrid(opensPerDay: Map<String, Int>, scale: List<Color>) {
     val today = Calendar.getInstance()
@@ -67,36 +68,35 @@ private fun HeatmapGrid(opensPerDay: Map<String, Int>, scale: List<Color>) {
     // 回推 11 周：cursor 变为热力图首列周首
     cursor.add(Calendar.DAY_OF_YEAR, -11 * 7)
     val empty = MaterialTheme.colorScheme.surfaceContainerHighest
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(CELL_GAP_DP.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        repeat(12) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(CELL_GAP_DP.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                repeat(7) {
-                    val key = com.cylonid.nativealpha.util.StatsDailyStore.dateKey(cursor)
-                    val opens = opensPerDay[key] ?: 0
-                    val future = cursor.after(today)
-                    // 次数→档位：1 / 2-3 / 4-7 / 8+（4 档活跃，0 档空态）
-                    val level = when {
-                        future || opens <= 0 -> 0
-                        opens >= 8 -> 4
-                        opens >= 4 -> 3
-                        opens >= 2 -> 2
-                        else -> 1
+    BoxWithConstraints {
+        // 统一推算单格尺寸：weight+aspectRatio 方案下列宽被逐列取整（49/50px
+        // 混合），7 行累计后列高错位底部不齐；所有格子共用同一约束值才能行行对齐
+        val gap = CELL_GAP_DP.dp
+        val cell = (maxWidth - gap * 11) / 12
+        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+            repeat(12) {
+                Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                    repeat(7) {
+                        val key = com.cylonid.nativealpha.util.StatsDailyStore.dateKey(cursor)
+                        val opens = opensPerDay[key] ?: 0
+                        val future = cursor.after(today)
+                        // 次数→档位：1 / 2-3 / 4-7 / 8+（4 档活跃，0 档空态）
+                        val level = when {
+                            future || opens <= 0 -> 0
+                            opens >= 8 -> 4
+                            opens >= 4 -> 3
+                            opens >= 2 -> 2
+                            else -> 1
+                        }
+                        val color = if (level == 0) empty else scale[level - 1]
+                        Box(
+                            modifier = Modifier
+                                .size(cell)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(color)
+                        )
+                        cursor.add(Calendar.DAY_OF_YEAR, 1)
                     }
-                    val color = if (level == 0) empty else scale[level - 1]
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(color)
-                    )
-                    cursor.add(Calendar.DAY_OF_YEAR, 1)
                 }
             }
         }
