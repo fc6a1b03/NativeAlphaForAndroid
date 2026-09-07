@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.SiteReconnectSupervisor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -101,6 +102,10 @@ internal class MatrixEngine(
     private val reconnectSupervisors =
         arrayOfNulls<SiteReconnectSupervisor>(MatrixSessionState.MAX_WINDOW_COUNT)
 
+    /** LOADING 加载超时兜底任务（白屏检测的矩阵等价物，见 armLoadTimeoutGuard） */
+    private val loadTimeoutJobs =
+        arrayOfNulls<Job?>(MatrixSessionState.MAX_WINDOW_COUNT)
+
     /** 启动指定格的断线探测（目标=站点 baseUrl，恢复=pickSite 完整链路） */
     internal fun startCellReconnect(cellIndex: Int) {
         val cell = _cells.value.getOrNull(cellIndex) ?: return
@@ -123,6 +128,33 @@ internal class MatrixEngine(
     internal fun stopCellReconnect(cellIndex: Int) {
         reconnectSupervisors.getOrNull(cellIndex)?.stop()
         reconnectSupervisors[cellIndex] = null
+    }
+
+    /**
+     * LOADING 加载超时兜底：格置 LOADING 起计时，[Const.BLANK_SCREEN_TIMEOUT_MS]
+     * 内未收到 onPageFinished/onReceivedError 即转错误态。
+     *
+     * 为什么需要：宿主有白屏检测兜底（WebViewPageChrome——20s 无进度推进强拉
+     * 错误页），矩阵格状态机没有等价物；内核在连接挂起（断网/DNS 死等）期间
+     * 不回调任何 client 方法，格会永远停留 LOADING 转圈（模拟器断网实测复现）。
+     * 格无 onProgressChanged 接线，取「LOADING 总时长封顶」简化语义；
+     * finished/failed/释放（换站/关格/取消）即解除。
+     */
+    private fun armLoadTimeoutGuard(cellIndex: Int) {
+        cancelLoadTimeoutGuard(cellIndex)
+        loadTimeoutJobs[cellIndex] = mainScope.launch {
+            delay(Const.BLANK_SCREEN_TIMEOUT_MS.toLong())
+            loadTimeoutJobs[cellIndex] = null
+            // 复核：期间可能已完成/失败/被用户取消——只救真正卡死的 LOADING
+            if (_cells.value.getOrNull(cellIndex)?.state == MatrixCellUiState.LOADING) {
+                onCellLoadFailed(cellIndex)
+            }
+        }
+    }
+
+    private fun cancelLoadTimeoutGuard(cellIndex: Int) {
+        loadTimeoutJobs.getOrNull(cellIndex)?.cancel()
+        loadTimeoutJobs[cellIndex] = null
     }
 
     /** 崩溃退避（D3/A） */
@@ -219,6 +251,7 @@ internal class MatrixEngine(
         // 恢复丢失绑定（release 实测：pick 后强停，磁盘从未记录绑定 → 恢复
         // 全占位——debug 此前未暴露因历史测试恰好有增窗操作代写）
         persistSession()
+        armLoadTimeoutGuard(cellIndex)
         mainScope.launch {
             val budget = withContext(Dispatchers.IO) { readBudget() }
             when (MatrixCapacityGate.decide(countBusyCells(), budget)) {
@@ -258,6 +291,7 @@ internal class MatrixEngine(
                 _cells.value = _cells.value.mapIndexed { i, c ->
                     if (i == cellIndex) MatrixCellUi(state = MatrixCellUiState.LOADING, webappId = webappId) else c
                 }
+                armLoadTimeoutGuard(cellIndex)
                 mainScope.launch {
                     val budget = withContext(Dispatchers.IO) { readBudget() }
                     val webapp = DataManager.getInstance().getWebApp(webappId)
@@ -381,6 +415,7 @@ internal class MatrixEngine(
     internal fun onCellPageFinished(cellIndex: Int) {
         val current = _cells.value.getOrNull(cellIndex) ?: return
         if (current.state != MatrixCellUiState.LOADING) return
+        cancelLoadTimeoutGuard(cellIndex)
         _cells.value = _cells.value.mapIndexed { i, cell ->
             if (i == cellIndex) cell.copy(state = MatrixCellUiState.ACTIVE) else cell
         }
@@ -541,12 +576,14 @@ internal class MatrixEngine(
     fun releaseAll() {
         cellPool.releaseAll()
         reconnectSupervisors.forEachIndexed { index, _ -> stopCellReconnect(index) }
+        loadTimeoutJobs.forEachIndexed { index, _ -> cancelLoadTimeoutGuard(index) }
     }
 
     // ===== 内部工具 =====
 
     /** 确定性释放：断线监督停止 + 实例池四步释放（触发点见池释放注释） */
     private fun releaseCell(cellIndex: Int) {
+        cancelLoadTimeoutGuard(cellIndex)
         stopCellReconnect(cellIndex)
         cellPool.releaseAt(cellIndex)
     }
