@@ -6,10 +6,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,11 +50,10 @@ internal fun StatsHeatmapCard(
     }
 }
 
-/** 单格尺寸（dp）与间距——热力图视觉常量，仅此一处 */
-private const val CELL_DP = 13
+/** 格间距（dp）——热力图视觉常量，仅此一处；单格宽由容器等分自适应 */
 private const val CELL_GAP_DP = 2
 
-/** 热力图格网：12 列周 × 7 行日（末列为本周） */
+/** 热力图格网：12 列周 × 7 行日（末列为本周）；列宽 weight 均分铺满容器 */
 @Composable
 private fun HeatmapGrid(opensPerDay: Map<String, Int>, scale: List<Color>) {
     val today = Calendar.getInstance()
@@ -68,9 +67,15 @@ private fun HeatmapGrid(opensPerDay: Map<String, Int>, scale: List<Color>) {
     // 回推 11 周：cursor 变为热力图首列周首
     cursor.add(Calendar.DAY_OF_YEAR, -11 * 7)
     val empty = MaterialTheme.colorScheme.surfaceContainerHighest
-    Row(horizontalArrangement = Arrangement.spacedBy(CELL_GAP_DP.dp)) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(CELL_GAP_DP.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         repeat(12) {
-            Column(verticalArrangement = Arrangement.spacedBy(CELL_GAP_DP.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(CELL_GAP_DP.dp),
+                modifier = Modifier.weight(1f)
+            ) {
                 repeat(7) {
                     val key = com.cylonid.nativealpha.util.StatsDailyStore.dateKey(cursor)
                     val opens = opensPerDay[key] ?: 0
@@ -86,7 +91,8 @@ private fun HeatmapGrid(opensPerDay: Map<String, Int>, scale: List<Color>) {
                     val color = if (level == 0) empty else scale[level - 1]
                     Box(
                         modifier = Modifier
-                            .size(CELL_DP.dp)
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
                             .clip(RoundedCornerShape(3.dp))
                             .background(color)
                     )

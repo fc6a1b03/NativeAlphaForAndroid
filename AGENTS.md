@@ -4,7 +4,7 @@
 是 [NativeAlphaForAndroid](https://github.com/cylonid/NativeAlphaForAndroid) 的一个深度修改分支，目标是把任意网站包装成沉浸式、可独立配置的
 PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生成、长文档）做渲染优化。
 
-> 阅读本文件前，请先查阅 `.kimi/GoogleCodingStandards.md`——所有代码改动必须遵守其中的「十三条红线」与 Kotlin/Google Android
+> 阅读本文件前，请先查阅 `skills`——所有代码改动必须遵守其中的「十三条红线」与 Kotlin/Google Android
 > 编码规范。
 
 ---
@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.3.11`（`versionCode 2311`）
+- **当前版本**：`2.3.12`（`versionCode 2312`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -84,7 +84,7 @@ keystore。
 
 ## 代码规范
 
-详细规范见 `.kimi/GoogleCodingStandards.md`。核心要求：
+详细规范见 `skills`。核心要求：
 
 - **Kotlin Google Style Guide**：命名、导入、注释、格式化全部遵循官方指南
 - **禁止通配符导入**（`import xxx.*`）：全量显式导入
@@ -320,4 +320,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-09-07（基于仓库当前实际内容整理，版本 2.3.11）。*
+*最后更新：2026-09-07（基于仓库当前实际内容整理，版本 2.3.12）。*
