@@ -44,7 +44,7 @@ internal class MatrixCellChromeClient(
     private val permissionCoordinator = WebPermissionCoordinator(
         activity = activity,
         readMemory = {
-            val webapp = DataManager.getInstance().getWebApp(currentWebappId)
+            val webapp = DataManager.getInstance().getWebApp(boundWebappId)
             WebPermissionCoordinator.WebPermissionMemory(
                 drm = webapp?.isDrmAllowed ?: false,
                 camera = webapp?.isCameraPermission ?: false,
@@ -53,7 +53,7 @@ internal class MatrixCellChromeClient(
             )
         },
         writeMemory = { field, _ ->
-            val webapp = DataManager.getInstance().getWebApp(currentWebappId) ?: return@WebPermissionCoordinator
+            val webapp = DataManager.getInstance().getWebApp(boundWebappId) ?: return@WebPermissionCoordinator
             webapp.isOverrideGlobalSettings = true
             when (field) {
                 WebPermissionCoordinator.MemoryField.DRM -> webapp.isDrmAllowed = true
@@ -68,9 +68,13 @@ internal class MatrixCellChromeClient(
         }
     )
 
-    /** 当前格绑定的站点 ID（-1=占位/未知，权限按未记忆处理） */
-    private val currentWebappId: Int
-        get() = engine.cellsInternal.value.getOrNull(cellIndex)?.webappId ?: -1
+    /**
+     * 发起权限请求时绑定的站点 ID：权限弹窗为异步操作，期间用户可能关格/
+     * 换站——实时读 cells 会把记忆写到错误站点，故在 ChromeClient 构造时
+     * （loadCell 时 webappId 已绑定）固定捕获。
+     */
+    private val boundWebappId: Int =
+        engine.cellsInternal.value.getOrNull(cellIndex)?.webappId ?: -1
 
     override fun onReceivedTitle(view: WebView, title: String) {
         engine.onCellTitle(cellIndex, title)
