@@ -25,9 +25,9 @@ import com.google.android.material.snackbar.Snackbar
  * - 非图片/多选：原始 ACTION_GET_CONTENT（文件管理器，文档场景）。
  *
  * 返回归一化收编 FileChooserUriNormalizer（可读直通/file 物化/物理不可读
- * 透传+取证）。**取证双通道，不依赖 adb**：失败/降级分支自动写入应用错误
- * 日志（设置 → 导出错误日志，WARNING 级）+ 当场 Snackbar 提示用户；logcat
- * -s FileChooser 仍有全量 debug 细节供开发者深挖。
+ * 透传+降级提示）。**取证统一走 ErrorReporter.probe 模式**：关键决策点
+ * launch/returned/no_uri/degraded 全打点（INFO 现场+失败降级升级 WARNING
+ * 并当场 Snackbar），实机导出错误日志即含完整现场，不依赖 adb。
  *
  * 使用约束：Activity 构造期实例化（内部 registerForActivityResult 要求）；
  * 同一时刻仅允许一个进行中的选择（防重入返回 false）。
@@ -50,33 +50,41 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         val data = result.data
-        Log.d(
-            TAG,
-            "chooser returned code=${result.resultCode} type=${data?.type} " +
-                "flags=0x${Integer.toHexString(data?.flags ?: 0)} " +
-                "dataUri=${data?.data} clipCount=${data?.clipData?.itemCount ?: 0}"
-        )
         val uris = extractChooserUris(result.resultCode, data)
+        // 取证探针（ErrorReporter.probe 统一模式）：返回形态无论成败都记 INFO
+        // 现场——厂商兼容问题需要「正常/异常形态对照」才能实锤（v2.3.11
+        // ClipData 实锤案例的教训）
+        ErrorReporter.probe(
+            activity, TAG, "returned",
+            fields = mapOf(
+                "code" to result.resultCode,
+                "type" to data?.type,
+                "dataUri" to data?.data,
+                "clip" to data?.clipData?.itemCount,
+                "flags" to data?.flags?.let { "0x${Integer.toHexString(it)}" },
+                "extracted" to uris?.contentToString()
+            )
+        )
         // 用户实际做了选择（OK）却连 ClipData 兜底都提取不到任何 URI：厂商返回
-        // 彻底异常——写应用错误日志（设置 → 导出错误日志可见）。用户取消
-        // （CANCELED）与 ClipData 成功提取（厂商 clipData 形态兼容，见
-        // extractChooserUris KDoc）均不记，防噪音。
+        // 彻底异常，升级 WARNING。用户取消（CANCELED）正常不升级。
         if (uris == null && result.resultCode == Activity.RESULT_OK) {
-            ErrorReporter.report(
-                activity, TAG,
-                "user picked a file but no URI extractable " +
-                    "(type=${data?.type} dataUri=${data?.data} " +
-                    "clip=${data?.clipData?.itemCount ?: 0} " +
-                    "flags=0x${Integer.toHexString(data?.flags ?: 0)})",
+            ErrorReporter.probe(
+                activity, TAG, "no_uri",
+                fields = mapOf(
+                    "type" to data?.type,
+                    "dataUri" to data?.data,
+                    "clip" to data?.clipData?.itemCount,
+                    "flags" to data?.flags?.let { "0x${Integer.toHexString(it)}" }
+                ),
                 level = com.cylonid.nativealpha.model.AppErrorEntry.LEVEL_WARNING
             )
         }
         val outcome = FileChooserUriNormalizer.normalize(activity, uris?.toList())
-        // 物理不可读的 URI：页面端只会静默不上传——当场提示 + 错误日志取证
+        // 物理不可读的 URI：页面端只会静默不上传——当场提示 + 升级 WARNING
         if (outcome.degraded.isNotEmpty()) {
-            ErrorReporter.report(
-                activity, TAG,
-                "unreadable uri(s) passed through: ${outcome.degraded}",
+            ErrorReporter.probe(
+                activity, TAG, "degraded",
+                fields = mapOf("uris" to outcome.degraded),
                 level = com.cylonid.nativealpha.model.AppErrorEntry.LEVEL_WARNING
             )
             NotificationUtils.showInfoSnackbar(
@@ -102,10 +110,15 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
         val multiple = params.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE
         val pickerAvailable = PickVisualMedia.isPhotoPickerAvailable(this.activity)
         val path = decidePath(params.acceptTypes, multiple, pickerAvailable)
-        Log.d(
-            TAG,
-            "launch path=$path accept=${params.acceptTypes.toList()} " +
-                "multiple=$multiple pickerAvailable=$pickerAvailable"
+        // 取证探针：入口分发现场（INFO，正常路径也记——厂商问题需要对照现场）
+        ErrorReporter.probe(
+            activity, TAG, "launch",
+            fields = mapOf(
+                "path" to path,
+                "accept" to params.acceptTypes.toList(),
+                "multiple" to multiple,
+                "pickerAvailable" to pickerAvailable
+            )
         )
         return try {
             when (path) {

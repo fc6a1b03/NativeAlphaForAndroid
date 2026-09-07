@@ -27,6 +27,10 @@ data class AppErrorEntry(
         const val LEVEL_ERROR = "ERROR"
         /** 级别：警告 */
         const val LEVEL_WARNING = "WARNING"
+
+        /** 取证探针级（ErrorReporter.probe）：实机排障现场记录，非故障——
+         *  导出错误日志含完整现场，崩溃弹窗/错误统计均不受影响 */
+        const val LEVEL_INFO = "INFO"
         private val gson = Gson()
 
         /** 序列化为 JSON 数组 */
