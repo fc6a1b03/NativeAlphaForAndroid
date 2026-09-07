@@ -27,8 +27,8 @@ metadata:
 - 截图/UI dump 拉到**当前工作目录**（如 `doc/`、`./`），不要用 `/tmp`（Windows python 不认）。
 
 本机环境固定路径（来自 local-env-index，已实测）：
-- adb：`/d/software/ambient/android/platform-tools/adb`
-- emulator：`/d/software/ambient/android/emulator/emulator.exe`
+- adb：`/d/ambient/android/platform-tools/adb`
+- emulator：`/d/ambient/android/emulator/emulator.exe`
 - AVD：`Pixel_9a`（配置在 `~/.android/avd/Pixel_9a.avd`）
 
 ## ⚠️ 前置铁律（每条命令都适用）
@@ -45,10 +45,10 @@ metadata:
 ```bash
 export MSYS_NO_PATHCONV=1
 # 后台启动（& 放后台，不阻塞）
-/d/software/ambient/android/emulator/emulator.exe -avd Pixel_9a -no-snapshot-load -no-boot-anim &
+/d/ambient/android/emulator/emulator.exe -avd Pixel_9a -no-snapshot-load -no-boot-anim &
 # 等 boot 完成（返回 1 即就绪）
-/d/software/ambient/android/platform-tools/adb wait-for-device
-/d/software/ambient/android/platform-tools/adb shell getprop sys.boot_completed
+/d/ambient/android/platform-tools/adb wait-for-device
+/d/ambient/android/platform-tools/adb shell getprop sys.boot_completed
 ```
 
 如果模拟器已在跑但 adb 不识别：`adb kill-server && adb start-server && adb devices`。
@@ -57,7 +57,7 @@ export MSYS_NO_PATHCONV=1
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 # 安装 APK（-r 覆盖安装保留数据）
 $ADB install -r app/build/outputs/apk/debug/app-debug.apk
 # 清数据（干净环境测试）
@@ -68,7 +68,7 @@ $ADB shell pm clear com.cylonid.nativealpha.debug
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 # 启动主界面
 $ADB shell am start -n com.cylonid.nativealpha.debug/com.cylonid.nativealpha.MainActivity
 # 强停（干净冷启动）
@@ -83,7 +83,7 @@ $ADB shell dumpsys activity top | grep ACTIVITY | head -3
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 # 截图到设备临时目录 → 拉回项目 doc/ 下（方便 Read/vision 读取）
 $ADB shell screencap -p /data/local/tmp/shot.png
 $ADB pull /data/local/tmp/shot.png doc/shot.png
@@ -97,7 +97,7 @@ Compose 页面部分元素可能不进 dump，但原生控件/文本可拿到坐
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 $ADB shell uiautomator dump /data/local/tmp/ui.xml
 $ADB shell cat /data/local/tmp/ui.xml > doc/ui.xml
 # 用 python 解析文本+坐标（Windows python 用项目内路径）
@@ -114,7 +114,7 @@ for m in re.finditer(r'text=\"([^\"]*)\"[^>]*bounds=\"(\[[^\"]*\])\"', xml):
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 # 点击（坐标从 UI dump 或截图估算；Compose 按钮坐标需先 dump 确认）
 $ADB shell input tap X Y
 # 输入文字（ASCII 安全；中文/特殊字符会被输入法转换，慎用）
@@ -135,7 +135,7 @@ $ADB shell input swipe 540 2000 540 500 600
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 # 清空旧日志（开始新测试前）
 $ADB logcat -c
 # 抓崩溃（FATAL/崩溃/渲染进程错误）
@@ -152,7 +152,7 @@ $ADB logcat -d | grep -iE "chromium|ERR_|didFailLoad" | grep -viE "Accessibility
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 # 进程内存（TOTAL PSS 是真实占用；4 个 WebView 约 250-300MB 正常）
 $ADB shell dumpsys meminfo com.cylonid.nativealpha.debug | grep TOTAL
 # WebView 实例数
@@ -166,7 +166,7 @@ $ADB shell am start -W -n com.cylonid.nativealpha.debug/com.cylonid.nativealpha.
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 # 录 5 秒屏幕（默认 1080p）
 $ADB shell screenrecord --time-limit 5 /data/local/tmp/rec.mp4
 $ADB pull /data/local/tmp/rec.mp4 doc/rec.mp4
@@ -176,7 +176,7 @@ $ADB pull /data/local/tmp/rec.mp4 doc/rec.mp4
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 $ADB shell wm size     # 如 Physical size: 1080x2424
 $ADB shell wm density  # 如 Physical density: 420
 ```
@@ -187,7 +187,7 @@ $ADB shell wm density  # 如 Physical density: 420
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 # 授予权限
 $ADB shell pm grant com.cylonid.nativealpha.debug android.permission.CAMERA
 # 撤销权限
@@ -200,7 +200,7 @@ $ADB shell dumpsys package com.cylonid.nativealpha.debug | grep -A 20 "runtime p
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 $ADB shell dumpsys notification --noredact | grep -E "NotificationRecord|pkg=" | head -10
 ```
 
@@ -208,7 +208,7 @@ $ADB shell dumpsys notification --noredact | grep -E "NotificationRecord|pkg=" |
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 # 返回 PID = 存活；空 = 已退出（崩溃或被系统杀）
 $ADB shell pidof com.cylonid.nativealpha.debug
 ```
@@ -228,7 +228,7 @@ $ADB shell pidof com.cylonid.nativealpha.debug
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 # WebApp 数据（验证设置保存）
 $ADB shell run-as com.cylonid.nativealpha.debug cat /data/data/com.cylonid.nativealpha.debug/shared_prefs/WEBSITEDATA.xml > doc/wd.xml
 # 解析（注意 XML 实体转义，需 html.unescape）
@@ -249,7 +249,7 @@ if m:
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/software/ambient/android/platform-tools/adb
+ADB=/d/ambient/android/platform-tools/adb
 # 切三键导航
 $ADB shell cmd overlay enable com.android.internal.systemui.navbar.threebutton
 # 切回手势条
