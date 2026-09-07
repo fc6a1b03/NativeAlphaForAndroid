@@ -5,7 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -114,7 +113,6 @@ class WebPermissionCoordinatorTest {
         assertEquals(listOf(cameraResource), grantedResources)
     }
 
-    @Ignore("TODO doc/TODO_WEB_PERMISSION_REFACTOR.md：denyCalls 断言 1 实为 2，与上例同模式（计数多 1），排查同批")
     @Test
     fun `unremembered resource denied via dialog`() {
         // fake 弹窗触发 onDeny：注入 onDeny 闭包验证拒绝路径
@@ -137,7 +135,6 @@ class WebPermissionCoordinatorTest {
         assertEquals(1, denyCalls)
     }
 
-    @Ignore("TODO doc/TODO_WEB_PERMISSION_REFACTOR.md：systemRequestCount 断言 1 实为 2，双请求来源待查（诊断 println 已埋）")
     @Test
     fun `remembered but system revoked requests runtime permission`() {
         shadowOf(activity).denyPermissions(android.Manifest.permission.CAMERA)

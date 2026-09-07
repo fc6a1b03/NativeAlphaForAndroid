@@ -115,10 +115,16 @@ internal class WebPermissionCoordinator(
         deny: () -> Unit
     ) {
         var pending = 0
-        var denied = false
         val grantList = mutableListOf<String>()
+        // 终结幂等：settle 有「异步回调归零」与「尾部兜底」两个触发位置，
+        // 回调同步完成时二者都会执行；grant/deny 契约要求恰好一次，
+        // 用标志位保证只结算一次（拒绝路径无需单独标志——grantList 为空即拒绝）。
+        // 多资源同批结算依赖回调异步性（真机 AlertDialog/launcher 均异步）：
+        // 若回调在 decide 串行期间同步完成，首个 settle 即终结，后续资源会被拦截
+        var settled = false
         fun settle() {
-            if (pending > 0) return
+            if (settled || pending > 0) return
+            settled = true
             if (grantList.isEmpty()) deny() else grant(grantList)
         }
         fun decide(
@@ -136,15 +142,15 @@ internal class WebPermissionCoordinator(
                 return
             }
             if (remembered && isPermanentlyDenied(androidPermissions)) {
-                denied = true
                 showPermanentlyDeniedDialog(titleRes)
                 return
             }
             pending++
             if (remembered) {
-                // 站点已记忆但系统权限被收回：直接补系统请求（不再弹站点确认）
+                // 站点已记忆但系统权限被收回：直接补系统请求（不再弹站点确认）；
+                // 拒绝时不入 grantList，settle 即按 grantList 为空走 deny
                 requestAndroid(androidPermissions) { ok ->
-                    if (ok) grantList += resource else denied = true
+                    if (ok) grantList += resource
                     pending--
                     settle()
                 }
@@ -161,13 +167,13 @@ internal class WebPermissionCoordinator(
                         settle()
                     } else {
                         requestAndroid(androidPermissions) { ok ->
-                            if (ok) grantList += resource else denied = true
+                            if (ok) grantList += resource
                             pending--
                             settle()
                         }
                     }
                 },
-                onDeny = { denied = true; pending--; settle() }
+                onDeny = { pending--; settle() }
             )
         }
         val m = readMemory()
