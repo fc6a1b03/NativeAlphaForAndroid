@@ -15,9 +15,6 @@ object Const {
     /** 扫码临时浏览：携带原始 URL 直接进页面（不注册站点，ID 恒为负） */
     const val INTENT_RAW_URL = "raw_url"
 
-    const val PERMISSION_RC_LOCATION = 123
-    const val PERMISSION_CAMERA = 100
-    const val PERMISSION_AUDIO = 101
 
     // ===== 应用错误日志 =====
     /** 应用错误日志保留窗口（天）：超龄清理 + 导出/崩溃提示过滤统一口径 */
