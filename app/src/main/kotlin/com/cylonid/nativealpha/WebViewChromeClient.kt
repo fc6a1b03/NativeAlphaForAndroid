@@ -6,7 +6,6 @@ import androidx.annotation.StringRes
 import android.net.Uri
 import android.os.Message
 import androidx.core.graphics.createBitmap
-import androidx.core.net.toUri
 import androidx.core.view.isGone
 import android.view.View
 import android.webkit.ConsoleMessage
@@ -18,18 +17,16 @@ import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.content.Intent
 import android.graphics.Canvas
-import android.provider.Settings
 import android.webkit.WebChromeClient
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.model.DataManager
 import com.google.android.material.snackbar.Snackbar
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.util.StatsRecorder
 import android.webkit.WebView
+import com.cylonid.nativealpha.helper.WebPermissionCoordinator
 import com.cylonid.nativealpha.util.NotificationUtils
-import android.Manifest
 import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.widget.EditText
@@ -64,125 +61,6 @@ internal class CustomWebChromeClient(
             )
         }
         return false // 不阻断页面（仅采集）
-    }
-
-    private fun handlePermissionRequest(
-        resId: String,
-        currentState: Boolean,
-        androidPermissions: Array<String>,
-        requestCode: Int,
-        permissionsToGrant: MutableList<String>,
-        webkitPermission: Array<String>,
-        successCallback: WebViewActivity.PermissionGrantedCallback
-    ) {
-        val androidPermissionsMissing = areAndroidPermissionsMissing(androidPermissions)
-        if (currentState && androidPermissionsMissing) {
-            // 权限审计：区分「首次请求」vs「永久拒绝」（勾选"不再询问"）
-            // 全部权限都已请求过 + shouldShowRequestPermissionRationale=false → 永久拒绝，
-            // 不再重复弹系统框，引导用户去系统设置手动开启
-            val allRequested = androidPermissions.all { it in host.requestedPermissions }
-            if (allRequested) {
-                var permanentlyDenied = false
-                for (perm in androidPermissions) {
-                    if (ContextCompat.checkSelfPermission(
-                            host, perm
-                        ) != PackageManager.PERMISSION_GRANTED
-                        && !ActivityCompat.shouldShowRequestPermissionRationale(
-                            host, perm
-                        )
-                    ) {
-                        permanentlyDenied = true
-                        break
-                    }
-                }
-                if (permanentlyDenied) {
-                    host.handleGeoPermissionCallback(false)
-                    showPermissionPermanentlyDeniedDialog(resId)
-                    return
-                }
-            }
-            androidPermissions.forEach { host.requestedPermissions.add(it) }
-            ActivityCompat.requestPermissions(
-                host, androidPermissions, requestCode
-            )
-            return
-        }
-        if (currentState && !androidPermissionsMissing) {
-            permissionsToGrant.addAll(webkitPermission)
-            host.handleGeoPermissionCallback(true)
-            return
-        }
-
-        AlertDialog.Builder(host)
-            .setTitle(host.getString(permissionTitleRes(resId)))
-            .setMessage(host.getString(permissionDescRes(resId)))
-            .setPositiveButton(R.string.yes) { _, _ ->
-                host.enablePermissionBoolOnWebApp(successCallback)
-                host.handleGeoPermissionCallback(true)
-                permissionsToGrant.addAll(webkitPermission)
-                if (androidPermissionsMissing) {
-                    ActivityCompat.requestPermissions(
-                        host, androidPermissions, requestCode
-                    )
-                }
-            }
-            .setNegativeButton(R.string.no) { _, _ -> host.handleGeoPermissionCallback(false) }
-            .create()
-            .show()
-    }
-
-    @StringRes
-    private fun permissionTitleRes(resId: String): Int = when (resId) {
-        "drm" -> R.string.allow_drm_content
-        "camera" -> R.string.allow_camera_access
-        "microphone" -> R.string.allow_microphone_access
-        "location" -> R.string.allow_location_access
-        else -> 0
-    }
-
-    @StringRes
-    private fun permissionDescRes(resId: String): Int = when (resId) {
-        "drm" -> R.string.desc_allow_drm
-        "camera" -> R.string.desc_allow_camera
-        "microphone" -> R.string.desc_allow_microphone
-        "location" -> R.string.desc_allow_location
-        else -> 0
-    }
-
-    private fun areAndroidPermissionsMissing(androidPermissions: Array<String>): Boolean {
-        for (perm in androidPermissions) {
-            if (ContextCompat.checkSelfPermission(
-                    host, perm
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                return true
-            }
-        }
-        return false
-    }
-
-    /**
-     * 权限被永久拒绝：不再重复弹系统框，提示用户去系统设置手动开启。
-     */
-    private fun showPermissionPermanentlyDeniedDialog(resId: String) {
-        val title = host.getString(permissionTitleRes(resId))
-        AlertDialog.Builder(host)
-            .setTitle(title)
-            .setMessage(host.getString(R.string.permission_permanently_denied_msg, title))
-            .setPositiveButton(host.getString(R.string.permission_go_to_settings)) { _, _ ->
-                try {
-                    val intent = Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        ("package:" + host.packageName).toUri()
-                    )
-                    host.startActivity(intent)
-                } catch (ignored: Exception) {
-                    // 无设置页可跳时静默（不影响主功能）
-                }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .create()
-            .show()
     }
 
     override fun onShowFileChooser(
@@ -225,43 +103,40 @@ internal class CustomWebChromeClient(
         host.hideSystemBars()
     }
 
+    private val permissionCoordinator = WebPermissionCoordinator(
+        activity = host,
+        readMemory = {
+            val w = host.webapp
+            WebPermissionCoordinator.WebPermissionMemory(
+                drm = w?.isDrmAllowed ?: false,
+                camera = w?.isCameraPermission ?: false,
+                microphone = w?.isMicrophonePermission ?: false,
+                location = w?.isAllowLocationAccess ?: false
+            )
+        },
+        writeMemory = { field, _ ->
+            // 站点记忆写回（重构后授权在编排终结点完成，无需 reload 二次请求）
+            val w = host.webapp!!
+            w.isOverrideGlobalSettings = true
+            when (field) {
+                WebPermissionCoordinator.MemoryField.DRM -> w.isDrmAllowed = true
+                WebPermissionCoordinator.MemoryField.CAMERA -> w.isCameraPermission = true
+                WebPermissionCoordinator.MemoryField.MICROPHONE -> w.isMicrophonePermission = true
+                WebPermissionCoordinator.MemoryField.LOCATION -> w.isAllowLocationAccess = true
+            }
+            DataManager.getInstance().replaceWebApp(w)
+        },
+        requestAndroidPermissions = { permissions, onResult ->
+            host.requestRuntimePermissions(permissions, onResult)
+        }
+    )
+
     override fun onPermissionRequest(request: PermissionRequest) {
-        val permissionsToGrant = ArrayList<String>()
-
-        val containsDrmRequest = request.resources
-            .contains(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)
-        val containsCameraRequest = request.resources
-            .contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-        val containsMicrophoneRequest = request.resources
-            .contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-
-        if (containsDrmRequest) {
-            this.handlePermissionRequest(
-                "drm", host.webapp!!.isDrmAllowed, arrayOf(), -1, permissionsToGrant,
-                arrayOf(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)
-            ) { host.webapp!!.isDrmAllowed = true }
-        }
-        if (containsCameraRequest) {
-            this.handlePermissionRequest(
-                "camera", host.webapp!!.isCameraPermission,
-                arrayOf(Manifest.permission.CAMERA), Const.PERMISSION_CAMERA,
-                permissionsToGrant, arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-            ) { host.webapp!!.isCameraPermission = true }
-        }
-
-        if (containsMicrophoneRequest) {
-            this.handlePermissionRequest(
-                "microphone", host.webapp!!.isMicrophonePermission,
-                arrayOf(
-                    Manifest.permission.RECORD_AUDIO,
-                    Manifest.permission.MODIFY_AUDIO_SETTINGS
-                ),
-                Const.PERMISSION_AUDIO, permissionsToGrant,
-                arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-            ) { host.webapp!!.isMicrophonePermission = true }
-        }
-
-        request.grant(permissionsToGrant.toTypedArray())
+        permissionCoordinator.handleWebPermission(
+            resources = request.resources.toList(),
+            grant = { request.grant(it.toTypedArray()) },
+            deny = { request.deny() }
+        )
     }
 
     override fun onProgressChanged(view: WebView?, progress: Int) {
@@ -310,16 +185,6 @@ internal class CustomWebChromeClient(
         origin: String,
         callback: GeolocationPermissions.Callback
     ) {
-        host.mGeoPermissionRequestCallback = callback
-        host.mGeoPermissionRequestOrigin = origin
-        this.handlePermissionRequest(
-            "location", host.webapp!!.isAllowLocationAccess,
-            arrayOf(
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ),
-            Const.PERMISSION_RC_LOCATION, ArrayList(),
-            arrayOf()
-        ) { host.webapp!!.isAllowLocationAccess = true }
+        permissionCoordinator.handleGeolocation(origin, callback)
     }
 }

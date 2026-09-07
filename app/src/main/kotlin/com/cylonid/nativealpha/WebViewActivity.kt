@@ -8,11 +8,11 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
-import android.webkit.GeolocationPermissions
 import android.webkit.HttpAuthHandler
 import android.webkit.WebView
 import android.widget.ImageView
 import android.widget.ProgressBar
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.cylonid.nativealpha.helper.WebViewDarkModeController
 import com.cylonid.nativealpha.helper.WebViewGestureHelper
@@ -20,7 +20,6 @@ import com.cylonid.nativealpha.helper.WebViewLifecycleDelegate
 import com.cylonid.nativealpha.helper.WebViewMenuHelper
 import com.cylonid.nativealpha.util.FileChooserDelegate
 import com.cylonid.nativealpha.helper.WebViewPageChrome
-import com.cylonid.nativealpha.helper.WebViewPermissionHelper
 import com.cylonid.nativealpha.helper.WebViewShortcutInjectHelper
 import com.cylonid.nativealpha.helper.WebViewTouchHandler
 import com.cylonid.nativealpha.model.DataManager
@@ -97,12 +96,6 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
     /** 动画显示起止计时（onProgressChanged 里判定短暂显示窗口用） */
     internal var pageLoadStartTime2 = 0L
     internal var currentlyReloading = true
-    internal var mGeoPermissionRequestCallback: GeolocationPermissions.Callback? = null
-    internal var mGeoPermissionRequestOrigin: String? = null
-
-    // 权限审计：记录已发起过系统请求的权限（区分「首次请求」vs「永久拒绝」）
-    internal val requestedPermissions = HashSet<String>()
-
     // 白屏检测进度值（onProgressChanged 更新；计时与判定在 WebViewPageChrome）
     internal var lastProgress = 0
     internal var lastProgressTime = 0L
@@ -130,7 +123,6 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
     internal val touchHandler = WebViewTouchHandler(this)
     internal val shortcutHelper = WebViewShortcutInjectHelper(this)
     internal val menuHelper = WebViewMenuHelper(this)
-    internal val permissionHelper = WebViewPermissionHelper(this)
     internal val pageChrome = WebViewPageChrome(this)
     internal val darkMode = WebViewDarkModeController(this)
     internal val lifecycleDelegate = WebViewLifecycleDelegate(this)
@@ -278,32 +270,20 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
 
     // ===== 权限回写三件套（WebViewChromeClient 直接引用，契约留守） =====
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        permissionHelper.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    /**
+     * Android 运行时权限异步请求通道（WebPermissionCoordinator 注入点）：
+     * launcher 单回调槽——权限请求天然低频且不并发， granted 全授予判定。
+     */
+    private var runtimePermissionCallback: ((granted: Boolean) -> Unit)? = null
+    private val runtimePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        runtimePermissionCallback?.invoke(grants.isNotEmpty() && grants.all { it.value })
+        runtimePermissionCallback = null
     }
 
-    internal fun enablePermissionBoolOnWebApp(successCallback: PermissionGrantedCallback) {
-        webapp!!.isOverrideGlobalSettings = true
-        successCallback.execute()
-        DataManager.getInstance().replaceWebApp(webapp!!)
-        wv!!.reload()
-    }
-
-    internal fun handleGeoPermissionCallback(allow: Boolean) {
-        if (mGeoPermissionRequestCallback != null) {
-            mGeoPermissionRequestCallback!!
-                .invoke(mGeoPermissionRequestOrigin, allow, false)
-            mGeoPermissionRequestCallback = null
-        }
-    }
-
-    /** 权限授予回调（函数式接口，对齐原 Java @FunctionalInterface） */
-    fun interface PermissionGrantedCallback {
-        fun execute()
+    internal fun requestRuntimePermissions(permissions: List<String>, onResult: (granted: Boolean) -> Unit) {
+        runtimePermissionCallback = onResult
+        runtimePermissionLauncher.launch(permissions.toTypedArray())
     }
 }

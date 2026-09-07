@@ -1,8 +1,13 @@
 package com.cylonid.nativealpha.matrix
 
 import android.os.Bundle
+import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
+import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
+import android.webkit.WebChromeClient
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -43,25 +48,18 @@ internal class MatrixActivity : ComponentActivity(), SystemBars.SelfManagedInset
     /** 文件选择统一委托（矩阵格 onShowFileChooser 与宿主同源） */
     val fileChooserDelegate = FileChooserDelegate(this)
 
-    /** 权限请求 launcher（结果授权/拒绝 pending 的 PermissionRequest） */
+    /** 权限请求 launcher（WebPermissionCoordinator 注入点：全授予才回调 true） */
+    private var runtimePermissionCallback: ((granted: Boolean) -> Unit)? = null
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
-        val request = pendingPermissionRequest
-        pendingPermissionRequest = null
-        if (request != null) {
-            val granted = grants.filterValues { it }.keys.toTypedArray()
-            if (granted.isNotEmpty()) request.grant(granted) else request.deny()
-        }
+        runtimePermissionCallback?.invoke(grants.isNotEmpty() && grants.all { it.value })
+        runtimePermissionCallback = null
     }
 
-    /** 进行中的权限请求（回调回调时机=launcher 返回） */
-    private var pendingPermissionRequest: PermissionRequest? = null
-
-    /** 矩阵格权限请求入口（相机/麦克风——AI 语音对话） */
-    internal fun requestWebPermissions(resources: Array<String>, request: PermissionRequest) {
-        pendingPermissionRequest = request
-        permissionLauncher.launch(resources)
+    internal fun requestRuntimePermissions(permissions: List<String>, onResult: (granted: Boolean) -> Unit) {
+        runtimePermissionCallback = onResult
+        permissionLauncher.launch(permissions.toTypedArray())
     }
 
     /**
@@ -85,6 +83,42 @@ internal class MatrixActivity : ComponentActivity(), SystemBars.SelfManagedInset
 
 
     private lateinit var engine: MatrixEngine
+
+    // ===== 格内视频全屏（onShowCustomView 挂载层，装饰在窗口最顶层） =====
+
+    private var cellCustomView: View? = null
+    private var cellCustomViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var cellOriginalOrientation = 0
+
+    internal fun showCellCustomView(view: View, callback: WebChromeClient.CustomViewCallback) {
+        if (cellCustomView != null) {
+            callback.onCustomViewHidden()
+            return
+        }
+        cellCustomView = view
+        cellOriginalOrientation = requestedOrientation
+        cellCustomViewCallback = callback
+        (window.decorView as FrameLayout).addView(
+            view,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
+            )
+        )
+        // 全屏视频期强制沉浸（与满铺设计同语义；退出后 onResume 兜底回归）
+        SystemBars.enterImmersive(this)
+    }
+
+    internal fun hideCellCustomView() {
+        val view = cellCustomView ?: return
+        (window.decorView as FrameLayout).removeView(view)
+        cellCustomView = null
+        cellCustomViewCallback?.onCustomViewHidden()
+        cellCustomViewCallback = null
+        requestedOrientation = cellOriginalOrientation
+        SystemBars.enterImmersive(this)
+    }
 
     private val snackbarHostState = SnackbarHostState()
 
@@ -151,6 +185,10 @@ internal class MatrixActivity : ComponentActivity(), SystemBars.SelfManagedInset
     }
 
     override fun onDestroy() {
+        // 全屏视频装饰层残留清理（早于引擎释放，避免销毁后仍持 view）
+        cellCustomViewCallback = null
+        cellCustomView?.let { (window.decorView as FrameLayout).removeView(it) }
+        cellCustomView = null
         // 全局定时器对称恢复（必须先于 releaseAll）：onStop 的 pauseTimers 是
         // 进程全局开关，矩阵退出后残留会让之后单独打开的站点 JS/加载全面
         // 停摆（真机实测：矩阵退出后新开站点无法加载+会话失效）。宿主仅在

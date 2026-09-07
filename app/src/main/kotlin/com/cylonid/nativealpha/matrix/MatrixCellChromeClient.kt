@@ -1,29 +1,37 @@
 package com.cylonid.nativealpha.matrix
 
-import androidx.appcompat.app.AlertDialog
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.net.Uri
+import android.view.View
 import android.webkit.ConsoleMessage
+import android.webkit.GeolocationPermissions
 import android.webkit.JsPromptResult
 import android.webkit.JsResult
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
-import android.net.Uri
 import android.webkit.WebView
 import android.widget.EditText
+import androidx.appcompat.app.AlertDialog
+import com.cylonid.nativealpha.helper.WebPermissionCoordinator
+import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.FileChooserDelegate
 
 /**
- * 矩阵格 Chrome client（v2 能力对齐宿主）：
+ * 矩阵格 Chrome client（v2 能力对齐宿主，v3 权限/地理/全屏补齐）：
  * - onReceivedTitle：标题回调驱动工具条文案；
- * - onShowFileChooser：文件/图片上传（FileChooserDelegate 与宿主同源——
- *   图片类走系统 Photo Picker 实时相册）；
- * - onPermissionRequest：相机/麦克风（AI 语音对话），经 MatrixActivity
- *   系统权限请求，结果 grant/deny；
- * - onJsAlert/onJsConfirm/onJsPrompt：AlertDialog 三件套（v1 缺失时
- *   站点 JS 弹窗被静默吞掉）。
+ * - onConsoleMessage：JS 错误观测（矩阵 QC 口径=FeatureMetrics 计数）；
+ * - onShowFileChooser：文件/图片上传（FileChooserDelegate 与宿主同源）；
+ * - onPermissionRequest/onGeolocationPermissionsShowPrompt：WebPermissionCoordinator
+ *   与宿主同源编排（站点记忆→弹窗确认→系统权限，授权在链路终结点恰好一次，
+ *   无 reload 补丁；写回落到同一 WebApp 实例的 replaceWebApp）；
+ * - onShowCustomView/onHideCustomView：格内视频全屏（MatrixActivity 装饰层）；
+ * - getDefaultVideoPoster：透明 1x1 占位（宿主同款，防视频封面黑块）；
+ * - onJsAlert/onJsConfirm/onJsPrompt：AlertDialog 三件套。
  *
- * v1 曾定调「宿主能力不开放给矩阵格」——实机使用证伪：AI 站上传/语音/
- * 弹窗在矩阵内为高频路径，v2 按需开放（能力实现与宿主共用，无双份逻辑）。
+ * v1 曾定调「宿主能力不开放给矩阵格」——实机使用证伪后按需开放；v3 起
+ * 权限编排与宿主共用同一实现（无双份逻辑）。
  */
 internal class MatrixCellChromeClient(
     private val engine: MatrixEngine,
@@ -31,6 +39,38 @@ internal class MatrixCellChromeClient(
     private val activity: MatrixActivity,
     private val fileChooser: FileChooserDelegate
 ) : WebChromeClient() {
+
+    /** 站点权限记忆读写（与宿主同一 WebApp 字段，写入即 replaceWebApp 持久化） */
+    private val permissionCoordinator = WebPermissionCoordinator(
+        activity = activity,
+        readMemory = {
+            val webapp = DataManager.getInstance().getWebApp(currentWebappId)
+            WebPermissionCoordinator.WebPermissionMemory(
+                drm = webapp?.isDrmAllowed ?: false,
+                camera = webapp?.isCameraPermission ?: false,
+                microphone = webapp?.isMicrophonePermission ?: false,
+                location = webapp?.isAllowLocationAccess ?: false
+            )
+        },
+        writeMemory = { field, _ ->
+            val webapp = DataManager.getInstance().getWebApp(currentWebappId) ?: return@WebPermissionCoordinator
+            webapp.isOverrideGlobalSettings = true
+            when (field) {
+                WebPermissionCoordinator.MemoryField.DRM -> webapp.isDrmAllowed = true
+                WebPermissionCoordinator.MemoryField.CAMERA -> webapp.isCameraPermission = true
+                WebPermissionCoordinator.MemoryField.MICROPHONE -> webapp.isMicrophonePermission = true
+                WebPermissionCoordinator.MemoryField.LOCATION -> webapp.isAllowLocationAccess = true
+            }
+            DataManager.getInstance().replaceWebApp(webapp)
+        },
+        requestAndroidPermissions = { permissions, onResult ->
+            activity.requestRuntimePermissions(permissions, onResult)
+        }
+    )
+
+    /** 当前格绑定的站点 ID（-1=占位/未知，权限按未记忆处理） */
+    private val currentWebappId: Int
+        get() = engine.cellsInternal.value.getOrNull(cellIndex)?.webappId ?: -1
 
     override fun onReceivedTitle(view: WebView, title: String) {
         engine.onCellTitle(cellIndex, title)
@@ -54,16 +94,33 @@ internal class MatrixCellChromeClient(
     ): Boolean = fileChooser.onShowFileChooser(activity, fileChooserParams, filePathCallback)
 
     override fun onPermissionRequest(request: PermissionRequest) {
-        // 仅相机/麦克风（AI 语音/拍摄）；其余资源默认拒绝
-        val wanted = request.resources.filter {
-            it == PermissionRequest.RESOURCE_VIDEO_CAPTURE ||
-                it == PermissionRequest.RESOURCE_AUDIO_CAPTURE
-        }
-        if (wanted.isEmpty()) {
-            request.deny()
-            return
-        }
-        activity.requestWebPermissions(wanted.toTypedArray(), request)
+        permissionCoordinator.handleWebPermission(
+            resources = request.resources.toList(),
+            grant = { request.grant(it.toTypedArray()) },
+            deny = { request.deny() }
+        )
+    }
+
+    override fun onGeolocationPermissionsShowPrompt(
+        origin: String,
+        callback: GeolocationPermissions.Callback
+    ) {
+        permissionCoordinator.handleGeolocation(origin, callback)
+    }
+
+    override fun getDefaultVideoPoster(): Bitmap {
+        // 透明 1x1 占位（宿主同款）：视频首帧未就绪时避免灰块/黑块
+        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        Canvas(bitmap).drawARGB(0, 0, 0, 0)
+        return bitmap
+    }
+
+    override fun onShowCustomView(pView: View, pViewCallback: WebChromeClient.CustomViewCallback) {
+        activity.showCellCustomView(pView, pViewCallback)
+    }
+
+    override fun onHideCustomView() {
+        activity.hideCellCustomView()
     }
 
     override fun onJsAlert(
