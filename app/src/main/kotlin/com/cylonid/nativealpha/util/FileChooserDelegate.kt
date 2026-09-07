@@ -4,12 +4,12 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.MediaStore
-import android.util.Log
 import android.webkit.WebChromeClient
 import androidx.activity.ComponentActivity
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
+import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.R
 import com.google.android.material.snackbar.Snackbar
 
@@ -41,8 +41,11 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
     private var pending: android.webkit.ValueCallback<Array<Uri>>? = null
 
     private val photoPicker = activity.registerForActivityResult(PickVisualMedia()) { uri ->
-        Log.d(TAG, "photo picker returned: $uri")
         // Photo Picker 系统授权必然可读：直通不走归一化
+        ErrorReporter.probe(
+            activity, TAG, "picker_returned",
+            fields = mapOf("uri" to uri, "granted" to (uri != null))
+        )
         settle(uri?.let { arrayOf(it) })
     }
 
@@ -76,7 +79,7 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
                     "clip" to data?.clipData?.itemCount,
                     "flags" to data?.flags?.let { "0x${Integer.toHexString(it)}" }
                 ),
-                level = com.cylonid.nativealpha.model.AppErrorEntry.LEVEL_WARNING
+                level = AppErrorEntry.LEVEL_WARNING
             )
         }
         val outcome = FileChooserUriNormalizer.normalize(activity, uris?.toList())
@@ -85,7 +88,7 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
             ErrorReporter.probe(
                 activity, TAG, "degraded",
                 fields = mapOf("uris" to outcome.degraded),
-                level = com.cylonid.nativealpha.model.AppErrorEntry.LEVEL_WARNING
+                level = AppErrorEntry.LEVEL_WARNING
             )
             NotificationUtils.showInfoSnackbar(
                 activity,
@@ -138,18 +141,16 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
             }
             true
         } catch (e: Exception) {
-            Log.e(TAG, "launcher failed", e)
             ErrorReporter.report(activity, TAG, "file chooser launch failed", e)
             settle(null)
             false
         }
     }
 
-    /** 回执并清理挂起回调 */
+    /** 回执并清理挂起回调（现场已由 returned/picker_returned 探针记录） */
     private fun settle(value: Array<Uri>?) {
         val callback = pending
         pending = null
-        Log.d(TAG, "settle uris=${value?.contentToString()}")
         callback?.onReceiveValue(value)
     }
 

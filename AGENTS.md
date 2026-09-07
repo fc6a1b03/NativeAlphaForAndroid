@@ -99,6 +99,7 @@ keystore。
 - **统一数据源**：
     - Cookie 隔离唯一入口：`CookieSessionManager`
     - WebApp 图标唯一入口：`WebAppIconManager`（调用方只编排，不重复实现存储/拉取逻辑）
+- **实机取证探针**：模拟器测不出、仅实机可复现的厂商兼容/内核差异类问题，在关键决策点统一打 `ErrorReporter.probe`（结构化现场 `event k=v`，默认 INFO 级进导出错误日志，失败/降级升级 WARNING），禁止散点手写日志拼装——「程序内日志 → 导出错误日志 → 实锤」闭环，不依赖 adb
 - **线程与内存**：非主流程（IO、网络、统计、日志）必须走 `Dispatchers.IO` 或独立协程；禁止裸 `GlobalScope`
   ；重资源（Bitmap/流）随用随关；禁止静态长生命周期持有 Activity/Context
 - **单文件 / 单方法规模**：单文件建议 ≤600 行，单方法建议 ≤80 行；超过必须按职责拆分

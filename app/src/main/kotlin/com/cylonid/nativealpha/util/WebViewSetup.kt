@@ -197,15 +197,20 @@ internal object WebViewSetup {
             WebSettingsCompat.setAlgorithmicDarkeningAllowed(webview.settings, forced)
         }
         webview.setBackgroundColor(if (forced) Color.BLACK else resolveThemeBackground(themeContext))
-        // 深色链路诊断（矩阵暗色失效排查）：forced 判定 + 各层 uiMode 快照
+        // 取证探针（ErrorReporter.probe 统一模式）：厂商内核的暗色判定存在
+        // 版本差异（v2.3.10 矩阵暗色失效案例），记录判定结果与两侧主题形态
+        // 供「导出错误日志」对照——每次格创建一条，量可控
         val nightMask = android.content.res.Configuration.UI_MODE_NIGHT_MASK
         val nightYes = android.content.res.Configuration.UI_MODE_NIGHT_YES
-        android.util.Log.d(
-            "DarkMode",
-            "applyDarkMode forced=$forced site=${app.baseUrl.take(40)} " +
-                "webviewNight=${(webview.resources.configuration.uiMode and nightMask) == nightYes} " +
-                "ctxNight=${(themeContext.resources.configuration.uiMode and nightMask) == nightYes} " +
-                "feature=${WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)}"
+        ErrorReporter.probe(
+            themeContext, "DarkMode", "cell_dark_mode",
+            fields = mapOf(
+                "forced" to forced,
+                "site" to app.baseUrl.take(40),
+                "webviewNight" to ((webview.resources.configuration.uiMode and nightMask) == nightYes),
+                "ctxNight" to ((themeContext.resources.configuration.uiMode and nightMask) == nightYes),
+                "feature" to WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)
+            )
         )
     }
 

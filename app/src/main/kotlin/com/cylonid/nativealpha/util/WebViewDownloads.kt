@@ -1,14 +1,16 @@
 package com.cylonid.nativealpha.util
 
-import android.app.DownloadManager
 import android.app.Activity
+import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.webkit.CookieManager
 import android.webkit.WebView
+import android.content.ActivityNotFoundException
 import com.cylonid.nativealpha.R
+import com.cylonid.nativealpha.model.AppErrorEntry
 import com.google.android.material.snackbar.Snackbar
 import java.io.UnsupportedEncodingException
 import java.net.URLDecoder
@@ -22,12 +24,22 @@ import java.net.URLDecoder
  */
 internal object WebViewDownloads {
 
+    private const val TAG = "Downloads"
+
     fun install(webview: WebView, activity: Activity) {
         webview.setDownloadListener { dlUrl, userAgent, contentDisposition, mimeType, _ ->
             if (mimeType == "application/pdf") {
                 val i = Intent(Intent.ACTION_VIEW)
                 i.data = Uri.parse(dlUrl)
-                activity.startActivity(i)
+                try {
+                    activity.startActivity(i)
+                } catch (e: ActivityNotFoundException) {
+                    // 无任何可打开 PDF 的应用：提示而非崩溃
+                    NotificationUtils.showInfoSnackbar(
+                        activity, activity.getString(R.string.no_pdf_app),
+                        Snackbar.LENGTH_SHORT
+                    )
+                }
             } else {
                 if (dlUrl.isNotEmpty()) {
                     var target = dlUrl
@@ -36,7 +48,13 @@ internal object WebViewDownloads {
                         try {
                             target = URLDecoder.decode(target, "UTF-8")
                         } catch (e: UnsupportedEncodingException) {
-                            e.printStackTrace()
+                            // 可恢复降级：解码失败按原始 blob 地址入队（DownloadManager
+                            // 会失败并通知），取证进导出错误日志
+                            ErrorReporter.probe(
+                                activity, TAG, "blob_decode_failed",
+                                fields = mapOf("dlUrl" to dlUrl),
+                                level = AppErrorEntry.LEVEL_WARNING
+                            )
                         }
                     }
                     val request = try {
