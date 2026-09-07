@@ -4,7 +4,7 @@
 是 [NativeAlphaForAndroid](https://github.com/cylonid/NativeAlphaForAndroid) 的一个深度修改分支，目标是把任意网站包装成沉浸式、可独立配置的
 PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生成、长文档）做渲染优化。
 
-> 阅读本文件前，请先查阅 `.kimi/GoogleCodingStandards.md`——所有代码改动必须遵守其中的「十三条红线」与 Kotlin/Google Android
+> 阅读本文件前，请先查阅 `skills`——所有代码改动必须遵守其中的「十三条红线」与 Kotlin/Google Android
 > 编码规范。
 
 ---
@@ -84,7 +84,7 @@ keystore。
 
 ## 代码规范
 
-详细规范见 `.kimi/GoogleCodingStandards.md`。核心要求：
+详细规范见 `skills`。核心要求：
 
 - **Kotlin Google Style Guide**：命名、导入、注释、格式化全部遵循官方指南
 - **禁止通配符导入**（`import xxx.*`）：全量显式导入
