@@ -4,7 +4,7 @@ description: 本机 Android 模拟器与 adb 操作手册——从启动模拟�
 license: MIT
 metadata:
   author: kingon
-  last-updated: '2026-08-20'
+  last-updated: '2026-09-07'
   keywords:
   - android
   - emulator
@@ -26,10 +26,32 @@ metadata:
 - APK 路径：通常 `app/build/outputs/apk/debug/app-debug.apk`（debug）或 `app-release.apk`（release）。
 - 截图/UI dump 拉到**当前工作目录**（如 `doc/`、`./`），不要用 `/tmp`（Windows python 不认）。
 
-本机环境固定路径（来自 local-env-index，已实测）：
-- adb：`/d/ambient/android/platform-tools/adb`
-- emulator：`/d/ambient/android/emulator/emulator.exe`
-- AVD：`Pixel_9a`（配置在 `~/.android/avd/Pixel_9a.avd`）
+## 🧭 第 0 步：环境探测（每个新 shell 会话先执行一次）
+
+SDK 位置因机器而异（本仓库历史机器就有 D 盘/E 盘两种布局），**禁止写死盘符路径**。探测优先级：PATH → `ANDROID_HOME` → 项目 `local.properties` 的 `sdk.dir` → 常见安装位置。成功后导出 `ADB` / `EMU` 两个变量，本手册全部命令只引用变量：
+
+```bash
+# ===== 第 0 步：环境探测 =====
+export MSYS_NO_PATHCONV=1
+if command -v adb >/dev/null 2>&1; then
+  SDK_DIR="$(dirname "$(dirname "$(command -v adb)")")"
+elif [ -d "$ANDROID_HOME/platform-tools" ]; then
+  SDK_DIR="$ANDROID_HOME"
+elif [ -f local.properties ]; then
+  # 解析 properties 转义（chr(92) 规避 bash/python 双层转义歧义）：
+  # E\:/\dir 形态 → E:/dir；实测输出 adb version 1.0.41
+  SDK_DIR="$(python -c "import re;s=open('local.properties').read();v=re.search(r'sdk\.dir=(.+)',s).group(1);bs=chr(92);print(v.replace(bs+':',':').replace(bs+bs,'/'))")"
+else
+  for d in /c/Android/Sdk /d/software/ambient/android /d/ambient/android /e/software/ambient/android /e/ambient/android "$LOCALAPPDATA/Android/Sdk"; do
+    [ -d "$d/platform-tools" ] && SDK_DIR="$d" && break
+  done
+fi
+export ADB="$SDK_DIR/platform-tools/adb.exe"  # Windows 版手册：路径含反斜杠时 MSYS 不自动补 .exe
+export EMU="$SDK_DIR/emulator/emulator.exe"
+"$ADB" version >/dev/null 2>&1 && echo "SDK ready: $SDK_DIR" || echo "SDK 探测失败：手动 export SDK_DIR 后重试"
+```
+
+AVD 列表探测：`$EMU -list-avds`；模拟器名按机器实际（示例 `Pixel_9a`）。
 
 ## ⚠️ 前置铁律（每条命令都适用）
 
@@ -45,10 +67,10 @@ metadata:
 ```bash
 export MSYS_NO_PATHCONV=1
 # 后台启动（& 放后台，不阻塞）
-/d/ambient/android/emulator/emulator.exe -avd Pixel_9a -no-snapshot-load -no-boot-anim &
+$EMU -avd Pixel_9a -no-snapshot-load -no-boot-anim &
 # 等 boot 完成（返回 1 即就绪）
-/d/ambient/android/platform-tools/adb wait-for-device
-/d/ambient/android/platform-tools/adb shell getprop sys.boot_completed
+$ADB wait-for-device
+$ADB shell getprop sys.boot_completed
 ```
 
 如果模拟器已在跑但 adb 不识别：`adb kill-server && adb start-server && adb devices`。
@@ -57,7 +79,7 @@ export MSYS_NO_PATHCONV=1
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 # 安装 APK（-r 覆盖安装保留数据）
 $ADB install -r app/build/outputs/apk/debug/app-debug.apk
 # 清数据（干净环境测试）
@@ -68,7 +90,7 @@ $ADB shell pm clear com.cylonid.nativealpha.debug
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 # 启动主界面
 $ADB shell am start -n com.cylonid.nativealpha.debug/com.cylonid.nativealpha.MainActivity
 # 强停（干净冷启动）
@@ -83,7 +105,7 @@ $ADB shell dumpsys activity top | grep ACTIVITY | head -3
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 # 截图到设备临时目录 → 拉回项目 doc/ 下（方便 Read/vision 读取）
 $ADB shell screencap -p /data/local/tmp/shot.png
 $ADB pull /data/local/tmp/shot.png doc/shot.png
@@ -97,7 +119,7 @@ Compose 页面部分元素可能不进 dump，但原生控件/文本可拿到坐
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 $ADB shell uiautomator dump /data/local/tmp/ui.xml
 $ADB shell cat /data/local/tmp/ui.xml > doc/ui.xml
 # 用 python 解析文本+坐标（Windows python 用项目内路径）
@@ -114,7 +136,7 @@ for m in re.finditer(r'text=\"([^\"]*)\"[^>]*bounds=\"(\[[^\"]*\])\"', xml):
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 # 点击（坐标从 UI dump 或截图估算；Compose 按钮坐标需先 dump 确认）
 $ADB shell input tap X Y
 # 输入文字（ASCII 安全；中文/特殊字符会被输入法转换，慎用）
@@ -135,7 +157,7 @@ $ADB shell input swipe 540 2000 540 500 600
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 # 清空旧日志（开始新测试前）
 $ADB logcat -c
 # 抓崩溃（FATAL/崩溃/渲染进程错误）
@@ -152,7 +174,7 @@ $ADB logcat -d | grep -iE "chromium|ERR_|didFailLoad" | grep -viE "Accessibility
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 # 进程内存（TOTAL PSS 是真实占用；4 个 WebView 约 250-300MB 正常）
 $ADB shell dumpsys meminfo com.cylonid.nativealpha.debug | grep TOTAL
 # WebView 实例数
@@ -166,7 +188,7 @@ $ADB shell am start -W -n com.cylonid.nativealpha.debug/com.cylonid.nativealpha.
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 # 录 5 秒屏幕（默认 1080p）
 $ADB shell screenrecord --time-limit 5 /data/local/tmp/rec.mp4
 $ADB pull /data/local/tmp/rec.mp4 doc/rec.mp4
@@ -176,7 +198,7 @@ $ADB pull /data/local/tmp/rec.mp4 doc/rec.mp4
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 $ADB shell wm size     # 如 Physical size: 1080x2424
 $ADB shell wm density  # 如 Physical density: 420
 ```
@@ -187,7 +209,7 @@ $ADB shell wm density  # 如 Physical density: 420
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 # 授予权限
 $ADB shell pm grant com.cylonid.nativealpha.debug android.permission.CAMERA
 # 撤销权限
@@ -200,7 +222,7 @@ $ADB shell dumpsys package com.cylonid.nativealpha.debug | grep -A 20 "runtime p
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 $ADB shell dumpsys notification --noredact | grep -E "NotificationRecord|pkg=" | head -10
 ```
 
@@ -208,7 +230,7 @@ $ADB shell dumpsys notification --noredact | grep -E "NotificationRecord|pkg=" |
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 # 返回 PID = 存活；空 = 已退出（崩溃或被系统杀）
 $ADB shell pidof com.cylonid.nativealpha.debug
 ```
@@ -228,7 +250,7 @@ $ADB shell pidof com.cylonid.nativealpha.debug
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 # WebApp 数据（验证设置保存）
 $ADB shell run-as com.cylonid.nativealpha.debug cat /data/data/com.cylonid.nativealpha.debug/shared_prefs/WEBSITEDATA.xml > doc/wd.xml
 # 解析（注意 XML 实体转义，需 html.unescape）
@@ -249,7 +271,7 @@ if m:
 
 ```bash
 export MSYS_NO_PATHCONV=1
-ADB=/d/ambient/android/platform-tools/adb
+# $ADB / $EMU 已在第 0 步探测导出（勿写死盘符路径）
 # 切三键导航
 $ADB shell cmd overlay enable com.android.internal.systemui.navbar.threebutton
 # 切回手势条
@@ -275,23 +297,23 @@ $ADB shell cmd overlay disable com.android.internal.systemui.navbar.threebutton
 
 ```bash
 # 1. 确认模拟器在线
-adb devices
+$ADB devices
 # 2. 装最新 APK + 清数据
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell pm clear com.cylonid.nativealpha.debug
+$ADB install -r app/build/outputs/apk/debug/app-debug.apk
+$ADB shell pm clear com.cylonid.nativealpha.debug
 # 3. 清日志 → 启动 → 等加载
-adb logcat -c
-adb shell am start -n com.cylonid.nativealpha.debug/com.cylonid.nativealpha.MainActivity
+$ADB logcat -c
+$ADB shell am start -n com.cylonid.nativealpha.debug/com.cylonid.nativealpha.MainActivity
 sleep 4
 # 4. 截图取证
-adb shell screencap -p /data/local/tmp/s1.png && adb pull /data/local/tmp/s1.png doc/s1.png
+$ADB shell screencap -p /data/local/tmp/s1.png && $ADB pull /data/local/tmp/s1.png doc/s1.png
 # 5. 交互（点卡片打开 WebView）
-adb shell input tap 540 660
+$ADB shell input tap 540 660
 sleep 8
-adb shell screencap -p /data/local/tmp/s2.png && adb pull /data/local/tmp/s2.png doc/s2.png
+$ADB shell screencap -p /data/local/tmp/s2.png && $ADB pull /data/local/tmp/s2.png doc/s2.png
 # 6. 查崩溃日志 + 进程存活
-adb logcat -d | grep -iE "FATAL|AndroidRuntime" | head -5
-adb shell pidof com.cylonid.nativealpha.debug   # 空 = 已崩溃退出
+$ADB logcat -d | grep -iE "FATAL|AndroidRuntime" | head -5
+$ADB shell pidof com.cylonid.nativealpha.debug   # 空 = 已崩溃退出
 # 7. 截图用 vision 确认内容，UI dump 拿坐标
 ```
 
