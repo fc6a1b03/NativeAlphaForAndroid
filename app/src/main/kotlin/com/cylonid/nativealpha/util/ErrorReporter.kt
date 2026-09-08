@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 
 /**
  * 统一错误记录器：任何非致命异常/可恢复错误同时进 logcat 与应用错误日志
- * （KEY_APP_ERRORS——「设置 → 导出错误日志」可见，实机排查唯一入口）。
+ * （KEY_APP_ERRORS——「设置 → 导出诊断日志」可见，实机排查唯一入口）。
  *
  * 设计约束：
  * - 记录动作自身绝不抛（再失败也静默）——错误上报不能成为新错误源
@@ -20,6 +20,12 @@ import kotlinx.coroutines.launch
  * - 崩溃级（未捕获异常）不走这里——App 的 UncaughtExceptionHandler 已兜底
  */
 object ErrorReporter {
+
+    /** 探针 URL 字段脱敏后保留上限：scheme://host/路径主干可读即可，防超长 URL 刷屏膨胀 */
+    private const val MAX_URL_FIELD_LENGTH = 80
+
+    /** URL 形态判定：`scheme://` 前缀（http/https/content/file 等统一命中） */
+    private val urlPrefix = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*://")
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -65,7 +71,7 @@ object ErrorReporter {
     /**
      * 取证探针（「程序内日志 → 导出 → 实锤」闭环的标准入口）：
      * 模拟器测不出、只有实机能复现的厂商兼容/内核差异类问题，在关键决策点
-     * 打 [probe] 记录结构化现场——用户实机复现后从「设置 → 导出错误日志」
+     * 打 [probe] 记录结构化现场——用户实机复现后从「设置 → 导出诊断日志」
      * 导出 JSON 即含完整现场，无需 adb。
      *
      * 约定（固化本模式，调用方不再自行拼装）：
@@ -105,10 +111,26 @@ object ErrorReporter {
         }
     }
 
-    /** 探针现场格式化（纯函数可单测）：`event k1=v1 k2=v2`，null 显式保留 */
+    /** 探针现场格式化（纯函数可单测）：`event k1=v1 k2=v2`，null 显式保留；
+     *  URL 形态的值统一走 [redactUrl] 脱敏——v2.3.13 实机导出实锤 site 字段
+     *  连 `#token=` 一起进日志，凭证在统一入口截断而非各调用点自行拼装 */
     internal fun formatProbe(event: String, fields: Map<String, Any?>): String {
         if (fields.isEmpty()) return event
-        val rendered = fields.entries.joinToString(" ") { (k, v) -> "$k=$v" }
+        val rendered = fields.entries.joinToString(" ") { (k, v) -> "$k=${sanitizeFieldValue(v)}" }
         return "$event $rendered"
+    }
+
+    /** 字段值渲染（纯函数可单测）：URL 形态字符串脱敏，其余保持 toString 语义（null 显式保留） */
+    internal fun sanitizeFieldValue(v: Any?): String {
+        val s = v?.toString() ?: return "null"
+        return if (urlPrefix.containsMatchIn(s)) redactUrl(s) else s
+    }
+
+    /** URL 脱敏（纯函数可单测）：截断 query/fragment（登录凭证所在，如 `#token=`、`?sid=`），
+     *  保留 scheme://host/path 主干并限长——站点 URL 与 content:// 文件 URI 同规则覆盖 */
+    internal fun redactUrl(url: String): String {
+        val cut = url.indexOfFirst { it == '?' || it == '#' }
+        val stem = if (cut >= 0) url.substring(0, cut) else url
+        return if (stem.length > MAX_URL_FIELD_LENGTH) stem.take(MAX_URL_FIELD_LENGTH) else stem
     }
 }

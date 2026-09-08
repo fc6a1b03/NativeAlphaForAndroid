@@ -27,7 +27,7 @@ import com.google.android.material.snackbar.Snackbar
  * 返回归一化收编 FileChooserUriNormalizer（可读直通/file 物化/物理不可读
  * 透传+降级提示）。**取证统一走 ErrorReporter.probe 模式**：关键决策点
  * launch/returned/no_uri/degraded 全打点（INFO 现场+失败降级升级 WARNING
- * 并当场 Snackbar），实机导出错误日志即含完整现场，不依赖 adb。
+ * 并当场 Snackbar），实机导出诊断日志即含完整现场，不依赖 adb。
  *
  * 使用约束：Activity 构造期实例化（内部 registerForActivityResult 要求）；
  * 同一时刻仅允许一个进行中的选择（防重入返回 false）。

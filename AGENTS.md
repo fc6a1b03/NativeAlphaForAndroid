@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.3.13`（`versionCode 2313`）
+- **当前版本**：`2.3.14`（`versionCode 2314`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -99,7 +99,7 @@ keystore。
 - **统一数据源**：
     - Cookie 隔离唯一入口：`CookieSessionManager`
     - WebApp 图标唯一入口：`WebAppIconManager`（调用方只编排，不重复实现存储/拉取逻辑）
-- **实机取证探针**：模拟器测不出、仅实机可复现的厂商兼容/内核差异类问题，在关键决策点统一打 `ErrorReporter.probe`（结构化现场 `event k=v`，默认 INFO 级进导出错误日志，失败/降级升级 WARNING），禁止散点手写日志拼装——「程序内日志 → 导出错误日志 → 实锤」闭环，不依赖 adb
+- **实机取证探针**：模拟器测不出、仅实机可复现的厂商兼容/内核差异类问题，在关键决策点统一打 `ErrorReporter.probe`（结构化现场 `event k=v`，默认 INFO 级进导出诊断日志，失败/降级升级 WARNING；URL 形态字段统一去 query/fragment 防凭证泄露，禁止调用点自行截断），禁止散点手写日志拼装——「程序内日志 → 导出诊断日志 → 实锤」闭环，不依赖 adb
 - **线程与内存**：非主流程（IO、网络、统计、日志）必须走 `Dispatchers.IO` 或独立协程；禁止裸 `GlobalScope`
   ；重资源（Bitmap/流）随用随关；禁止静态长生命周期持有 Activity/Context
 - **单文件 / 单方法规模**：单文件建议 ≤600 行，单方法建议 ≤80 行；超过必须按职责拆分
@@ -320,4 +320,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-09-07（基于仓库当前实际内容整理，版本 2.3.13）。*
+*最后更新：2026-09-08（基于仓库当前实际内容整理，版本 2.3.14）。*

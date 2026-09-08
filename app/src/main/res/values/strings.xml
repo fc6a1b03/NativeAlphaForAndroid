@@ -58,7 +58,7 @@
     <string name="shortcut_empty">No shortcuts yet.</string>
     <string name="shortcut_exist">This combination already exists.</string>
     <string name="crash_detected_title">App crashed last time</string>
-    <string name="crash_detected_msg">The app crashed during your last session. Export the error log so we can investigate?</string>
+    <string name="crash_detected_msg">The app crashed during your last session. Export the diagnostics so we can investigate?</string>
     <string name="crash_export_logs">Export logs</string>
     <string name="add_webapp">Add</string>
     <string name="next">Next</string>
@@ -215,13 +215,14 @@
     <string name="blank_screen_detected">Page loading seems stuck. Showing error page, tap retry to reload.</string>
     <string name="permission_permanently_denied_msg">You permanently denied %1$s. Enable it in system settings to use this feature.</string>
     <string name="permission_go_to_settings">Open settings</string>
-    <string name="export_app_errors">Export error logs (last 3 days)</string>
-    <string name="desc_export_app_errors">Export the app\'s own error logs of the last 3 days for debugging.</string>
+    <string name="export_app_errors">Export diagnostics (last 3 days)</string>
+    <string name="desc_export_app_errors">Export the app\'s errors, warnings and diagnostic probe records of the last 3 days. Cleared after export.</string>
     <string name="stat_log_network_errors">Log network errors in site stats</string>
     <string name="desc_stat_log_network_errors">When off, network failures (like being offline) are not counted in site stats.</string>
-    <string name="app_errors_export_success">Exported — error history cleared</string>
-    <string name="app_errors_export_failed">Failed to export error logs</string>
-    <string name="app_errors_none">No error logs in the last 3 days</string>
+    <string name="app_errors_export_success">Exported — diagnostics cleared</string>
+    <string name="app_errors_export_failed">Failed to export diagnostics</string>
+    <string name="app_errors_none">No diagnostics in the last 3 days</string>
+    <string name="diagnostics_summary">Errors: %1$d · Warnings: %2$d · Probes: %3$d</string>
     <string name="gesture_no_prev_page">No previous page</string>
     <string name="gesture_no_next_page">No next page</string>
 
@@ -321,7 +322,7 @@
     <string name="update_downloading">Downloading in background…</string>
     <string name="update_download_failed">Download failed</string>
     <string name="update_latest_with_version">You are on the latest version (%1$s)</string>
-    <string name="update_check_failed">Update check failed. Export error logs for details.</string>
+    <string name="update_check_failed">Update check failed. Export diagnostics for details.</string>
     <string name="update_install_permission_denied">Install permission required. Allow installing apps from this source to continue.</string>
     <string name="menu_font_size">Font size</string>
     <string name="menu_page_zoom">Page zoom</string>

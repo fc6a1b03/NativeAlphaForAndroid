@@ -49,7 +49,7 @@ internal object WebViewDownloads {
                             target = URLDecoder.decode(target, "UTF-8")
                         } catch (e: UnsupportedEncodingException) {
                             // 可恢复降级：解码失败按原始 blob 地址入队（DownloadManager
-                            // 会失败并通知），取证进导出错误日志
+                            // 会失败并通知），取证进导出诊断日志
                             ErrorReporter.probe(
                                 activity, TAG, "blob_decode_failed",
                                 fields = mapOf("dlUrl" to dlUrl),

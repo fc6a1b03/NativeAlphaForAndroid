@@ -50,6 +50,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -66,8 +67,11 @@ import android.content.Intent
 import androidx.core.net.toUri
 import com.cylonid.nativealpha.BuildConfig
 import com.cylonid.nativealpha.R
+import com.cylonid.nativealpha.model.AppErrorEntry
+import com.cylonid.nativealpha.model.AppErrorLogRepository
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.GlobalSettings
+import com.cylonid.nativealpha.model.LevelCounts
 import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.ThemeUtils
@@ -83,6 +87,7 @@ import com.cylonid.nativealpha.util.ThemeUtils
 fun GlobalSettingsScreen(
     onBack: () -> Unit,
     onSave: (GlobalSettings) -> Unit,
+    diagnosticsExportEpoch: Long = 0L,
     onExport: () -> Unit = {},
     onImport: () -> Unit = {},
     onExportAppErrors: () -> Unit = {},
@@ -92,6 +97,16 @@ fun GlobalSettingsScreen(
     val settings = DataManager.getInstance().settings
     var modified by remember { mutableStateOf(settings.copy()) }
     val context = LocalContext.current
+
+    // 诊断日志分级计数：导出入口副标题动态展示，导出前即知有无真错误
+    // （容器叫「错误日志」实含 INFO 探针的语义错位，实机反馈原话「还以为是错误日志」）。
+    // epoch 为 key：Activity 导出清空完成后推进，计数随之归零，不挂旧值
+    val diagnostics by produceState<LevelCounts?>(
+        initialValue = null,
+        key1 = diagnosticsExportEpoch
+    ) {
+        value = AppErrorEntry.levelCounts(AppErrorLogRepository.getRecent(context))
+    }
 
     // 语言选择（跟随系统 / 中文 / English）
     val langOptions = stringArrayResource(R.array.language_options)
@@ -334,7 +349,7 @@ fun GlobalSettingsScreen(
                 SettingsActionRow(
                     icon = { Icon(Icons.Default.BugReport, contentDescription = null) },
                     title = stringResource(R.string.export_app_errors),
-                    subtitle = stringResource(R.string.desc_export_app_errors),
+                    subtitle = diagnosticsSubtitle(diagnostics),
                     onClick = onExportAppErrors
                 )
                 HorizontalDivider()
@@ -414,6 +429,12 @@ private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
         Column(modifier = Modifier.padding(vertical = 4.dp), content = content)
     }
 }
+
+/** 导出入口副标题（组合期取串）：计数未就绪时退回静态说明 */
+@Composable
+private fun diagnosticsSubtitle(counts: LevelCounts?): String =
+    if (counts == null) stringResource(R.string.desc_export_app_errors)
+    else stringResource(R.string.diagnostics_summary, counts.errors, counts.warnings, counts.probes)
 
 @Composable
 private fun SettingsActionRow(

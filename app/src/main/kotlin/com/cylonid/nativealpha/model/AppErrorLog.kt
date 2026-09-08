@@ -29,7 +29,7 @@ data class AppErrorEntry(
         const val LEVEL_WARNING = "WARNING"
 
         /** 取证探针级（ErrorReporter.probe）：实机排障现场记录，非故障——
-         *  导出错误日志含完整现场，崩溃弹窗/错误统计均不受影响 */
+         *  导出诊断日志含完整现场，崩溃弹窗/错误统计均不受影响 */
         const val LEVEL_INFO = "INFO"
         private val gson = Gson()
 
@@ -54,8 +54,22 @@ data class AppErrorEntry(
             if (lines.size <= maxLines) return stack
             return lines.take(maxLines).joinToString("\n") + "\n... (" + (lines.size - maxLines) + " more lines)"
         }
+
+        /**
+         * 分级计数（纯函数可单测）：CRASH/ERROR 归错误、WARNING 归警告、
+         * INFO 归取证探针——设置页导出入口副标题按此展示，
+         * 用户导出前即知有无真错误（容器语义从「错误日志」重塑为「诊断日志」）。
+         */
+        fun levelCounts(entries: List<AppErrorEntry>): LevelCounts = LevelCounts(
+            errors = entries.count { it.level == LEVEL_ERROR || it.level == LEVEL_CRASH },
+            warnings = entries.count { it.level == LEVEL_WARNING },
+            probes = entries.count { it.level == LEVEL_INFO }
+        )
     }
 }
+
+/** 诊断日志分级计数（[AppErrorEntry.levelCounts] 的返回载体） */
+data class LevelCounts(val errors: Int = 0, val warnings: Int = 0, val probes: Int = 0)
 
 /** 应用错误日志仓库：DataStore 唯一读写（异步，不阻塞主线程）。
  *  保留策略：仅保留近 [com.cylonid.nativealpha.util.Const.APP_ERROR_DAYS] 天

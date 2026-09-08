@@ -199,14 +199,16 @@ internal object WebViewSetup {
         webview.setBackgroundColor(if (forced) Color.BLACK else resolveThemeBackground(themeContext))
         // 取证探针（ErrorReporter.probe 统一模式）：厂商内核的暗色判定存在
         // 版本差异（v2.3.10 矩阵暗色失效案例），记录判定结果与两侧主题形态
-        // 供「导出错误日志」对照——每次格创建一条，量可控
+        // 供「导出诊断日志」对照——每次格创建一条，量可控。
+        // site 传完整 baseUrl：脱敏（去 #token 等 query/fragment）统一在
+        // ErrorReporter 层收口，调用点不再自行截断
         val nightMask = android.content.res.Configuration.UI_MODE_NIGHT_MASK
         val nightYes = android.content.res.Configuration.UI_MODE_NIGHT_YES
         ErrorReporter.probe(
             themeContext, "DarkMode", "cell_dark_mode",
             fields = mapOf(
                 "forced" to forced,
-                "site" to app.baseUrl.take(40),
+                "site" to app.baseUrl,
                 "webviewNight" to ((webview.resources.configuration.uiMode and nightMask) == nightYes),
                 "ctxNight" to ((themeContext.resources.configuration.uiMode and nightMask) == nightYes),
                 "feature" to WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)
