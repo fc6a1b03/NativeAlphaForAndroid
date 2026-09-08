@@ -48,7 +48,7 @@ class MainActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
         // 进添加向导预填（fail-closed：解析失败提示无效，不进向导）
         routeShareDeepLink(intent)
 
-        // 崩溃恢复提示：上次进程崩溃过 → 引导导出错误日志（异步检查，不阻塞启动）
+        // 崩溃恢复提示：上次进程崩溃过 → 引导导出诊断日志（异步检查，不阻塞启动）
         checkAndPromptCrashLog()
 
         setContent {

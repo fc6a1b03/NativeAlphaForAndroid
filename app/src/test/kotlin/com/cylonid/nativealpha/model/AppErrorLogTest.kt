@@ -53,4 +53,27 @@ class AppErrorLogTest {
         val second = AppErrorLogRepository.getRecent(context)
         assertEquals("重复读取（导出）不清除记录", first.size, second.size)
     }
+
+    @Test
+    fun levelCounts_bucketsByLevel() {
+        val entries = listOf(
+            AppErrorEntry(level = AppErrorEntry.LEVEL_ERROR),
+            AppErrorEntry(level = AppErrorEntry.LEVEL_CRASH),
+            AppErrorEntry(level = AppErrorEntry.LEVEL_WARNING),
+            AppErrorEntry(level = AppErrorEntry.LEVEL_WARNING),
+            AppErrorEntry(level = AppErrorEntry.LEVEL_INFO),
+            AppErrorEntry(level = AppErrorEntry.LEVEL_INFO),
+            AppErrorEntry(level = AppErrorEntry.LEVEL_INFO)
+        )
+        val counts = AppErrorEntry.levelCounts(entries)
+        // CRASH 与 ERROR 同归「错误」：用户视角都是需要处理的故障
+        assertEquals(2, counts.errors)
+        assertEquals(2, counts.warnings)
+        assertEquals(3, counts.probes)
+    }
+
+    @Test
+    fun levelCounts_emptyInputIsAllZero() {
+        assertEquals(LevelCounts(0, 0, 0), AppErrorEntry.levelCounts(emptyList()))
+    }
 }

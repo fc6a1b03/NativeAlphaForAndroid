@@ -17,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
@@ -42,7 +43,14 @@ import java.io.OutputStreamWriter
  */
 class SettingsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
 
-    // 导出错误日志（SAF 新 API，替代 startActivityForResult）
+    /**
+     * 诊断日志刷新信号：每次导出清空完成后更新，设置页副标题分级计数
+     * 以此为 key 重读——否则导出成功清空后页面仍挂着旧计数，
+     * 「已清空」提示与副标题自相矛盾。
+     */
+    private val diagnosticsExportEpoch = mutableStateOf(0L)
+
+    // 导出诊断日志（SAF 新 API，替代 startActivityForResult）
     private val exportAppErrorsLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -143,6 +151,7 @@ class SettingsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
             AppMaterialTheme {
                 GlobalSettingsScreen(
                     onBack = { finish() },
+                    diagnosticsExportEpoch = diagnosticsExportEpoch.value,
                     onSave = { modified ->
                         // 落库 + 立即应用 UI 模式
                         DataManager.getInstance().settings = modified
@@ -326,9 +335,11 @@ class SettingsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
                     return@launch
                 }
                 runOnUiThread {
-                    // CreateDocument 注册器已指定 application/json，launch 传文件名即可
-                    try {
-                        exportAppErrorsLauncher.launch("WebNative_app_errors_" + DateUtils.compactDate() + ".json")
+                        // CreateDocument 注册器已指定 application/json，launch 传文件名即可。
+                        // 命名为 diagnostics 而非 errors：日志含 INFO 级取证探针，
+                        // 文件名带 errors 会误导用户「出错了」（实机反馈原话）
+                        try {
+                            exportAppErrorsLauncher.launch("WebNative_diagnostics_" + DateUtils.compactDate() + ".json")
                     } catch (e: Exception) {
                         NotificationUtils.showInfoSnackbar(
                             this@SettingsActivity,
@@ -372,9 +383,11 @@ class SettingsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
                     }
                     // 导出成功即清空历史（用户定调：避免反复导出同一批旧错误）。
                     // v2.2.11 修复：文案声称已清空但 clearAll 从未接线（v2.2.9
-                    // 只改了提示语）——真机两次导出同批旧错误实锤
+                    // 只改了提示语）——真机两次导出同批旧错误实锤。
+                    // 清空完成后推进 epoch，设置页副标题分级计数随之归零
                     lifecycleScope.launch(Dispatchers.IO) {
                         AppErrorLogRepository.clearAll(applicationContext)
+                        runOnUiThread { diagnosticsExportEpoch.value = System.currentTimeMillis() }
                     }
                     // 写失败路径不清除，数据无损
                     NotificationUtils.showInfoSnackbar(

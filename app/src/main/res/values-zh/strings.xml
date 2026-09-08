@@ -58,7 +58,7 @@
     <string name="shortcut_empty">暂无快捷键。</string>
     <string name="shortcut_exist">该组合已存在。</string>
     <string name="crash_detected_title">上次应用崩溃了</string>
-    <string name="crash_detected_msg">上次使用过程中应用发生了崩溃，是否导出错误日志以便排查？</string>
+    <string name="crash_detected_msg">上次使用过程中应用发生了崩溃，是否导出诊断日志以便排查？</string>
     <string name="crash_export_logs">导出日志</string>
     <string name="add_webapp">添加</string>
     <string name="next">下一步</string>
@@ -215,13 +215,14 @@
     <string name="blank_screen_detected">页面加载似乎卡住，已显示错误页，点击重试可重新加载。</string>
     <string name="permission_permanently_denied_msg">你已永久拒绝%1$s，请在系统设置中手动开启后才能使用该功能。</string>
     <string name="permission_go_to_settings">前往设置</string>
-    <string name="export_app_errors">导出错误日志（近 3 天）</string>
-    <string name="desc_export_app_errors">导出应用自身最近 3 天的错误日志，供开发排查。</string>
+    <string name="export_app_errors">导出诊断日志（近 3 天）</string>
+    <string name="desc_export_app_errors">导出应用自身最近 3 天的错误、警告与取证探针记录，供开发排查；导出后自动清空。</string>
     <string name="stat_log_network_errors">站点统计记录网络错误</string>
     <string name="desc_stat_log_network_errors">关闭后，断网等网络类页面错误不计入站点统计。</string>
-    <string name="app_errors_export_success">已导出，错误历史已清空</string>
-    <string name="app_errors_export_failed">错误日志导出失败</string>
-    <string name="app_errors_none">近 3 天无错误日志</string>
+    <string name="app_errors_export_success">已导出，诊断记录已清空</string>
+    <string name="app_errors_export_failed">诊断日志导出失败</string>
+    <string name="app_errors_none">近 3 天无诊断记录</string>
+    <string name="diagnostics_summary">错误 %1$d · 警告 %2$d · 探针 %3$d</string>
     <string name="gesture_no_prev_page">没有上一页了</string>
     <string name="gesture_no_next_page">没有下一页了</string>
 
@@ -318,7 +319,7 @@
     <string name="update_downloading">正在后台下载…</string>
     <string name="update_download_failed">下载失败</string>
     <string name="update_latest_with_version">已是最新版本（%1$s）</string>
-    <string name="update_check_failed">检查更新失败，可导出错误日志查看详情。</string>
+    <string name="update_check_failed">检查更新失败，可导出诊断日志查看详情。</string>
     <string name="update_install_permission_denied">需要安装应用权限，请允许来自此来源的应用安装。</string>
     <string name="menu_font_size">字体大小</string>
     <string name="menu_page_zoom">页面缩放</string>
