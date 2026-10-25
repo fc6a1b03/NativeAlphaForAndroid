@@ -42,7 +42,7 @@ jobs:
 
       # Gradle 构建缓存（跨 job 共享：release 复用 test 的编译产物）
       - name: "📦 Cache Gradle Build Cache"
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-buildcache-${{ runner.os }}-${{ hashFiles('**/*.gradle', '**/libs.versions.toml') }}
@@ -77,7 +77,7 @@ jobs:
 
       # Gradle 构建缓存（复用 test job 的编译产物）
       - name: "📦 Cache Gradle Build Cache"
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-buildcache-${{ runner.os }}-${{ hashFiles('**/*.gradle', '**/libs.versions.toml') }}
@@ -126,7 +126,7 @@ jobs:
 
       - name: "📦 Upload build log on failure"
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-build-log
           path: /tmp/build.log

@@ -1,14 +1,17 @@
 // Top-level build file — WebNative
 // 依赖版本统一管理于 gradle/libs.versions.toml (Version Catalog)
 
-// 显式指定 KGP 版本（built-in Kotlin 默认 2.2.10，此处升到 2.2.20 修 Compose 内联问题）
+// 显式指定 KGP 版本并强制对齐 Version Catalog（AGP 9 built-in Kotlin 的默认版
+// 本低于 catalog 需求，历史上曾致 Compose 内联问题；此处从 libs.versions.kotlin
+// 取版本，杜绝 catalog 与 classpath 双源漂移——2026-10 维护时发现 classpath 残留
+// 2.3.20 而 catalog 已 2.4.x，注释更是停在 2.2.20）
 buildscript {
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.20")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${libs.versions.kotlin.get()}")
     }
 }
 
