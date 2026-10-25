@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.3.14`（`versionCode 2314`）
+- **当前版本**：`2.3.15`（`versionCode 2315`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -24,9 +24,9 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 ## 技术栈
 
-- **语言**：Kotlin 2.4.10（AGP 9 内置 built-in Kotlin），Java 17 字节码
-- **构建工具**：Gradle 9.7.1 + Android Gradle Plugin 9.4.0
-- **UI 框架**：Jetpack Compose + Material 3（Compose BOM `2026.08.00`，Compose 1.12 stable）
+- **语言**：Kotlin 2.4.21（AGP 9 内置 built-in Kotlin），Java 17 字节码
+- **构建工具**：Gradle 9.7.1 + Android Gradle Plugin 9.4.1
+- **UI 框架**：Jetpack Compose + Material 3（Compose BOM `2026.09.00`，Compose 1.12.1 stable）
     - 所有配置/列表/向导/统计/关于页面均为 Compose
     - `WebViewActivity` 虽为 Kotlin，但仍使用传统 View/XML 布局（`res/layout/full_webview.xml`）承载 `WebView` 渲染核心
 - **WebView**：系统 Android WebView + `androidx.webkit:webkit`（force-dark、OffscreenPreRaster 等）
@@ -279,7 +279,7 @@ Profile 等。
 1. **WebViewActivity 现为 Kotlin，但仍是 View 渲染核心**：不要把它改成纯 Compose；其 XML 布局 `full_webview.xml` 承载   WebView 与加载动画。
 2. **Compose Compiler 插件不能删**：`build.gradle` 应用了 `alias(libs.plugins.kotlin.compose)`，否则 `remember` 等会出现
    inline 错误。
-3. **Compose BOM 与 Kotlin 必须联动验证**：BOM 钉死已取消（v2.2.22 起 2026.08.00/Compose 1.12 stable 与 Kotlin 2.4.10 配套验证通过）——历史教训：单独升 BOM 曾引入与当时 Kotlin 不兼容的 Compose 版本与 API 移除（1.11 移除 positionInWindow 系），升 BOM 必须同批验证 Kotlin 配套+全量编译。
+3. **Compose BOM 与 Kotlin 必须联动验证**：BOM 钉死已取消（v2.2.22 起 2026.08.00/Compose 1.12 与 Kotlin 2.4.10 配套、2026-10 维护批次 2026.09.00/Compose 1.12.1 与 Kotlin 2.4.21 配套均验证通过）——历史教训：单独升 BOM 曾引入与当时 Kotlin 不兼容的 Compose 版本与 API 移除（1.11 移除 positionInWindow 系），升 BOM 必须同批验证 Kotlin 配套+全量编译。
 4. **Kotlin 源码目录**：`src/main/kotlin` 与 `src/main/java` 都会被编译；新增 Kotlin 文件优先放入 `src/main/kotlin`。
 5. **R8 已启用**：`app/proguard-rules.pro` 必须保留 `com.cylonid.nativealpha.model.**`（Gson 反射依赖字段名）。
 6. **DataManager 的 WebApp ID 即数组下标**：删除站点调用 `markInactive` / `isActiveEntry = false`，切勿从列表 `remove`。
@@ -320,4 +320,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-09-08（基于仓库当前实际内容整理，版本 2.3.14）。*
+*最后更新：2026-10-25（定期维护批次，版本 2.3.15）。*
