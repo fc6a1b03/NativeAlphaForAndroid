@@ -38,10 +38,10 @@
 
 | 组件               | 版本                                                                     |
 |--------------------|--------------------------------------------------------------------------|
-| Kotlin             | 2.4.10（built-in Kotlin）                                                |
-| Compose            | Material 3 + BOM 2026.08.00（Compose 1.12）                              |
-| AGP                | 9.4.0                                                                    |
-| Gradle             | 9.7.1                                                                    |
+| Kotlin             | 2.4.21（built-in Kotlin）                                                |
+| Compose            | Material 3 + BOM 2026.09.00（Compose 1.12.1）                            |
+| AGP                | 9.4.1                                                                    |
+| Gradle             | 9.8.2                                                                    |
 | minSdk / targetSdk | 31 / 37                                                                  |
 | 持久化             | DataStore（错误日志/统计）+ Gson + SharedPreferences（WebApp 列表/设置） |
 
