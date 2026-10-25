@@ -6,7 +6,7 @@
 # 构建工具
 agp = "9.4.1"
 kotlin = "2.4.21"
-gradle = "9.7.1"
+gradle = "9.8.2"
 
 # SDK
 compileSdk = "37"

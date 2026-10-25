@@ -25,7 +25,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 ## 技术栈
 
 - **语言**：Kotlin 2.4.21（AGP 9 内置 built-in Kotlin），Java 17 字节码
-- **构建工具**：Gradle 9.7.1 + Android Gradle Plugin 9.4.1
+- **构建工具**：Gradle 9.8.2 + Android Gradle Plugin 9.4.1
 - **UI 框架**：Jetpack Compose + Material 3（Compose BOM `2026.09.00`，Compose 1.12.1 stable）
     - 所有配置/列表/向导/统计/关于页面均为 Compose
     - `WebViewActivity` 虽为 Kotlin，但仍使用传统 View/XML 布局（`res/layout/full_webview.xml`）承载 `WebView` 渲染核心
