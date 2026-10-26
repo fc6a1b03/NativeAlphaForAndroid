@@ -139,6 +139,9 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
                 )
                 Path.LEGACY -> chooserLauncher.launch(params.createIntent())
             }
+            // 选择期间进程前台保活：防 LMK 在用户挑图时杀进程（进程死亡 =
+            // filePathCallback 丢失 = 页面重载后「选了个寂寞」，2026-10-26 实锤）
+            ChooserKeepAlive.start(activity)
             true
         } catch (e: Exception) {
             ErrorReporter.report(activity, TAG, "file chooser launch failed", e)
@@ -147,10 +150,26 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
         }
     }
 
-    /** 回执并清理挂起回调（现场已由 returned/picker_returned 探针记录） */
+    /** 回执并清理挂起回调（现场已由 returned/picker_returned 探针记录）。
+     *  pending 为 null 且带值回执：进程在选图期间被杀重建后系统重发
+     *  ActivityResult，chromium 原始 callback 已随旧进程死亡——此场景页面
+     *  已重载、文件必然传不上，Snackbar 明示 + ERROR 探针取证（不再静默）。 */
     private fun settle(value: Array<Uri>?) {
         val callback = pending
         pending = null
+        ChooserKeepAlive.stop(activity)
+        if (callback == null && value != null) {
+            ErrorReporter.probe(
+                activity, TAG, "orphan_result",
+                fields = mapOf("count" to value.size, "first" to value.firstOrNull()),
+                level = AppErrorEntry.LEVEL_ERROR
+            )
+            NotificationUtils.showInfoSnackbar(
+                activity,
+                activity.getString(R.string.filechooser_result_lost),
+                Snackbar.LENGTH_LONG
+            )
+        }
         callback?.onReceiveValue(value)
     }
 

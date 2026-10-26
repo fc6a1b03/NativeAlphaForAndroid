@@ -13,6 +13,10 @@
     <!-- Android 8+ 安装 APK 更新需要该权限 -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- 文件选择期间前台保活（防 LMK 在选图时杀进程致 filePathCallback 丢失） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE" />
+
     <!-- WebView 相机/录音授权给站点（可选硬件，不强制要求设备有摄像头） -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
@@ -150,6 +154,12 @@
                 <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
             </intent-filter>
         </receiver>
+
+        <!-- 文件选择期间前台保活：选择结束即停，非常驻 -->
+        <service
+            android:name="com.cylonid.nativealpha.util.ChooserKeepAlive"
+            android:exported="false"
+            android:foregroundServiceType="shortService" />
     </application>
 
 </manifest>
