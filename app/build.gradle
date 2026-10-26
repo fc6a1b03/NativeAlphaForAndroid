@@ -123,6 +123,7 @@ dependencies {
     // Vico Compose 图表（统计页）
     // Markdown 渲染（更新内容 GitHub release notes 支持 md）
     implementation libs.markwon
+    implementation libs.lottie
 
     // 测试
     testImplementation libs.junit

@@ -39,6 +39,8 @@ palette = "1.1.0"
 gson = "2.15.0"
 jsoup = "1.23.2"
 markwon = "4.6.2"
+# 加载动画（Lottie 矢量动画播放，View 版；素材 res/raw/lottie_dog_walk.json，LottieFiles Free License）
+lottie = "6.7.1"
 
 # 测试
 coroutinesTest = "1.11.0"
@@ -85,6 +87,7 @@ androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", versi
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 markwon = { group = "io.noties.markwon", name = "core", version.ref = "markwon" }
+lottie = { group = "com.airbnb.android", name = "lottie", version.ref = "lottie" }
 
 # 测试
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }

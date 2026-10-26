@@ -10,10 +10,10 @@ import android.view.View
 import android.view.WindowManager
 import android.webkit.HttpAuthHandler
 import android.webkit.WebView
-import android.widget.ImageView
 import android.widget.ProgressBar
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.airbnb.lottie.LottieAnimationView
 import com.cylonid.nativealpha.helper.WebViewDarkModeController
 import com.cylonid.nativealpha.helper.WebViewGestureHelper
 import com.cylonid.nativealpha.helper.WebViewLifecycleDelegate
@@ -87,7 +87,7 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
     var webappTabIndex = 0
     internal var wv: WebView? = null
     internal var progressBar: ProgressBar? = null
-    internal var loadingAnimal: ImageView? = null
+    internal var loadingAnimal: LottieAnimationView? = null
     internal var loadingBg: View? = null
 
     /** 加载页动物动画最长显示时间（ms）：站点自带 loader/慢加载站点不长期盖住 */

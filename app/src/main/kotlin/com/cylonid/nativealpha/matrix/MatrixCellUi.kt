@@ -11,7 +11,7 @@ internal enum class MatrixCellUiState {
     /** 空占位：点击打开选择器 */
     PLACEHOLDER,
 
-    /** 加载中：纯 Compose 轻指示器（不用 animal_walk，×4 即加载风暴） */
+    /** 加载中：纯 Compose 轻指示器（宿主加载动画过重，×4 即加载风暴） */
     LOADING,
 
     /** 活跃：工具条 + WebView 满格 */

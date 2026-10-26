@@ -1,7 +1,6 @@
 
 package com.cylonid.nativealpha.helper
 
-import android.graphics.drawable.AnimationDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.LayoutInflater
@@ -155,7 +154,11 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
 
     // ===== 加载页动物动画 =====
 
-    /** 启动加载页动物走路动画（ImageView + AnimationDrawable）+ 主题背景 */
+    /**
+     * 启动加载页动物走路动画（LottieAnimationView）+ 主题背景。
+     * 素材 lottie_dog_walk.json：LottieFiles「Dog walking」（Syed Asim Ali
+     * Shah，LottieFiles Free License，已去地面横线 layer）。
+     */
     fun startLoadingAnimal() {
         try {
             val loadingAnimal = activity.loadingAnimal ?: return
@@ -167,16 +170,16 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
             if (loadingAnimal.visibility != View.VISIBLE) {
                 loadingAnimal.visibility = View.VISIBLE
             }
-            val anim = loadingAnimal.drawable as? AnimationDrawable
-            if (anim != null && !anim.isRunning) {
-                anim.start()
+            // 已在播不重启（onPageStarted 可能连续触发），避免从头闪帧
+            if (!loadingAnimal.isAnimating) {
+                loadingAnimal.playAnimation()
             }
         } catch (ignored: Exception) {
             // 动画启动失败不影响主功能
         }
     }
 
-    /** 停止并隐藏加载页动物动画 + 主题背景 */
+    /** 停止并隐藏加载页动物动画 + 主题背景（cancel 复位进度，下次从头播） */
     fun stopLoadingAnimal() {
         try {
             val loadingBg = activity.loadingBg
@@ -184,10 +187,7 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
                 loadingBg.visibility = View.GONE
             }
             val loadingAnimal = activity.loadingAnimal ?: return
-            val anim = loadingAnimal.drawable as? AnimationDrawable
-            if (anim != null && anim.isRunning) {
-                anim.stop()
-            }
+            loadingAnimal.cancelAnimation()
             loadingAnimal.visibility = View.GONE
         } catch (ignored: Exception) {
         }

@@ -47,13 +47,17 @@
             android:background="?android:attr/colorBackground"
             android:visibility="gone"
             tools:ignore="UnusedAttribute" />
-        <!-- 加载页动画：可爱的动物走路动画（页面加载时显示，加载完成隐藏） -->
-        <ImageView
+        <!-- 加载页动画：Lottie 狗走路循环（页面加载时显示，加载完成隐藏）。
+             素材 lottie_dog_walk.json 来自 LottieFiles「Dog walking」
+             （Syed Asim Ali Shah，LottieFiles Free License，已去地面横线） -->
+        <com.airbnb.lottie.LottieAnimationView
             android:id="@+id/loadingAnimal"
-            android:layout_width="96dp"
-            android:layout_height="96dp"
+            android:layout_width="220dp"
+            android:layout_height="220dp"
             android:layout_gravity="center"
-            android:src="@drawable/animal_walk_anim"
+            app:lottie_rawRes="@raw/lottie_dog_walk"
+            app:lottie_autoPlay="false"
+            app:lottie_loop="true"
             android:visibility="gone"
             android:contentDescription="@string/loading"
             android:importantForAccessibility="no"
