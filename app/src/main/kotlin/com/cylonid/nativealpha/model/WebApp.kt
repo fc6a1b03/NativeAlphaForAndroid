@@ -43,8 +43,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         get() = if (field in 50..200) field else 100
     var userAgent: String? = null
     var isUseCustomUserAgent = false
-    var isAutoreload = false
-    var timeAutoreload = 0
     var isForceDarkMode = false
     var isUseTimespanDarkMode = false
     var timespanDarkModeBegin: String? = "22:00"
@@ -127,8 +125,6 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         pageZoom = other.pageZoom
         userAgent = other.userAgent
         isUseCustomUserAgent = other.isUseCustomUserAgent
-        isAutoreload = other.isAutoreload
-        timeAutoreload = other.timeAutoreload
         isForceDarkMode = other.isForceDarkMode
         isUseTimespanDarkMode = other.isUseTimespanDarkMode
         timespanDarkModeBegin = other.timespanDarkModeBegin

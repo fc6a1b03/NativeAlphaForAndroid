@@ -82,7 +82,6 @@ class CoreLogicTest {
             isAllowCookies = false
             isRequestDesktop = true
             userAgent = "Custom UA"
-            timeAutoreload = 30
             isForceDarkMode = true
             timespanDarkModeBegin = "21:00"
             timespanDarkModeEnd = "07:00"
@@ -96,7 +95,6 @@ class CoreLogicTest {
         assertEquals(original.isAllowCookies, copy.isAllowCookies)
         assertEquals(original.isRequestDesktop, copy.isRequestDesktop)
         assertEquals(original.userAgent, copy.userAgent)
-        assertEquals(original.timeAutoreload, copy.timeAutoreload)
         assertEquals(original.isForceDarkMode, copy.isForceDarkMode)
         assertEquals(original.timespanDarkModeBegin, copy.timespanDarkModeBegin)
         assertEquals(original.timespanDarkModeEnd, copy.timespanDarkModeEnd)

@@ -209,9 +209,9 @@ app/src/main/kotlin/com/cylonid/nativealpha/
     ├── WebViewShortcutInjectHelper.kt  # 组合键注入（JS 合成 + KeyEvent 双路；comboString 大写归一可单测）
     ├── WebViewMenuHelper.kt          # 菜单浮层（缩放/会话标签/快捷键面板/缓存统计）
     ├── WebViewPermissionHelper.kt    # 运行时权限分流
-    ├── WebViewLifecycleDelegate.kt   # 装配与生命周期委托（intent→Cookie 恢复→装配链/生命周期体/返回键/后台分级回收/自动刷新）
+    ├── WebViewLifecycleDelegate.kt   # 装配与生命周期委托（intent→Cookie 恢复→装配链/生命周期体/返回键/后台分级回收）
     ├── WebViewDarkModeController.kt  # 深色模式与系统栏（按站强制深色 API33 前后两路/insets 避让）
-    └── WebViewPageChrome.kt          # 页面加载 UI（动物动画/白屏检测/错误页/HTTP auth/loadURL/下载监听/断线监视）
+    └── WebViewPageChrome.kt          # 页面加载 UI（动物动画/白屏检测/错误页/HTTP auth/loadURL/下载监听）
 ```
 
 资源目录 `app/src/main/res/` 仅保留必要的 XML 资源：启动主题、WebView 布局、图标、字符串双语、错误页 HTML/CSS、Baseline
@@ -249,7 +249,7 @@ Profile 等。
 
 ## 安全与隐私
 
-- **权限最小化**：仅声明 `INTERNET`、`ACCESS_NETWORK_STATE`（矩阵/宿主断线自动恢复的网络探测）、`POST_NOTIFICATIONS`（网页事件通知，保存首条 notify 规则时场景化申请）、位置、相机、录音、修改音频设置；均为按需向用户申请
+- **权限最小化**：仅声明 `INTERNET`、`ACCESS_NETWORK_STATE`（矩阵失败格自动恢复的网络探测）、`POST_NOTIFICATIONS`（网页事件通知，保存首条 notify 规则时场景化申请）、位置、相机、录音、修改音频设置；均为按需向用户申请
 - **WebView 默认加固**（全局 + 每站两级，默认开启）：
     - 禁用文件访问（`setAllowFileAccess(false)`）
     - 禁用内容提供器访问（`setAllowContentAccess(false)`）

@@ -21,7 +21,6 @@ import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.util.FeatureMetrics
-import com.cylonid.nativealpha.util.LoadFailureClassifier
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.google.android.material.snackbar.Snackbar
 
@@ -120,17 +119,16 @@ internal abstract class SiteWebViewClient(
             // 记录重试目标 + 加载自定义错误页（不显示系统默认白屏）
             site.retryUrl = request.url?.toString() ?: site.urlOnFirstPageload
             site.showCustomErrorPage(code, desc)
-            // 断线自动恢复：分类驱动（借鉴 happier「终态/瞬态」三分法）——
-            // 仅瞬态失败（断网/DNS/超时）启动探测监视，站点可达后自动重载；
-            // 证书/URL 类终态重载必再败（探测成功只会白耗退避周期），不监视
-            val kind = LoadFailureClassifier.classify(code, desc)
-            if (LoadFailureClassifier.isRetryable(kind)) {
-                site.startReconnectWatch()
-            }
             // 站点健康登记（presence 语义）：主帧失败 → 失联
             com.cylonid.nativealpha.util.SiteHealthRegistry.markFailure(site.webappId)
+            // 后续动作站点自决（模板方法）：宿主无自动恢复（用户定调：自动
+            // 整页刷新会毁掉会话状态），矩阵格覆写以启动断线监视
+            onMainFrameLoadFailed(code, desc)
         }
     }
+
+    /** 主帧加载失败后的站点分歧动作（默认无；矩阵格覆写启动断线监视） */
+    protected open fun onMainFrameLoadFailed(code: String, desc: String) {}
 
     override fun onReceivedHttpError(
         view: WebView,

@@ -169,10 +169,6 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
         StatsRecorder.recordPageError(webappID, errorType, code, desc)
     }
 
-    override fun startReconnectWatch() = pageChrome.startReconnectWatch()
-
-    override fun stopReconnectWatch() = pageChrome.stopReconnectWatch()
-
     // ===== 页面加载 UI 桥（WebViewChromeClient/WebViewTouchHandler 直接调用） =====
 
     internal fun scheduleBlankScreenCheck() = pageChrome.scheduleBlankScreenCheck()

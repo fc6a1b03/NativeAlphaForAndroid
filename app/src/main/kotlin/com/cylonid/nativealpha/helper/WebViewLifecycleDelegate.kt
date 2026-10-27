@@ -4,8 +4,6 @@ package com.cylonid.nativealpha.helper
 import android.content.ComponentCallbacks2
 import android.content.Intent
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -64,7 +62,6 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
     private var currentIntentToken = 0
 
     private var quitOnNextBackpress = false
-    private var reloadHandler: Handler? = null
 
     /** 后台回收标记：true=WebView 实例已被分级回收，onStart 需重建 */
     private var recycled = false
@@ -280,11 +277,6 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         }
         activity.darkMode.setDarkModeIfNeeded()
 
-        val webapp = activity.webapp
-        if (webapp != null && webapp.isAutoreload) {
-            reloadHandler = Handler(Looper.getMainLooper())
-            reload()
-        }
     }
 
     fun onHostPause() {
@@ -307,10 +299,6 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
             activity.wv!!.clearCache(true)
         }
 
-        if (reloadHandler != null) {
-            reloadHandler!!.removeCallbacksAndMessages(null)
-            Log.d("CLEANUP", "Stopped reload handler")
-        }
     }
 
     /**
@@ -339,14 +327,12 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         CookieSessionManager.saveSnapshot(activity, activity.webappID, activity.webappTabIndex)
         // 显式销毁 WebView，释放渲染进程与内存（低损耗目标）
         activity.pageChrome.cancelBlankScreenCheck()
-        activity.pageChrome.stopReconnectWatch()
         if (activity.wv != null) {
             (activity.wv!!.parent as? ViewGroup)?.removeView(activity.wv)
             activity.wv!!.removeAllViews()
             activity.wv!!.destroy()
             activity.wv = null
         }
-        reloadHandler?.removeCallbacksAndMessages(null)
     }
 
     // ===== 返回键语义（网页后退 → 重载首页 → 退任务） =====
@@ -373,13 +359,4 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         quitOnNextBackpress = true
     }
 
-    // ===== 自动刷新 =====
-
-    private fun reload() {
-        reloadHandler!!.postDelayed({
-            activity.currentlyReloading = true
-            activity.wv?.reload()
-            reload()
-        }, activity.webapp!!.timeAutoreload * 1000L)
-    }
 }

@@ -110,9 +110,6 @@
     <string name="show_progress_bar_during_page_load">页面加载时显示进度条</string>
     <string name="use_custom_user_agent">使用自定义 User Agent</string>
     <string name="insert_custom_user_agent">在此输入自定义 User Agent…</string>
-    <string name="webapp_autoreload">自动刷新页面</string>
-    <string name="webapp_interval_for_reload">刷新间隔（秒）</string>
-    <string name="webapp_autoreload_switch">定期刷新页面</string>
 
     <string name="label">名称</string>
     <string name="force_dark_mode">强制深色模式</string>
@@ -188,7 +185,6 @@
     <string name="desc_timespan_dark">仅在设定的时间段内应用强制深色模式。</string>
     <string name="desc_save_data">请求网站发送精简数据（移动版内容）。</string>
     <string name="desc_block_images">屏蔽所有图片，节省流量并加快加载。</string>
-    <string name="desc_autoreload">按固定间隔自动刷新页面。</string>
     <string name="desc_fullscreen">隐藏系统栏，获得沉浸式体验。</string>
     <string name="desc_keep_awake">打开时防止屏幕自动熄灭。</string>
     <string name="desc_request_desktop">请求网站返回桌面版页面。</string>
@@ -446,7 +442,7 @@
     <!-- ===== 加载失败分类（借鉴 happier：终态 vs 瞬态） ===== -->
     <string name="load_failure_hint_security">站点证书存在问题。若你信任该站点，可在其设置里开启「忽略 SSL 错误」。</string>
     <string name="load_failure_hint_bad_address">地址似乎无效。请在本应用设置中核对该站点网址。</string>
-    <string name="load_failure_hint_retryable">网络似乎不可用。我们会持续探测，恢复后自动重新加载。</string>
+    <string name="load_failure_hint_retryable">网络似乎不可用。恢复后请点「重试一次」。</string>
     <string name="webevent_hook_stale">最近一次加载未检测到注入钩子，站点可能已改版，规则可能失效。请重新打开该站点后再次查看。</string>
     <string name="site_health_recent_failure">本次会话内最近一次加载失败</string>
     <!-- ===== 站点分享（二维码+深链，借鉴 happier 配对纪律） ===== -->

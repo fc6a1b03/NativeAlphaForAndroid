@@ -110,9 +110,6 @@
     <string name="show_progress_bar_during_page_load">Show progress bar during page load</string>
     <string name="use_custom_user_agent">Use custom user agent</string>
     <string name="insert_custom_user_agent">Insert custom user agent here…</string>
-    <string name="webapp_autoreload">Auto-reload page</string>
-    <string name="webapp_interval_for_reload">Interval in seconds</string>
-    <string name="webapp_autoreload_switch">Refresh page regularly</string>
 
     <string name="label">Name</string>
     <string name="force_dark_mode">Force Dark Mode</string>
@@ -188,7 +185,6 @@
     <string name="desc_timespan_dark">Only apply forced dark mode during the set time span.</string>
     <string name="desc_save_data">Ask the website to send reduced data (mobile-friendly version).</string>
     <string name="desc_block_images">Block all images to save data and speed up loading.</string>
-    <string name="desc_autoreload">Automatically reload the page at a fixed interval.</string>
     <string name="desc_fullscreen">Hide system bars for an immersive experience.</string>
     <string name="desc_keep_awake">Prevent the screen from turning off while open.</string>
     <string name="desc_request_desktop">Request the desktop version of the website.</string>
@@ -453,7 +449,7 @@
     <!-- ===== Load failure classification (borrowed from happier: terminal vs transient) ===== -->
     <string name="load_failure_hint_security">Certificate error at the site side. If you trust the site, enable \'"Ignore SSL errors"\' in its settings.</string>
     <string name="load_failure_hint_bad_address">The address looks invalid. Check the site URL in this app\'s settings.</string>
-    <string name="load_failure_hint_retryable">Network seems unreachable. We\'ll keep watching and reload automatically once it\'s back.</string>
+    <string name="load_failure_hint_retryable">Network seems unreachable. Tap retry once it\'s back.</string>
     <string name="webevent_hook_stale">Hook not detected on latest load. The site may have changed; rules might not fire. Reopen the site and re-check.</string>
     <string name="site_health_recent_failure">Failed to load recently in this session</string>
     <!-- ===== Site share (QR + deep link, borrowed from happier pairing discipline) ===== -->

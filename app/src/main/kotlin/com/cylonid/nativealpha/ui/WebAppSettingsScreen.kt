@@ -173,7 +173,6 @@ fun WebAppSettingsScreen(
             // 数据节省
             DataSavingSection(modified = modified, updateSettings = ::updateSettings)
             // 自动刷新
-            AutoReloadSection(modified = modified, updateSettings = ::updateSettings)
             // 信息亭
             KioskSection(modified = modified, updateSettings = ::updateSettings)
             // 其他

@@ -6,6 +6,7 @@ import com.cylonid.nativealpha.WebViewSiteContext
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.util.FeatureMetrics
+import com.cylonid.nativealpha.util.LoadFailureClassifier
 import com.cylonid.nativealpha.util.UrlUtils
 import android.app.AlertDialog
 import android.content.Context
@@ -85,13 +86,6 @@ internal class MatrixCellContext(
         FeatureMetrics.count(FeatureMetrics.MODULE_MATRIX, "PageError:$errorType")
     }
 
-    override fun startReconnectWatch() {
-        engine.startCellReconnect(cellIndex)
-    }
-
-    override fun stopReconnectWatch() {
-        engine.stopCellReconnect(cellIndex)
-    }
 }
 
 /**
@@ -99,8 +93,16 @@ internal class MatrixCellContext(
  * 崩溃处置覆写为格错误态 + 批量恢复调度，宿主永不 finish（D3/A）。
  */
 internal class MatrixCellClient(
-    cellContext: MatrixCellContext
+    private val cellContext: MatrixCellContext
 ) : SiteWebViewClient(cellContext) {
+
+    override fun onMainFrameLoadFailed(code: String, desc: String) {
+        // 分类驱动（借鉴 happier「终态/瞬态」三分法）：仅瞬态失败启动格
+        // 断线监视——格内无用户输入状态，自动恢复收益明确；宿主已移除
+        if (LoadFailureClassifier.isRetryable(LoadFailureClassifier.classify(code, desc))) {
+            cellContext.engine.startCellReconnect(cellContext.cellIndex)
+        }
+    }
 
     override fun onRenderCrashCleanup(view: WebView): Boolean {
         val context = site as MatrixCellContext

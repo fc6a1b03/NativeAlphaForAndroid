@@ -17,7 +17,6 @@ import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.LoadFailureClassifier
 import com.cylonid.nativealpha.util.LocaleUtils
 import com.cylonid.nativealpha.util.NotificationUtils
-import com.cylonid.nativealpha.util.SiteReconnectSupervisor
 import com.cylonid.nativealpha.util.WebViewDownloads
 import com.cylonid.nativealpha.webevent.EventRuleStore
 import com.cylonid.nativealpha.webevent.JsHookScript
@@ -31,7 +30,7 @@ import java.util.Collections
  *
  * 职责：加载动物动画、白屏检测、自定义错误页、HTTP 认证对话框、
  * 安全导航（前进/后退/刷新兜底）、站内加载（HTTP 明文确认 + 自定义请求头）、
- * 下载监听装配、断线自动恢复监视。
+ * 下载监听装配。
  *
  * 设计约束：持有 Activity 实例引用（构造注入，非静态——防泄漏）；
  * 方法体与原实现逐行对应，行为差异零容忍。
@@ -45,11 +44,6 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
     private var pageLoadFinished = false
 
     private val blankScreenHandler = Handler(Looper.getMainLooper())
-
-    /** 断线自动恢复监视器（加载失败后探测站点可达性，恢复即自动重载） */
-    private val reconnectSupervisor by lazy {
-        SiteReconnectSupervisor(activity.applicationContext, activity.lifecycleScope)
-    }
 
     /** 自定义请求头（initCustomHeaders 构建，loadURL 消费） */
     private var customHeaders: Map<String, String>? = null
@@ -80,9 +74,6 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
         cancelBlankScreenCheck()
         // 页面加载完成：隐藏加载页动物动画
         stopLoadingAnimal()
-        // 成功加载即停止断线探测（恢复闭环完成）；失败页的 finished
-        // 不算成功（lastMainFrameFailed），监视继续等探测通过
-        if (!lastMainFrameFailed) stopReconnectWatch()
         // hook 存活探针：规则失效显式提示的数据源——注入过的幂等标记在
         // SPA 换文档/站点改版后是否仍在（站点改版致 hook 挂载失败时，
         // 规则入口卡显示「可能失效」而非静默无效）
@@ -97,24 +88,6 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
                 )
             }
         }
-    }
-
-    // ===== 断线自动恢复 =====
-
-    fun startReconnectWatch() {
-        val baseUrl = DataManager.getInstance().getWebApp(activity.webappID)?.baseUrl ?: return
-        reconnectSupervisor.start(baseUrl) { _ ->
-            activity.runOnUiThread {
-                val target = activity.retryUrl.ifBlank { baseUrl }
-                val wv = activity.wv ?: return@runOnUiThread
-                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
-                loadURL(wv, target)
-            }
-        }
-    }
-
-    fun stopReconnectWatch() {
-        reconnectSupervisor.stop()
     }
 
     // ===== 安全导航（内核态异常兜底） =====
