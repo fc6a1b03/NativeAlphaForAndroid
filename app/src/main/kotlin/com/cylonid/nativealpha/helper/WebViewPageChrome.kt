@@ -229,7 +229,7 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
             val safeCode = code ?: ""
             val safeDesc = desc ?: ""
             // 本地化原因行（分类驱动）：证书/地址类终态给出可行动提示，
-            // 瞬态失败给「会自动恢复」预期
+            // 瞬态失败引导手动重试（自动恢复已移除，用户定调）
             val reasonRes = when (LoadFailureClassifier.classify(safeCode, safeDesc)) {
                 LoadFailureClassifier.Kind.SECURITY -> R.string.load_failure_hint_security
                 LoadFailureClassifier.Kind.BAD_ADDRESS -> R.string.load_failure_hint_bad_address
