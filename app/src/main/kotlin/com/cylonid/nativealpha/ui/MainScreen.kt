@@ -5,7 +5,15 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,6 +56,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -71,6 +81,7 @@ import androidx.compose.ui.unit.dp
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.util.SiteHealthRegistry
+import com.cylonid.nativealpha.util.StatAccent
 import com.cylonid.nativealpha.util.ScanResultRouter
 import com.cylonid.nativealpha.util.WebAppIconManager
 import com.cylonid.nativealpha.util.WebViewLauncher
@@ -226,10 +237,22 @@ fun MainScreen(
             )
         },
         floatingActionButton = {
-            // 品牌渐变 FAB（靛蓝→紫，Material 3 渐变小面积点缀）
+            // 品牌渐变 FAB（靛蓝→紫）+ Expressive 弹簧出现（一次性；关动画直落终值）
+            val animEnabled = animationsEnabled()
+            val fabScale = remember { Animatable(if (animEnabled) 0f else 1f) }
+            LaunchedEffect(animEnabled) {
+                if (animEnabled) {
+                    fabScale.animateTo(1f, EXPRESSIVE_PRESS_SPRING)
+                }
+            }
             FloatingActionButton(
                 onClick = onAddClick,
-                modifier = Modifier.testTag("fab_add"),
+                modifier = Modifier
+                    .testTag("fab_add")
+                    .graphicsLayer {
+                        scaleX = fabScale.value
+                        scaleY = fabScale.value
+                    },
                 containerColor = Color.Transparent,
                 shape = RoundedCornerShape(18.dp)
             ) {
@@ -340,6 +363,23 @@ fun MainScreen(
 }
 }
 
+/**
+ * 站点主色（缓存快速路径 + IO 异步提取）：缓存未命中时先透明（不画底），
+ * 提取到位后由调用方淡入——滑动组合期零 Palette 开销。
+ */
+@Composable
+private fun rememberSiteAccent(webApp: WebApp): Color {
+    val context = LocalContext.current
+    return produceState(
+        initialValue = StatAccent.accentCached(webApp) ?: Color.Transparent,
+        webApp.ID, webApp.iconPath, webApp.title
+    ) {
+        if (value == Color.Transparent) {
+            value = withContext(Dispatchers.IO) { StatAccent.accent(context, webApp) }
+        }
+    }.value
+}
+
 @Composable
 private fun WebAppCard(
     webApp: WebApp,
@@ -351,12 +391,36 @@ private fun WebAppCard(
     onShare: () -> Unit,
 ) {
     val context = LocalContext.current
+    // Expressive 交互反馈：形状变化即按压反馈（缩放+圆角 spring，去 ripple）；
+    // 动效参数引用 StatsAnim 统一口径，此处零动效参数
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.97f else 1f,
+        animationSpec = EXPRESSIVE_PRESS_SPRING,
+        label = "cardPressScale"
+    )
+    val cornerRadius by animateDpAsState(
+        targetValue = if (pressed) 26.dp else 20.dp,
+        animationSpec = EXPRESSIVE_SETTLE_SPRING_DP,
+        label = "cardCorner"
+    )
+    // 站点主色（个性化自适应唯一形态）：favicon 主色柔光底，缓存命中即同步
+    val accent = rememberSiteAccent(webApp)
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("webapp_card")
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(cornerRadius),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
@@ -386,13 +450,29 @@ private fun WebAppCard(
             val finalIcon = iconBitmap ?: remember(webApp.title, webApp.baseUrl) {
                 WebAppIconManager.resolveIconCached(context, webApp)
             }
-            Image(
-                bitmap = finalIcon.asImageBitmap(),
-                contentDescription = null,
+            // 主色柔光底：透明→站点色淡入（异步提取到位后出现），灰白图标
+            // 走 StatAccent 品牌色回退契约
+            Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
-            )
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(
+                        if (accent == Color.Transparent) {
+                            Color.Transparent
+                        } else {
+                            accent.copy(alpha = 0.14f)
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    bitmap = finalIcon.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                )
+            }
 
             Spacer(modifier = Modifier.width(16.dp))
 

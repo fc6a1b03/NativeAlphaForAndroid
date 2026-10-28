@@ -45,6 +45,13 @@ internal object StatAccent {
         return ComposeColor(argb)
     }
 
+    /**
+     * 已缓存的主色（仅查缓存，绝不触发提取——主列表滑动组合期快速路径；
+     * 未命中返回 null，由调用方走 IO 异步 [accent]）。
+     */
+    fun accentCached(webApp: WebApp): ComposeColor? =
+        cache.get(webApp.ID)?.let { ComposeColor(it) }
+
     /** 有效性：HSV 饱和度 ≥ 门槛才算「有颜色」（灰白图标不算） */
     private fun isColorful(argb: Int): Boolean {
         val hsv = FloatArray(3)

@@ -143,7 +143,7 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── StatsHeatmapCard.kt      # 陪伴热力图（12 周×7 天格网，4 档色阶）
 │   ├── StatsAutomationCard.kt   # 自动化卡（通知累计大数字+规则明细）
 │   ├── StatsHabitsCard.kt       # 习惯卡（快捷键频次/分享/矩阵）
-│   ├── StatsAnim.kt             # 统计动效封装（CountUp/stagger，respect reduced-motion）
+│   ├── StatsAnim.kt             # 动效口径中枢（Expressive 弹簧规格/CountUp/stagger，respect reduced-motion）
 │   ├── StatsReviewScreen.kt     # 月度回顾页（Wrapped 式单页叙事）
 │   ├── StatsReviewData.kt       # 回顾数据聚合（纯函数；活跃<7 天不生成）
 │   ├── WebAppStatsErrors.kt     # 统计页错误日志区块（分组/详情/清空，状态自管）
