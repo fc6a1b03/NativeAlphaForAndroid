@@ -198,6 +198,8 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
         if (pageLoadFinished || activity.wv == null) return
         val idle = System.currentTimeMillis() - activity.lastProgressTime
         if (idle >= Const.BLANK_SCREEN_TIMEOUT_MS && activity.lastProgress < 100) {
+            ErrorReporter.probe(activity, TAG, "blank_screen_triggered",
+                fields = mapOf("idleMs" to idle, "progress" to activity.lastProgress))
             // 加载卡死：加载本地错误页（带重试），避免白屏挂起
             activity.runOnUiThread {
                 NotificationUtils.showInfoSnackbar(

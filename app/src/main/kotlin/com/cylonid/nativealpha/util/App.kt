@@ -18,6 +18,15 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // 启动环境探针：版本定谳之根（排查「装没装新版」不再靠问）
+        ErrorReporter.probe(
+            this, "App", "app_start",
+            fields = mapOf(
+                "v" to BuildConfig.VERSION_NAME,
+                "android" to android.os.Build.VERSION.RELEASE,
+                "model" to android.os.Build.MODEL
+            )
+        )
         context = applicationContext
 
         // 网页事件运行时（P5）：规则库载入 + 通知 Channel 幂等创建 + 动作分发装配

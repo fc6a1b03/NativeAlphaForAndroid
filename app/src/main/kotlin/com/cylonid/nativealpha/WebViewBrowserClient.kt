@@ -19,6 +19,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.AppErrorEntry
+import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.NotificationUtils
@@ -66,6 +67,15 @@ internal abstract class SiteWebViewClient(
         // （file:///android_asset）与 about:blank 不算站点可达证据
         if (url.startsWith("http")) {
             com.cylonid.nativealpha.util.SiteHealthRegistry.markSuccess(site.webappId)
+            // 主帧耗时探针（>10s 标 slow）：页面越来越重的客观证据链
+            val durationMs = site.pageLoadStartTime.takeIf { it > 0 }
+                ?.let { System.currentTimeMillis() - it }
+            if (durationMs != null) {
+                ErrorReporter.probe(
+                    site.siteContext, "PageLoad", "page_loaded",
+                    fields = mapOf("ms" to durationMs, "slow" to (durationMs > 10_000))
+                )
+            }
         }
         if (url == "about:blank") {
             site.showCustomErrorPage("blank", "")
@@ -99,6 +109,8 @@ internal abstract class SiteWebViewClient(
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
         // 新页面加载：宿主重置加载 UI 状态（白屏检测/进度计时/动画起点）
         site.onPageLoadStarted()
+        // 导航时间线（刷新定谳：与 error_page/blank_screen 对齐判读）
+        ErrorReporter.probe(site.siteContext, "PageLoad", "page_nav", fields = mapOf("url" to url))
         // 统计埋点：记录加载开始时间
         site.pageLoadStartTime = System.currentTimeMillis()
         super.onPageStarted(view, url, favicon)
@@ -152,6 +164,11 @@ internal abstract class SiteWebViewClient(
     ): Boolean {
         // 渲染进程崩溃/OOM：统计埋点后交由子类清理（宿主 finish / 矩阵格错误态）
         site.recordPageError(ErrorType.RENDER.name, ErrorType.RENDER.code, "Render process gone")
+        ErrorReporter.probe(
+            site.siteContext, "PageLoad", "render_gone",
+            fields = mapOf("didCrash" to detail.didCrash()),
+            level = AppErrorEntry.LEVEL_WARNING
+        )
         // 观测门面接线（P6）：渲染进程崩溃属可恢复资源事件（矩阵已可单窗
         // 恢复/宿主提示重建）——WARNING 级留档，非应用致命缺陷
         FeatureMetrics.reportError(
@@ -291,6 +308,8 @@ internal abstract class SiteWebViewClient(
 
         // 错误页重试：重新加载失败时的原地址（恢复用户 textZoom）
         if (url.startsWith("webnative://retry")) {
+            ErrorReporter.probe(site.siteContext, "PageLoad", "retry_clicked",
+                fields = mapOf("target" to site.retryUrl))
             if (site.retryUrl.isNotEmpty()) {
                 val webapp = site.webapp
                 if (webapp != null) view.settings.textZoom = webapp.textZoom

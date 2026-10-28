@@ -361,6 +361,8 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
             return
         }
 
+        ErrorReporter.probe(activity, TAG, "back_home_reload",
+            fields = mapOf("site" to webapp.title))
         activity.pageChrome.loadURL(activity.wv!!, webapp.baseUrl)
         quitOnNextBackpress = true
     }
