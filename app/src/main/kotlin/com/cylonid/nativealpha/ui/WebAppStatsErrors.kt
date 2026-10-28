@@ -1,5 +1,7 @@
 package com.cylonid.nativealpha.ui
 
+import android.widget.Toast
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -11,15 +13,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,10 +38,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.model.PageErrorEntry
@@ -152,31 +165,10 @@ internal fun StatsErrorContent(
         }
     }
 
-    // 错误详情对话框（点击行弹出，查看全部内容）
+    // 错误详情抽屉（点击行弹出）：专业日志查阅形态——等宽正文可选中
+    // 可滚动、结构化元信息、一键复制全文；长堆栈不再受对话框挤压
     selectedError?.let { err ->
-        AlertDialog(
-            onDismissRequest = { selectedError = null },
-            title = { Text("${err.type}(${err.code})") },
-            text = {
-                Column {
-                    Text(
-                        err.description.ifBlank { "—" },
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        DateUtils.formatTimestamp(err.time),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { selectedError = null }) {
-                    Text(stringResource(R.string.confirm))
-                }
-            }
-        )
+        ErrorDetailSheet(entry = err, onDismiss = { selectedError = null })
     }
 
     // 清空错误日志确认对话框
@@ -273,4 +265,79 @@ private fun errorColor(type: String): Color = when (type) {
     ErrorType.RENDER.name -> MaterialTheme.colorScheme.primary
     ErrorType.JS.name -> MaterialTheme.colorScheme.tertiaryContainer
     else -> MaterialTheme.colorScheme.onSurfaceVariant
+}
+
+
+/**
+ * 错误详情抽屉（专业日志查阅形态）：等宽正文可选中、垂直滚动容纳长堆栈、
+ * 结构化元信息（类型徽章/错误码/完整时间）+ 一键复制全文。
+ * 替换原 AlertDialog——纯文本堆叠在长内容下不可读不可分析（用户定调）。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ErrorDetailSheet(entry: PageErrorEntry, onDismiss: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    // 组合期预取（红线：回调内禁 context.getString，配置变更后才不陈旧）
+    val copiedText = stringResource(R.string.copied_toast)
+    val fullText = buildString {
+        appendLine("[${entry.type}] code=${entry.code}")
+        appendLine(DateUtils.formatTimestamp(entry.time))
+        appendLine()
+        append(entry.description.ifBlank { "—" })
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+        ) {
+            // 头部：类型徽章 + 错误码 + 复制全文
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(errorColor(entry.type))
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    "${entry.type}(${entry.code})",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = {
+                    clipboard.setText(AnnotatedString(fullText))
+                    Toast.makeText(context, copiedText, Toast.LENGTH_SHORT).show()
+                }) {
+                    Icon(
+                        Icons.Default.ContentCopy,
+                        contentDescription = stringResource(R.string.copied_toast)
+                    )
+                }
+            }
+            Text(
+                DateUtils.formatTimestamp(entry.time),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 20.dp, top = 2.dp)
+            )
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+            // 正文：等宽 + 可选中（代码日志的最低要求：能选能滚）
+            SelectionContainer {
+                Text(
+                    entry.description.ifBlank { "—" },
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = 18.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
 }

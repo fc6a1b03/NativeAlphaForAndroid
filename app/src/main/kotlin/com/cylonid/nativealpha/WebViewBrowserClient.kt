@@ -96,8 +96,10 @@ internal abstract class SiteWebViewClient(
                 + "busy=false;"
                 + "};"
                 + "clean();"
+                + "if(document.body){"
                 + "var mo=new MutationObserver(function(){clean();});"
                 + "mo.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['title','alt']});"
+                + "}"
                 + "})()",
             null
         )

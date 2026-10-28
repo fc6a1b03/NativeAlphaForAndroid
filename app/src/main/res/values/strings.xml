@@ -145,6 +145,7 @@
     <string name="app_icon_reset">Reset</string>
 <string name="copy_url">Copy URL</string>
     <string name="copy_url_done">URL copied</string>
+    <string name="copied_toast">Copied</string>
     <string name="search_webapps">Search apps</string>
     <string name="clear_search">Clear search</string>
     <string name="no_search_result">No matching apps</string>

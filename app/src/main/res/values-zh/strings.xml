@@ -145,6 +145,7 @@
     <string name="app_icon_reset">重置</string>
 <string name="copy_url">复制 URL</string>
     <string name="copy_url_done">链接已复制</string>
+    <string name="copied_toast">已复制</string>
     <string name="search_webapps">搜索应用</string>
     <string name="clear_search">清空搜索</string>
     <string name="no_search_result">没有匹配的应用</string>
