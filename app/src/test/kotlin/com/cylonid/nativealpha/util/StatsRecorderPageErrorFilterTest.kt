@@ -32,10 +32,35 @@ class StatsRecorderPageErrorFilterTest {
     }
 
     @Test
+    fun httpAndSsl_filteredByDefault() {
+        // 2026-10-28 定调：HTTP/SSL 同属网络层，纳入降噪开关管辖
+        assertFalse(
+            "默认口径：HTTP 类不记录",
+            StatsRecorder.shouldRecordPageError(ErrorType.HTTP.name, networkLoggingEnabled = false)
+        )
+        assertFalse(
+            "默认口径：SSL 类不记录",
+            StatsRecorder.shouldRecordPageError(ErrorType.SSL.name, networkLoggingEnabled = false)
+        )
+    }
+
+    @Test
+    fun httpAndSsl_recordedWhenSwitchOn() {
+        assertTrue(
+            "开关开启：HTTP 类恢复记录",
+            StatsRecorder.shouldRecordPageError(ErrorType.HTTP.name, networkLoggingEnabled = true)
+        )
+        assertTrue(
+            "开关开启：SSL 类恢复记录",
+            StatsRecorder.shouldRecordPageError(ErrorType.SSL.name, networkLoggingEnabled = true)
+        )
+    }
+
+    @Test
     fun nonNetworkTypes_alwaysRecorded() {
         val networkOn = true
         val networkOff = false
-        for (type in ErrorType.entries - ErrorType.NETWORK) {
+        for (type in ErrorType.entries - ErrorType.NETWORK - ErrorType.HTTP - ErrorType.SSL) {
             assertTrue(
                 "$type 与网络开关无关，恒记录（关）",
                 StatsRecorder.shouldRecordPageError(type.name, networkLoggingEnabled = networkOff)

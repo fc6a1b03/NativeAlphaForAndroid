@@ -127,12 +127,22 @@ object StatsRecorder {
     }
 
     /**
+     * 网络类页面错误（降噪开关管辖范围）：断网/DNS（NETWORK）、HTTP 状态
+     * 错误、SSL 证书错误——三者同属网络层，用户视角同为「网络错误」
+     * （2026-10-28 定调：开关不得部分控制，HTTP/SSL 纳入管辖）。
+     * JS/RENDER 是页面与渲染缺陷，有分析价值，恒记录。
+     */
+    private val NETWORK_KIND_ERRORS = setOf(
+        ErrorType.NETWORK.name, ErrorType.HTTP.name, ErrorType.SSL.name
+    )
+
+    /**
      * 页面错误记录判定（纯函数，可单测）。
-     * 网络类默认不记录：断网/DNS 失败属环境观测非站点缺陷（用户定调为噪音），
-     * 开启 statLogNetworkErrors 后恢复完整记录。
+     * 网络类默认不记录：断网/DNS/HTTP/SSL 属环境观测非站点缺陷（用户定调
+     * 为噪音），开启 statLogNetworkErrors 后恢复完整记录。
      */
     internal fun shouldRecordPageError(type: String, networkLoggingEnabled: Boolean): Boolean {
-        if (type == ErrorType.NETWORK.name && !networkLoggingEnabled) return false
+        if (type in NETWORK_KIND_ERRORS && !networkLoggingEnabled) return false
         return true
     }
 

@@ -218,7 +218,7 @@
     <string name="export_app_errors">Export diagnostics (last 3 days)</string>
     <string name="desc_export_app_errors">Export the app\'s errors, warnings and diagnostic probe records of the last 3 days. Cleared after export.</string>
     <string name="stat_log_network_errors">Log network errors in site stats</string>
-    <string name="desc_stat_log_network_errors">When off, network failures (like being offline) are not counted in site stats.</string>
+    <string name="desc_stat_log_network_errors">When off, network-layer errors (offline, HTTP status, certificate) are not counted in site stats.</string>
     <string name="app_errors_export_success">Exported — diagnostics cleared</string>
     <string name="app_errors_export_failed">Failed to export diagnostics</string>
     <string name="app_errors_none">No diagnostics in the last 3 days</string>

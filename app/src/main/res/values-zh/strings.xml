@@ -218,7 +218,7 @@
     <string name="export_app_errors">导出诊断日志（近 3 天）</string>
     <string name="desc_export_app_errors">导出应用自身最近 3 天的错误、警告与取证探针记录，供开发排查；导出后自动清空。</string>
     <string name="stat_log_network_errors">站点统计记录网络错误</string>
-    <string name="desc_stat_log_network_errors">关闭后，断网等网络类页面错误不计入站点统计。</string>
+    <string name="desc_stat_log_network_errors">关闭后，断网、HTTP 状态、证书等网络类页面错误不计入站点统计。</string>
     <string name="app_errors_export_success">已导出，诊断记录已清空</string>
     <string name="app_errors_export_failed">诊断日志导出失败</string>
     <string name="app_errors_none">近 3 天无诊断记录</string>
