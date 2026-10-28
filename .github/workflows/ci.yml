@@ -16,6 +16,10 @@ on:
       - 'design-system/**'
   workflow_dispatch:
 
+# 安全基线：顶层最小权限（默认只读），release job 单独声明 contents:write
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -28,16 +32,16 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: "📥 Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: "🎯 Setup Java 17"
-        uses: actions/setup-java@v5
+      - name: "🎯 Setup Java 21 (LTS)"
+        uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
           cache: 'gradle'
 
       # Gradle 构建缓存（跨 job 共享：release 复用 test 的编译产物）
@@ -63,16 +67,16 @@ jobs:
       contents: write
     steps:
       - name: "📥 Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: "🎯 Setup Java 17"
-        uses: actions/setup-java@v5
+      - name: "🎯 Setup Java 21 (LTS)"
+        uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
           cache: 'gradle'
 
       # Gradle 构建缓存（复用 test job 的编译产物）
