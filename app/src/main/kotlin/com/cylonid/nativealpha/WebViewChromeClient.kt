@@ -22,7 +22,9 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.cylonid.nativealpha.model.DataManager
 import com.google.android.material.snackbar.Snackbar
+import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.ErrorType
+import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.util.StatsRecorder
 import android.webkit.WebView
 import com.cylonid.nativealpha.helper.WebPermissionCoordinator
@@ -58,6 +60,18 @@ internal class CustomWebChromeClient(
                 host.webappID, ErrorType.JS.name,
                 ErrorType.JS.code,
                 consoleMessage.message() ?: "JS error"
+            )
+            // 诊断日志同步留痕（WARNING）：页面刷新循环前 JS 报错
+            // （断连/状态异常）就写在这里，与 page_load_start 时间线对齐
+            // 即见「页面死前遗言」
+            ErrorReporter.probe(
+                host, "PageLoad", "js_console_error",
+                fields = mapOf(
+                    "msg" to (consoleMessage.message() ?: ""),
+                    "src" to (consoleMessage.sourceId() ?: ""),
+                    "line" to consoleMessage.lineNumber()
+                ),
+                level = AppErrorEntry.LEVEL_WARNING
             )
         }
         return false // 不阻断页面（仅采集）
