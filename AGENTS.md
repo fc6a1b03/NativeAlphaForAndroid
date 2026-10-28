@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.3.20`（`versionCode 2320`）
+- **当前版本**：`2.4.0`（`versionCode 2400`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -146,7 +146,7 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── StatsAnim.kt             # 动效口径中枢（Expressive 弹簧规格/CountUp/stagger，respect reduced-motion）
 │   ├── StatsReviewScreen.kt     # 月度回顾页（Wrapped 式单页叙事）
 │   ├── StatsReviewData.kt       # 回顾数据聚合（纯函数；活跃<7 天不生成）
-│   ├── WebAppStatsErrors.kt     # 统计页错误日志区块（分组/详情/清空，状态自管）
+│   ├── WebAppStatsErrors.kt     # 统计页错误日志区块（分组/详情抽屉/清空，状态自管）
 │   ├── WebAppStatsMetrics.kt    # 统计页图表/格式化/分桶（纯函数可单测）
 │   ├── ShortcutRecreateDialog.kt# 重新创建快捷方式弹窗
 │   ├── ShortcutMenuOverlay.kt   # 快捷方式菜单浮层
@@ -320,4 +320,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-10-26（JS 报错入诊断日志，版本 2.3.20）。*
+*最后更新：2026-10-28（Expressive 动效/主列表站点主色/错误详情抽屉/网络错误开关扩管，版本 2.4.0）。*
