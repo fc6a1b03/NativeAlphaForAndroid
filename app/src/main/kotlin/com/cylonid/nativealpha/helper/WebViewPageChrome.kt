@@ -1,6 +1,8 @@
 
 package com.cylonid.nativealpha.helper
 
+import com.cylonid.nativealpha.util.ErrorReporter
+
 import android.os.Handler
 import android.os.Looper
 import android.view.LayoutInflater
@@ -36,6 +38,8 @@ import java.util.Collections
  * 方法体与原实现逐行对应，行为差异零容忍。
  */
 class WebViewPageChrome(private val activity: WebViewActivity) {
+
+    private val TAG = "PageLoad"
 
     /** 上次主帧是否失败（错误页 finished 与真成功的区分依据） */
     private var lastMainFrameFailed = false
@@ -135,6 +139,10 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
     fun startLoadingAnimal() {
         try {
             val loadingAnimal = activity.loadingAnimal ?: return
+            // App 发起整页加载的标志探针（每次可见即记，重复触发由时间线
+            // 对齐判读）：刷新定谳用——狗出现=App 加载，狗没出现=网页自刷
+            ErrorReporter.probe(activity, TAG, "page_load_start",
+                fields = mapOf("url" to (activity.retryUrl.ifBlank { activity.webapp?.baseUrl ?: "" })))
             // 主题背景同步显示：加载期 WebView 内容未渲染，铺主题色防深色白屏
             val loadingBg = activity.loadingBg
             if (loadingBg != null && loadingBg.visibility != View.VISIBLE) {
@@ -215,6 +223,7 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
      */
     fun loadCustomErrorPage(code: String?, desc: String?) {
         val wv = activity.wv ?: return
+        ErrorReporter.probe(activity, TAG, "error_page", fields = mapOf("code" to (code ?: "")))
         // 主帧失败标记：错误页自身也会回调 onPageFinished——finished 时
         // 据此区分「真成功」与「失败页完成」，避免误停断线监视
         lastMainFrameFailed = true

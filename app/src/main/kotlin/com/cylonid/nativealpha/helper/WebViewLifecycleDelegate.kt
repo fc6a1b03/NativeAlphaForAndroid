@@ -2,6 +2,7 @@
 package com.cylonid.nativealpha.helper
 
 import android.content.ComponentCallbacks2
+import com.cylonid.nativealpha.util.ErrorReporter
 import android.content.Intent
 import android.os.Build
 import android.util.Log
@@ -45,6 +46,8 @@ import com.google.android.material.snackbar.Snackbar
  * override（废弃 API 兼容注解）、ChromeClient 直读字段。本类只承接实现体。
  */
 class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
+
+    private val TAG = "PageLoad"
 
     /** WebView 字段名（UA 尾巴清理用）：反射结果进程内缓存——类字段布局不变，
      * 每次打开 WebApp 都遍历 declaredFields 是纯浪费（启动热路径） */
@@ -259,6 +262,9 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         activity.wv = null
         recycled = true
         FeatureMetrics.count(FeatureMetrics.MODULE_WEBVIEW, "background_recycled")
+        // 切回重载的实锤取证：用户报「卡顿+自动刷新」时区分回收重建与网页自刷
+        ErrorReporter.probe(activity, TAG, "background_recycled",
+            fields = mapOf("site" to (activity.webapp?.title ?: "")))
     }
 
     fun onHostResume() {
