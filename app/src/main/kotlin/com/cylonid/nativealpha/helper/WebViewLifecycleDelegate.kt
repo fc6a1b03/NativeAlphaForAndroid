@@ -203,19 +203,17 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         WebPerfBridge.attachTraffic(webview, activity.webappID, activity.applicationContext)
         // 站点主题色桥：meta[name=theme-color] → 系统栏（页面深色而主题浅色时
         // 不接会出现「页面黑、状态栏白」——zcode.z.ai 实测案例）
+        // 强制深色站点（算法变暗）不采用站点色：其 theme-color 是变暗前的值，
+        // 直接采用会与已变黑的页面不符——setup 时算一次，避免每次回调重算
+        val forcedDarkSite = WebViewSetup.needsForcedDarkMode(activity.webapp ?: app)
         WebThemeColorBridge.attach(webview) { argb ->
-            // 仅前台宿主生效；null（站点未声明/非法）回落应用主题色
             activity.runOnUiThread {
-                if (!activity.isFinishing && !activity.isDestroyed) {
-                    // 站点被强制深色（算法变暗）时，站点原 theme-color 是变暗前的
-                    // 值，直接采用会与已变黑的页面不符——此场景回落主题深色
-                    val forced = WebViewSetup.needsForcedDarkMode(activity.webapp
-                        ?: return@runOnUiThread)
-                    val effective = if (forced) null else argb
-                    // 缓存供后续重放（系统切深浅色/回前台时页面不会重发 meta）
-                    activity.currentSiteColor = effective
-                    ThemeUtils.applySystemBarColors(activity, effective)
-                }
+                // 回调排队期间 Activity 可能已销毁（页面仍在加载即退出）
+                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
+                val effective = if (forcedDarkSite) null else argb
+                // 缓存供后续重放（系统切深浅色/回前台时页面不会重发 meta）
+                activity.currentSiteColor = effective
+                ThemeUtils.applySystemBarColors(activity, effective)
             }
         }
 

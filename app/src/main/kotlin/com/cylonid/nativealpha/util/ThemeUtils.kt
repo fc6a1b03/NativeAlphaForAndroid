@@ -87,12 +87,12 @@ object ThemeUtils {
             controller.isAppearanceLightStatusBars = !lightIcons
             controller.isAppearanceLightNavigationBars = !lightIcons
             Log.d("ThemeUtils", "applySystemBarColors dark=$dark site=${siteColor != null} color=$color")
-            // 实机取证（节流）：仅当最终栏色或深色判定相对上次发生**变化**时记一条，
-            // 覆盖主界面→WebView→主题切换等关键跳变；同色重复调用（每次 onCreate/
-            // onResume/onConfigurationChanged 都会来）不落盘，避免日志被刷爆。
-            // 字段含站点色来源，可区分「判定错」「写入被忽略」「站点 theme-color 接管」。
-            if (lastProbedKey != color) {
-                lastProbedKey = color
+            // 实机取证（节流）：仅当「颜色 + 页面」相对上次发生变化时记一条。
+            // 同一页面重复调用（onCreate/onResume/onConfigurationChanged 都会来）
+            // 不落盘，避免日志刷爆；换页面即使同色也记——否则跳转链路取证断档。
+            val probeKey = activity.javaClass.simpleName to color
+            if (lastProbedKey != probeKey) {
+                lastProbedKey = probeKey
                 val cfg = activity.resources.configuration
                 val nightMode = when (cfg.uiMode and Configuration.UI_MODE_NIGHT_MASK) {
                     Configuration.UI_MODE_NIGHT_YES -> "yes"
@@ -118,9 +118,9 @@ object ThemeUtils {
         }
     }
 
-    /** 上次落盘的栏色（节流用：同色不再写日志，跨页面进程级共享） */
+    /** 上次落盘的（页面, 栏色）（节流用：同页面同色不再写日志） */
     @Volatile
-    private var lastProbedKey: Int? = null
+    private var lastProbedKey: Pair<String, Int>? = null
 
     /**
      * 该栏色是否为浅色（决定系统栏图标用深色还是浅色）。
