@@ -80,6 +80,9 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
 
     fun isMainFrameNavActive(): Boolean = mainFrameNavActive
 
+    /** 页面是否已完成加载（加载后散落的子帧进度回调不算无导航异常） */
+    fun isPageLoadFinished(): Boolean = pageLoadFinished
+
     /** 自定义请求头（initCustomHeaders 构建，loadURL 消费） */
     private var customHeaders: Map<String, String>? = null
 

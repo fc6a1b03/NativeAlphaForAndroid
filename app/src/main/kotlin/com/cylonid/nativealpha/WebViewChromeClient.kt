@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.ErrorType
+import com.cylonid.nativealpha.util.BrowserConsoleNoise
 import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.util.StatsRecorder
 import android.webkit.WebView
@@ -52,7 +53,7 @@ internal class CustomWebChromeClient(
         if (consoleMessage != null
             && consoleMessage.messageLevel() ==
             ConsoleMessage.MessageLevel.ERROR
-            && !isBrowserConsoleNoise(consoleMessage.message())
+            && !BrowserConsoleNoise.isNoise(consoleMessage.message())
         ) {
             StatsRecorder.recordPageError(
                 host.webappID, ErrorType.JS.name,
@@ -160,8 +161,11 @@ internal class CustomWebChromeClient(
         }
 
         // 主帧导航配对观测：进度在动而主帧导航窗口未开启 = onPageStarted
-        // 缺席（2026-10-29 实机 4 会话实锤），对数级打点取证根因
-        if (!host.pageChrome.isMainFrameNavActive()) {
+        // 缺席（2026-10-29 实机 4 会话实锤），对数级打点取证根因。
+        // 页面加载完成后的散落子帧进度是常态，不算异常
+        if (!host.pageChrome.isMainFrameNavActive() &&
+            !host.pageChrome.isPageLoadFinished()
+        ) {
             host.pageChrome.noteProgressWithoutNav(progress)
         }
 
@@ -190,24 +194,5 @@ internal class CustomWebChromeClient(
         callback: GeolocationPermissions.Callback
     ) {
         permissionCoordinator.handleGeolocation(origin, callback)
-    }
-
-    companion object {
-        /**
-         * 浏览器自身预警噪音判定（纯函数可单测）：Chromium 把这三类页面侧
-         * 代码坏味道以 ERROR 级灌进 console（2026-10-29 实机导出单日 22 条，
-         * 全部来自 zcode.z.ai 自身），计入 statErrors 会把统计页错误数灌到虚高、
-         * 挤掉 KEY_PAGE_ERRORS 里真错误的配额。它们不反映 WebView 壳的健康度，
-         * 统计与诊断日志一并过滤（logcat 原样保留）：
-         * - passive listener 里 preventDefault（站点代码问题，浏览器自动降级）
-         * - ResizeObserver loop（浏览器良性提示，布局本身已收敛）
-         * - aria-hidden 聚焦元素（无障碍警告，无功能影响）
-         */
-        internal fun isBrowserConsoleNoise(message: String?): Boolean {
-            if (message == null) return false
-            return message.startsWith("Unable to preventDefault inside passive event listener") ||
-                message.startsWith("ResizeObserver loop") ||
-                message.startsWith("Blocked aria-hidden on an element")
-        }
     }
 }
