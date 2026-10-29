@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.4.4`（`versionCode 2404`）
+- **当前版本**：`2.4.5`（`versionCode 2405`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -186,6 +186,7 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── WebViewLauncher.kt       # 启动 WebViewActivity 的封装
 │   ├── WebViewSetup.kt          # WebView 创建配置纯函数（宿主/矩阵同源，禁双路径漂移）
 │   ├── WebShareBridge.kt        # navigator.share 桥（document-start 注入 + WebMessageListener → 系统分享面板）
+│   ├── WebThemeColorBridge.kt   # 站点主题色桥（meta[theme-color] → 系统栏，通用兼容）
 │   ├── StatsRecorder.kt         # 加载耗时/缓存等统计记录（单线程埋点队列）
 │   ├── WebBridgeKit.kt          # WebView 桥统一安装器（特性探测/document-start/listener）
 │   ├── WebShareBridge.kt        # navigator.share 桥（document-start 注入 + WebMessageListener → 系统分享面板）
@@ -335,4 +336,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-10-29（系统栏运行时切主题同步 + 流量切后台落账，版本 2.4.4）。*
+*最后更新：2026-10-29（站点 theme-color 接管系统栏——黑页面白栏根因修复，版本 2.4.5）。*
