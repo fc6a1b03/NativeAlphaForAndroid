@@ -82,9 +82,69 @@ object ThemeUtils {
             controller.isAppearanceLightStatusBars = !dark
             controller.isAppearanceLightNavigationBars = !dark
             Log.d("ThemeUtils", "applySystemBarColors dark=$dark color=$color")
+            // 实机取证：厂商 ROM 对栏色的处理差异无法在模拟器复现，把决策输入
+            // （装置版本/主题/实际 uiMode/导航模式）与写入结果一并落诊断日志，
+            // 用户报"栏色不跟页面"时按此单条即可判断是判定错、写入被忽略，
+            // 还是系统栏被 ROM 改造（导航模式/对比度强制）
+            val cfg = activity.resources.configuration
+            val nightMode = when (cfg.uiMode and Configuration.UI_MODE_NIGHT_MASK) {
+                Configuration.UI_MODE_NIGHT_YES -> "yes"
+                Configuration.UI_MODE_NIGHT_NO -> "no"
+                else -> "undef"
+            }
+            val baseFields = mapOf(
+                "act" to activity.javaClass.simpleName,
+                "sdk" to android.os.Build.VERSION.SDK_INT,
+                "themeId" to DataManager.getInstance().settings.themeId,
+                "uiMode" to nightMode,
+                "dark" to dark,
+                "color" to Integer.toHexString(color),
+                "navMode" to if (isThreeButtonNav(activity)) "3btn" else "gesture"
+            )
+            ErrorReporter.probe(activity, "SysBar", "sysbar_apply", fields = baseFields)
+            // insets 在 onCreate 阶段未就绪：窗口 attach 后补一条，带栏可见性
+            // 与 ROM 实际生效值（真实栏色只能从 InsetsController 侧观察）
+            window.decorView.post {
+                try {
+                    val insets = window.decorView.rootWindowInsets
+                    val controller = window.decorView.windowInsetsController
+                    ErrorReporter.probe(
+                        activity, "SysBar", "sysbar_attached",
+                        fields = baseFields + mapOf(
+                            "statusVisible" to insets?.isVisible(
+                                android.view.WindowInsets.Type.statusBars()
+                            ),
+                            "navVisible" to insets?.isVisible(
+                                android.view.WindowInsets.Type.navigationBars()
+                            ),
+                            "navBarHeight" to insets?.getInsets(
+                                android.view.WindowInsets.Type.navigationBars()
+                            )?.bottom,
+                            // 实际生效的外观位（ROM 可能覆盖图标亮暗）
+                            "appearance" to controller?.systemBarsAppearance,
+                            "viewportW" to activity.resources.displayMetrics.widthPixels,
+                            "viewportH" to activity.resources.displayMetrics.heightPixels
+                        )
+                    )
+                } catch (ignored: Exception) {
+                    // 窗口已销毁：本次取证跳过
+                }
+            }
         } catch (e: Exception) {
             Log.w("ThemeUtils", "applySystemBarColors failed", e)
         }
+    }
+
+    /**
+     * 三键导航判定（取证用）：导航栏高度显著大于手势条时视为三键。
+     * 与系统实际实现无关，仅用于日志对照厂商 ROM 行为。
+     */
+    private fun isThreeButtonNav(activity: Activity): Boolean {
+        val insets = activity.window.decorView.rootWindowInsets ?: return false
+        val navHeight = insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom
+        val dm = activity.resources.displayMetrics
+        // 手势条约 24-48dp，三键导航通常 ≥ 48dp；此处仅作日志分类
+        return navHeight > (56 * dm.density).toInt()
     }
 
     /**
