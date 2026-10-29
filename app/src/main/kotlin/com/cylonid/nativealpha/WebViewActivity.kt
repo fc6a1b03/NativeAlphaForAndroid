@@ -97,6 +97,15 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
     internal var lastProgress = 0
     internal var lastProgressTime = 0L
 
+    /**
+     * 站点当前声明的 theme-color（WebThemeColorBridge 上报后缓存）。
+     *
+     * 系统切深浅色 / 回前台时会重新着色，那时页面脚本不会重发（meta 没变），
+     * 必须用这里的缓存值重放——否则回落应用主题色，与仍深色的页面割裂。
+     * 换站/新导航时置 null（回到主题色兜底）。
+     */
+    internal var currentSiteColor: Int? = null
+
     override var webapp: WebApp? = null
 
     // ===== WebViewSiteContext 实现（QA 基类抽取：站点行为经接口访问宿主） =====
@@ -244,9 +253,10 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
         super.onConfigurationChanged(newConfig)
         darkMode.setDarkModeIfNeeded()
         // manifest 声明了 uiMode（不重建）：系统深色切换时 WebView/错误页会按
-        // prefers-color-scheme 自动换色，系统栏必须同步刷新，否则页面变黑、
-        // 状态栏/虚拟按键仍是旧色
-        ThemeUtils.applySystemBarColors(this)
+        // prefers-color-scheme 自动换色，系统栏必须同步刷新。
+        // 必须重放缓存的站点色——页面脚本此时不会重发 meta（值没变），
+        // 传 null 会回落应用主题色，与仍是站点深色的页面割裂（实机报障）
+        ThemeUtils.applySystemBarColors(this, currentSiteColor)
     }
 
     override fun onDestroy() {

@@ -190,6 +190,7 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         val webview = activity.findViewById<WebView>(R.id.webview).also { activity.wv = it }
         // 站点主题色状态重置：本页尚未上报前先回落应用主题色，避免沿用上一站
         // 的 theme-color（同实例换站/新导航时旧色残留）
+        activity.currentSiteColor = null
         ThemeUtils.applySystemBarColors(activity, null)
         // 网页事件桥注册（P5：仅配规则站；JS 侧经 hook 代理转发）
         WebeventRuntime.attachBridge(webview, activity.webappID)
@@ -206,7 +207,14 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
             // 仅前台宿主生效；null（站点未声明/非法）回落应用主题色
             activity.runOnUiThread {
                 if (!activity.isFinishing && !activity.isDestroyed) {
-                    ThemeUtils.applySystemBarColors(activity, argb)
+                    // 站点被强制深色（算法变暗）时，站点原 theme-color 是变暗前的
+                    // 值，直接采用会与已变黑的页面不符——此场景回落主题深色
+                    val forced = WebViewSetup.needsForcedDarkMode(activity.webapp
+                        ?: return@runOnUiThread)
+                    val effective = if (forced) null else argb
+                    // 缓存供后续重放（系统切深浅色/回前台时页面不会重发 meta）
+                    activity.currentSiteColor = effective
+                    ThemeUtils.applySystemBarColors(activity, effective)
                 }
             }
         }
@@ -298,6 +306,9 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
             activity.wv!!.resumeTimers()
         }
         activity.darkMode.setDarkModeIfNeeded()
+        // 回前台重放站点主题色：后台期间系统可能切换了深浅色（页面脚本
+        // 不会重发 meta），不重放会回落应用主题色与页面割裂
+        ThemeUtils.applySystemBarColors(activity, activity.currentSiteColor)
 
     }
 
