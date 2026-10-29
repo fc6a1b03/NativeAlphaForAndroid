@@ -303,20 +303,25 @@ Profile 等。
     推进=测试挂死（UncompletedCoroutinesError）——用 advanceTimeBy(N) 只推进首轮。
 15. **单测调 android.util.Log 会抛 not mocked**：协程内的 Log 调用会静默杀死协程
     （表现为断言 count=0 而非异常），插桩诊断用后必须删除。
-16. **系统栏取色必须与页面深色判定同源**：系统栏色一律走
-    `ThemeUtils.applySystemBarColors`，深色判定读 **Activity 实际配置**
-    （`resources.configuration.uiMode`）——`localNightMode`（站点强制深色）会在
-    运行期改写它，这才是 WebView 的 `prefers-color-scheme` 与错误页 CSS 共用的
-    同一事实。**不要按全局 `themeId` 判断**（错误页跟实际配置，会割裂）。
-    **targetSdk 37 下 `statusBarColor` 赋值是 no-op**（API 35+ 强制 edge-to-edge，
-    日志颜色对但像素不变），栏区实际显示窗口背景——必须同时
+16. **系统栏取色三层口径**（2026-10-29 真机定谳，v2.4.6 定型）：
+    ① **站点 `meta[name=theme-color]` 优先**——`WebThemeColorBridge`
+    document-start 读该 meta（支持 #rgb/#rrggbb/rgb() 归一化），上报值经
+    `ThemeUtils.applySystemBarColors(activity, siteColor)` 接管系统栏。任何站点
+    声明即生效，**禁止逐站写适配**。实测 zcode.z.ai `#161616` 生效。
+    ② **站点色必须缓存重放**：`WebViewActivity.currentSiteColor` 在桥上报时写入、
+    换站时置 null；`onConfigurationChanged` 与 `onHostResume` 都要重放它，否则
+    页面脚本不重发 meta（值未变）时栏色回落主题色，与页面割裂（用户实机报障：
+    「进去正常，手动切换黑白没跟上，重启就好」）。
+    ③ **兜底走主题色**：深色判定读 Activity 实际配置
+    （`resources.configuration.uiMode`）而非全局 `themeId`（`localNightMode` 会
+    改写实际配置）；图标亮暗按**最终栏色亮度**判定（站点可给任意色）。
+    **targetSdk 35+ `statusBarColor` 赋值是 no-op**（强制 edge-to-edge，日志颜色
+    对但像素不变），必须同时
     `window.setBackgroundDrawable(color.toDrawable())`（KTX，别用 ColorDrawable
-    构造，lint 报 UseKtx）。声明了 `uiMode` configChanges 的页面
-    （`WebViewActivity`/`MatrixActivity`）系统切主题**不重建**，必须在
-    `onConfigurationChanged` 显式刷新栏色。任何页面设置 `localNightMode` 必须走
-    `ThemeUtils.appNightMode()`，**禁止写死 `FOLLOW_SYSTEM`**。另需关闭
-    `isNavigationBarContrastEnforced`（三键导航系统灰罩盖掉页面色）。
-    **验收必须覆盖：错误页 + 页面打开中途切系统主题 + 全部 Activity**。
+    构造）。声明 `uiMode` configChanges 的页面不重建，`onConfigurationChanged`
+    必须显式刷新。另需关闭 `isNavigationBarContrastEnforced`（三键导航灰罩）。
+    **已知限制**：站点若在切换自身深浅色时**不更新 theme-color meta**（只改 CSS），
+    桥无法感知，栏色会停留旧值——需站点侧更新 meta 才能跟随。
 
 ---
 
