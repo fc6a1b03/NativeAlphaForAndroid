@@ -61,10 +61,15 @@ object ThemeUtils {
     @JvmStatic
     @Suppress("DEPRECATION") // statusBarColor/navigationBarColor 赋值 API 35+ 为 no-op
     // （内容已强制 edge-to-edge 铺到系统栏后），API 31-34 仍需其渲染栏底色
-    fun applySystemBarColors(activity: Activity) {
+    fun applySystemBarColors(activity: Activity, siteColor: Int? = null) {
         try {
             val dark = isDarkTheme(activity)
-            val color = if (dark) DARK_SURFACE_ARGB else LIGHT_SURFACE_ARGB
+            // 站点 theme-color 优先（用户定调「直接取站点消息改变 UI 渲染」）：
+            // 站点自带深色而应用主题浅色时，栏色必须跟页面，否则黑白割裂
+            val color = siteColor ?: if (dark) DARK_SURFACE_ARGB else LIGHT_SURFACE_ARGB
+            // 图标亮暗按**最终栏色**亮度判定：站点可能自定义任意色，
+            // 沿用主题深浅会在站点色与主题反向时出现图标不可见
+            val lightIcons = !isLightColor(color)
             val window = activity.window
 
             window.statusBarColor = color
@@ -77,62 +82,57 @@ object ThemeUtils {
             window.isStatusBarContrastEnforced = false
             window.isNavigationBarContrastEnforced = false
 
-            // 图标亮暗（深色主题=浅色图标）：现代范式 WindowInsetsController（minSdk 31 全可用）
+            // 图标亮暗：现代范式 WindowInsetsController（minSdk 31 全可用）
             val controller = WindowCompat.getInsetsController(window, window.decorView)
-            controller.isAppearanceLightStatusBars = !dark
-            controller.isAppearanceLightNavigationBars = !dark
-            Log.d("ThemeUtils", "applySystemBarColors dark=$dark color=$color")
-            // 实机取证：厂商 ROM 对栏色的处理差异无法在模拟器复现，把决策输入
-            // （装置版本/主题/实际 uiMode/导航模式）与写入结果一并落诊断日志，
-            // 用户报"栏色不跟页面"时按此单条即可判断是判定错、写入被忽略，
-            // 还是系统栏被 ROM 改造（导航模式/对比度强制）
-            val cfg = activity.resources.configuration
-            val nightMode = when (cfg.uiMode and Configuration.UI_MODE_NIGHT_MASK) {
-                Configuration.UI_MODE_NIGHT_YES -> "yes"
-                Configuration.UI_MODE_NIGHT_NO -> "no"
-                else -> "undef"
-            }
-            val baseFields = mapOf(
-                "act" to activity.javaClass.simpleName,
-                "sdk" to android.os.Build.VERSION.SDK_INT,
-                "themeId" to DataManager.getInstance().settings.themeId,
-                "uiMode" to nightMode,
-                "dark" to dark,
-                "color" to Integer.toHexString(color),
-                "navMode" to if (isThreeButtonNav(activity)) "3btn" else "gesture"
-            )
-            ErrorReporter.probe(activity, "SysBar", "sysbar_apply", fields = baseFields)
-            // insets 在 onCreate 阶段未就绪：窗口 attach 后补一条，带栏可见性
-            // 与 ROM 实际生效值（真实栏色只能从 InsetsController 侧观察）
-            window.decorView.post {
-                try {
-                    val insets = window.decorView.rootWindowInsets
-                    val controller = window.decorView.windowInsetsController
-                    ErrorReporter.probe(
-                        activity, "SysBar", "sysbar_attached",
-                        fields = baseFields + mapOf(
-                            "statusVisible" to insets?.isVisible(
-                                android.view.WindowInsets.Type.statusBars()
-                            ),
-                            "navVisible" to insets?.isVisible(
-                                android.view.WindowInsets.Type.navigationBars()
-                            ),
-                            "navBarHeight" to insets?.getInsets(
-                                android.view.WindowInsets.Type.navigationBars()
-                            )?.bottom,
-                            // 实际生效的外观位（ROM 可能覆盖图标亮暗）
-                            "appearance" to controller?.systemBarsAppearance,
-                            "viewportW" to activity.resources.displayMetrics.widthPixels,
-                            "viewportH" to activity.resources.displayMetrics.heightPixels
-                        )
-                    )
-                } catch (ignored: Exception) {
-                    // 窗口已销毁：本次取证跳过
+            controller.isAppearanceLightStatusBars = !lightIcons
+            controller.isAppearanceLightNavigationBars = !lightIcons
+            Log.d("ThemeUtils", "applySystemBarColors dark=$dark site=${siteColor != null} color=$color")
+            // 实机取证（节流）：仅当最终栏色或深色判定相对上次发生**变化**时记一条，
+            // 覆盖主界面→WebView→主题切换等关键跳变；同色重复调用（每次 onCreate/
+            // onResume/onConfigurationChanged 都会来）不落盘，避免日志被刷爆。
+            // 字段含站点色来源，可区分「判定错」「写入被忽略」「站点 theme-color 接管」。
+            if (lastProbedKey != color) {
+                lastProbedKey = color
+                val cfg = activity.resources.configuration
+                val nightMode = when (cfg.uiMode and Configuration.UI_MODE_NIGHT_MASK) {
+                    Configuration.UI_MODE_NIGHT_YES -> "yes"
+                    Configuration.UI_MODE_NIGHT_NO -> "no"
+                    else -> "undef"
                 }
+                ErrorReporter.probe(
+                    activity, "SysBar", "sysbar_apply",
+                    fields = mapOf(
+                        "act" to activity.javaClass.simpleName,
+                        "sdk" to android.os.Build.VERSION.SDK_INT,
+                        "themeId" to DataManager.getInstance().settings.themeId,
+                        "uiMode" to nightMode,
+                        "dark" to dark,
+                        "site" to (siteColor?.let { Integer.toHexString(it) } ?: "-"),
+                        "color" to Integer.toHexString(color),
+                        "navMode" to if (isThreeButtonNav(activity)) "3btn" else "gesture"
+                    )
+                )
             }
         } catch (e: Exception) {
             Log.w("ThemeUtils", "applySystemBarColors failed", e)
         }
+    }
+
+    /** 上次落盘的栏色（节流用：同色不再写日志，跨页面进程级共享） */
+    @Volatile
+    private var lastProbedKey: Int? = null
+
+    /**
+     * 该栏色是否为浅色（决定系统栏图标用深色还是浅色）。
+     * 用 WCAG 相对亮度阈值 0.5：站点可给任意色，必须按实际色算而非主题。
+     */
+    private fun isLightColor(argb: Int): Boolean {
+        val r = (argb shr 16) and 0xFF
+        val g = (argb shr 8) and 0xFF
+        val b = argb and 0xFF
+        // 感知亮度（sRGB 近似，避免引入 ColorUtils 依赖）
+        val luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+        return luminance > 0.5
     }
 
     /**

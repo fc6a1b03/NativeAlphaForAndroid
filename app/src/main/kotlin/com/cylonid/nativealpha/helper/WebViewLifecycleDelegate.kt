@@ -25,8 +25,10 @@ import com.cylonid.nativealpha.util.EntryPointUtils
 import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.StatsRecorder
+import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.util.UrlUtils
 import com.cylonid.nativealpha.util.WebPerfBridge
+import com.cylonid.nativealpha.util.WebThemeColorBridge
 import com.cylonid.nativealpha.util.WebShareBridge
 import com.cylonid.nativealpha.util.WebViewLauncher
 import com.cylonid.nativealpha.util.WebViewSetup
@@ -186,6 +188,9 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
 
         // 必须在 setContentView 之后 findViewById——视图未建立时返回 null（886b145 回归修复）
         val webview = activity.findViewById<WebView>(R.id.webview).also { activity.wv = it }
+        // 站点主题色状态重置：本页尚未上报前先回落应用主题色，避免沿用上一站
+        // 的 theme-color（同实例换站/新导航时旧色残留）
+        ThemeUtils.applySystemBarColors(activity, null)
         // 网页事件桥注册（P5：仅配规则站；JS 侧经 hook 代理转发）
         WebeventRuntime.attachBridge(webview, activity.webappID)
 
@@ -195,6 +200,16 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         WebPerfBridge.attach(webview, activity.webappID, activity.applicationContext)
         // 流量采集桥：Resource Timing 传输字节累计（页面隐藏时增量上报）
         WebPerfBridge.attachTraffic(webview, activity.webappID, activity.applicationContext)
+        // 站点主题色桥：meta[name=theme-color] → 系统栏（页面深色而主题浅色时
+        // 不接会出现「页面黑、状态栏白」——zcode.z.ai 实测案例）
+        WebThemeColorBridge.attach(webview) { argb ->
+            // 仅前台宿主生效；null（站点未声明/非法）回落应用主题色
+            activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    ThemeUtils.applySystemBarColors(activity, argb)
+                }
+            }
+        }
 
         // 仅 debug 包开启 WebView 远程调试（chrome://inspect + CDP 自动化验证）；
         // release 永不开启——远程调试是安全敏感面，不得泄漏到生产
