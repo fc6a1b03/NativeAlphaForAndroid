@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.4.2`（`versionCode 2402`）
+- **当前版本**：`2.4.3`（`versionCode 2403`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -302,13 +302,16 @@ Profile 等。
     推进=测试挂死（UncompletedCoroutinesError）——用 advanceTimeBy(N) 只推进首轮。
 15. **单测调 android.util.Log 会抛 not mocked**：协程内的 Log 调用会静默杀死协程
     （表现为断言 count=0 而非异常），插桩诊断用后必须删除。
-16. **系统栏取色不可依赖 XML 资源限定符**：`@color/md_theme_surface` 按**系统**
-    夜间模式解析，与应用内 `themeId`（跟随系统/强制浅/强制深）完全脱钩——系统
-    浅色 + 应用强制深色时会取到浅色值，状态栏/虚拟按键与页面割裂。系统栏统一走
-    `ThemeUtils.applySystemBarColors`（按 `isDarkTheme(themeId)` 取
-    `LIGHT_SURFACE_ARGB`/`DARK_SURFACE_ARGB`，定义在 AppTheme 且 Compose 色板
-    同源引用），并显式关闭 `isNavigationBarContrastEnforced`（三键导航下系统
-    会叠灰罩盖掉页面色）。新增 Activity 必须调用该方法（规范 R 三件套）。
+16. **系统栏取色必须与页面深色判定同源**：系统栏色一律走
+    `ThemeUtils.applySystemBarColors`，其深色判定读 **Activity 实际配置**
+    （`resources.configuration.uiMode`）——因为 `localNightMode`（站点强制深色/
+    按站主题）会在运行期改写它，这才是 WebView 的 `prefers-color-scheme` 与
+    错误页 CSS 共用的同一事实。**不要按全局 `themeId` 判断**：错误页等 HTML
+    内容跟的是实际配置，按 themeId 判断会在「系统深色 + 应用浅色」等组合下
+    出现"页面黑、状态栏白"的割裂。同理，任何页面设置 `localNightMode` 必须走
+    `ThemeUtils.appNightMode()`，**禁止写死 `FOLLOW_SYSTEM`**（会覆盖用户的
+    强制浅/深选择）。另需显式关闭 `isNavigationBarContrastEnforced`（三键导航
+    下系统灰罩会盖掉页面色）。新增 Activity 必须调用该方法（规范 R 三件套）。
 
 ---
 
@@ -328,4 +331,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-10-29（系统栏按 themeId 取色修复 + 统计页流量消耗累计，版本 2.4.2）。*
+*最后更新：2026-10-29（系统栏与页面深色同源修复（含错误页场景）+ 统计页流量消耗累计，版本 2.4.3）。*
