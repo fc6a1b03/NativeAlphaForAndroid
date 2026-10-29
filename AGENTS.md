@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.4.1`（`versionCode 2401`）
+- **当前版本**：`2.4.2`（`versionCode 2402`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -140,6 +140,7 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── StatsHero.kt             # 英雄卡（favicon 主色渐变+相伴天数+Launches CountUp）
 │   ├── StatsInsights.kt         # 洞察策略引擎（注册表开闭，一句话洞察点击轮换）
 │   ├── StatsPerformanceCard.kt  # 性能卡（五桶柱状+Vitals 瀑布+缓存省流量）
+│   ├── StatsTrafficCard.kt      # 流量卡（Resource Timing 累计字节+每次打开平均）
 │   ├── StatsHeatmapCard.kt      # 陪伴热力图（12 周×7 天格网，4 档色阶）
 │   ├── StatsAutomationCard.kt   # 自动化卡（通知累计大数字+规则明细）
 │   ├── StatsHabitsCard.kt       # 习惯卡（快捷键频次/分享/矩阵）
@@ -301,6 +302,13 @@ Profile 等。
     推进=测试挂死（UncompletedCoroutinesError）——用 advanceTimeBy(N) 只推进首轮。
 15. **单测调 android.util.Log 会抛 not mocked**：协程内的 Log 调用会静默杀死协程
     （表现为断言 count=0 而非异常），插桩诊断用后必须删除。
+16. **系统栏取色不可依赖 XML 资源限定符**：`@color/md_theme_surface` 按**系统**
+    夜间模式解析，与应用内 `themeId`（跟随系统/强制浅/强制深）完全脱钩——系统
+    浅色 + 应用强制深色时会取到浅色值，状态栏/虚拟按键与页面割裂。系统栏统一走
+    `ThemeUtils.applySystemBarColors`（按 `isDarkTheme(themeId)` 取
+    `LIGHT_SURFACE_ARGB`/`DARK_SURFACE_ARGB`，定义在 AppTheme 且 Compose 色板
+    同源引用），并显式关闭 `isNavigationBarContrastEnforced`（三键导航下系统
+    会叠灰罩盖掉页面色）。新增 Activity 必须调用该方法（规范 R 三件套）。
 
 ---
 
@@ -320,4 +328,4 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-10-29（移除宿主横条进度条，Lottie 狗动画为唯一加载进度指示，版本 2.4.1）。*
+*最后更新：2026-10-29（系统栏按 themeId 取色修复 + 统计页流量消耗累计，版本 2.4.2）。*
