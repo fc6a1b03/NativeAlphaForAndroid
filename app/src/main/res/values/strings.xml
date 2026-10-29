@@ -247,6 +247,10 @@
     <string name="stats_companionship">Companionship</string>
     <string name="stats_hero_streak">%1$s · %2$d-week streak</string>
     <string name="stats_section_performance">Performance</string>
+    <string name="stats_section_traffic">Data usage</string>
+    <string name="stat_traffic_total">Total traffic</string>
+    <string name="stat_traffic_per_launch">Average per open</string>
+    <string name="stat_traffic_note">Accumulated bytes of page resources (cross-origin resources without Timing-Allow-Origin are not counted, so this is a lower bound).</string>
     <string name="stats_section_automation">Automation</string>
     <string name="stats_section_habits">Habits</string>
     <string name="stats_section_storage">Storage &amp; cleanup</string>

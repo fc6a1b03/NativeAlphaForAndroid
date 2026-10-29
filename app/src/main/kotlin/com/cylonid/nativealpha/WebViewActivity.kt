@@ -198,6 +198,9 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
         ThemeUtils.applyUiMode()
         setTheme(ThemeUtils.resolveTheme())
         super.onCreate(savedInstanceState)
+        // 系统栏跟随应用主题（规范 R：Activity 三件套补全——此前本类漏调，
+        // 渲染页系统栏停留在系统夜间模式解析出的颜色）
+        ThemeUtils.applySystemBarColors(this)
         lifecycleDelegate.registerBackCallback()
         lifecycleDelegate.handleIntent(intent)
     }

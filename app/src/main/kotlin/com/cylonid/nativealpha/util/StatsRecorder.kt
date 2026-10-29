@@ -156,6 +156,27 @@ object StatsRecorder {
         }
 
     /**
+     * 记录累计流量增量（字节）。调用点：WebPerfBridge 流量桥（页面隐藏时上报）。
+     * 单批上限与解析层同口径（异常值已在 parseTrafficDelta 拦截，此处再夹一次防
+     * 其他调用点误传）。累计溢出保护：接近 Long 上限时不再累加。
+     */
+    fun recordTraffic(webappId: Int, deltaBytes: Long) {
+        if (deltaBytes <= 0) return
+        val clamped = deltaBytes.coerceAtMost(WebPerfBridge.MAX_TRAFFIC_DELTA)
+        record {
+            updateStats(webappId) { w ->
+                val current = w.statTrafficBytes
+                // 溢出保护：Long 上限前停止累加（实际不可能达到，纯防御）
+                if (current < Long.MAX_VALUE - clamped) {
+                    w.statTrafficBytes = current + clamped
+                    w.statTrafficSamples++
+                }
+                w.statLastUsedAt = System.currentTimeMillis()
+            }
+        }
+    }
+
+    /**
      * 记录快捷键发送次数（统计反馈：面板/统计页显示使用频率）。
      */
     fun recordShortcutSent(webappId: Int, shortcut: String) {

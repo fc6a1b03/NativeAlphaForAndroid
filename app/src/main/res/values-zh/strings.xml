@@ -246,6 +246,10 @@
     <string name="stats_companionship">相伴记录</string>
     <string name="stats_hero_streak">%1$s · 连续 %2$d 周</string>
     <string name="stats_section_performance">性能</string>
+    <string name="stats_section_traffic">流量消耗</string>
+    <string name="stat_traffic_total">累计流量</string>
+    <string name="stat_traffic_per_launch">每次打开平均</string>
+    <string name="stat_traffic_note">按页面资源传输字节累计（跨域未授权的资源不计入，为实际用量下界）</string>
     <string name="stats_section_automation">自动化</string>
     <string name="stats_section_habits">使用习惯</string>
     <string name="stats_section_storage">存储与清理</string>

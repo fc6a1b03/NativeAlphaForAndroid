@@ -107,6 +107,9 @@ fun WebAppStatsScreen(
             // §2 性能
             StatsPerformanceCard(webapp, accent, data.vitals, Modifier.statsEnter(2))
             Spacer(modifier = Modifier.height(16.dp))
+            // §2.5 流量消耗（与性能同源：页面资源传输字节累计）
+            StatsTrafficCard(webapp, Modifier.statsEnter(2))
+            Spacer(modifier = Modifier.height(16.dp))
             // §3 陪伴热力图（按日快照；无任何活跃时不占位）
             StatsHeatmapCard(
                 title = stringResource(R.string.stats_companionship),

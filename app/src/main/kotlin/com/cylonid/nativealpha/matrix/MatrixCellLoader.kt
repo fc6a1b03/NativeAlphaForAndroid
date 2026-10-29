@@ -83,6 +83,8 @@ internal class MatrixCellLoader(private val engine: MatrixEngine) {
         WebShareBridge.attach(webview, engine.activityContext as Activity)
         // Web Vitals 采集桥（矩阵格与宿主同源采集；applicationContext 防泄漏）
         WebPerfBridge.attach(webview, webapp.ID, engine.appContext.applicationContext)
+        // 流量采集桥（同源：矩阵格流量同样计入站点累计）
+        WebPerfBridge.attachTraffic(webview, webapp.ID, engine.appContext.applicationContext)
         // 下载监听（与宿主同源）：矩阵格此前点击下载无任何反应
         WebViewDownloads.install(webview, engine.activityContext as Activity)
         return webview

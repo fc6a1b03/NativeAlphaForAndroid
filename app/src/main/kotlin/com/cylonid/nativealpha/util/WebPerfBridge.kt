@@ -55,6 +55,82 @@ internal object WebPerfBridge {
         })();
     """.trimIndent()
 
+    /**
+     * 流量采集脚本（document-start 注入）：累计本页网络传输字节。
+     *
+     * 口径：Resource Timing 的 transferSize（含响应头 + body 的线上字节，
+     * 不含被缓存命中回的 0）；跨域资源无 Timing-Allow-Origin 时该字段为 0，
+     * 故取 encodedBodySize 兜底估算——两者皆 0 视为不可见跳过。真实值下界。
+     *
+     * 上报时机：pagehide/visibilitychange(hidden)/freeze 时上报一次增量
+     * （__wnTrafficSent 累计已报量，故多次上报不重复计数）；无轮询、
+     * 无 observer 风暴，页面关闭零成本。
+     *
+     * 桥名独立于 webnativePerf：性能桥是一次性快照，流量是多次增量，
+     * 复用同一监听器会互相干扰各自的一次性守卫。
+     */
+    private const val TRAFFIC_BRIDGE_NAME = "webnativeTraffic"
+
+    internal val TRAFFIC_JS = """
+        (function(){
+        if(window.__wnTrafficInit)return;window.__wnTrafficInit=1;
+        var sent=0;
+        function bytes(e){return (e.transferSize||0)||(e.encodedBodySize||0)||0;}
+        function total(){
+          var t=0;
+          try{
+            var nav=performance.getEntriesByType('navigation')[0];
+            if(nav)t+=bytes(nav);
+            performance.getEntriesByType('resource').forEach(function(e){t+=bytes(e);});
+          }catch(e){}
+          return t;
+        }
+        function flush(){
+          try{
+            var t=total();
+            if(t<=sent)return;
+            var delta=t-sent;sent=t;
+            webnativeTraffic.postMessage(JSON.stringify({delta:delta}));
+          }catch(e){}
+        }
+        window.addEventListener('pagehide',flush);
+        window.addEventListener('freeze',flush);
+        document.addEventListener('visibilitychange',function(){
+          if(document.visibilityState==='hidden')flush();
+        });
+        })();
+    """.trimIndent()
+
+    /** 挂接流量采集桥（每 WebView 一次；与性能桥同一安装通道） */
+    fun attachTraffic(webView: WebView, webappId: Int, context: android.content.Context) {
+        WebBridgeKit.install(
+            webView,
+            documentStartJs = TRAFFIC_JS,
+            bridgeName = TRAFFIC_BRIDGE_NAME,
+            onMessage = { _, payload ->
+                val delta = parseTrafficDelta(payload) ?: return@install
+                StatsRecorder.recordTraffic(webappId, delta)
+            }
+        )
+    }
+
+    /**
+     * 流量增量载荷解析（纯函数，可单测）：{delta:bytes} → 非负 Long。
+     * 非法/非 JSON/负数/超上限（单批 512MB，防异常值污染累计）→ null 丢弃。
+     */
+    internal fun parseTrafficDelta(payload: String?, maxBytes: Long = MAX_TRAFFIC_DELTA): Long? {
+        if (payload.isNullOrBlank()) return null
+        return try {
+            val delta = JSONObject(payload).optLong("delta", 0L)
+            if (delta in 1..maxBytes) delta else null
+        } catch (e: JSONException) {
+            null
+        }
+    }
+
+    /** 单批流量增量上限（512MB）：超出视为异常值，丢弃保护累计不被污染 */
+    internal const val MAX_TRAFFIC_DELTA = 512L * 1024 * 1024
+
     /** 挂接采集桥（每 WebView 一次；特性探测在 Kit 层，旧内核静默跳过） */
     fun attach(webView: WebView, webappId: Int, context: android.content.Context) {
         WebBridgeKit.install(

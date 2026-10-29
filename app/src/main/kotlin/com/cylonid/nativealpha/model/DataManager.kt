@@ -344,6 +344,8 @@ class DataManager private constructor() {
                 merged.statMaxLoadTime = webApp.statMaxLoadTime
                 merged.statCacheHttpBytes = webApp.statCacheHttpBytes
                 merged.statCacheStoreBytes = webApp.statCacheStoreBytes
+                merged.statTrafficBytes = webApp.statTrafficBytes
+                merged.statTrafficSamples = webApp.statTrafficSamples
                 merged.statErrors = webApp.statErrors
                 merged.statLastError = webApp.statLastError
                 merged.statFirstLoadedAt = webApp.statFirstLoadedAt

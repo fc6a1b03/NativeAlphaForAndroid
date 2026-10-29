@@ -52,6 +52,7 @@ object SiteShareCodec {
         "statLaunches", "statLoadTimeSum", "statLoadTimeCount", "statMaxLoadTime",
         "statCacheHttpBytes", "statCacheStoreBytes", "statErrors", "statLastError",
         "statFirstLoadedAt", "statLastUsedAt", "statLoadTimes",
+        "statTrafficBytes", "statTrafficSamples",
         "keyShortcuts", "keyShortcutSendCounts"
     )
 

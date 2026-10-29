@@ -193,6 +193,8 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         WebShareBridge.attach(webview, activity)
         // Web Vitals 采集桥：页面加载细分（DNS/TCP/TTFB/FCP/LCP）落统计页
         WebPerfBridge.attach(webview, activity.webappID, activity.applicationContext)
+        // 流量采集桥：Resource Timing 传输字节累计（页面隐藏时增量上报）
+        WebPerfBridge.attachTraffic(webview, activity.webappID, activity.applicationContext)
 
         // 仅 debug 包开启 WebView 远程调试（chrome://inspect + CDP 自动化验证）；
         // release 永不开启——远程调试是安全敏感面，不得泄漏到生产

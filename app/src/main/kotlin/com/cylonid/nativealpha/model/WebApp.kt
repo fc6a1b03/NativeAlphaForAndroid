@@ -78,6 +78,11 @@ data class WebApp(var baseUrl: String, val ID: Int) {
     var statMaxLoadTime: Long = 0    // 最慢加载 ms
     var statCacheHttpBytes: Long = 0 // HTTP 缓存占用（cacheDir）
     var statCacheStoreBytes: Long = 0// 站点存储（WebStorage）
+    /** 累计网络流量（字节，Resource Timing transferSize 口径；跨域无
+     *  Timing-Allow-Origin 的资源不计入，故为真实流量下界） */
+    var statTrafficBytes: Long = 0
+    /** 流量采样批次数（每批为一次增量上报，用于单次平均口径） */
+    var statTrafficSamples: Int = 0
     var statErrors: Int = 0          // 页面错误计数
     var statLastError: String? = null// 最近页面错误描述
     var statFirstLoadedAt: Long = 0  // 首次使用（0 = 未使用，展示时处理）
@@ -158,6 +163,8 @@ data class WebApp(var baseUrl: String, val ID: Int) {
         statMaxLoadTime = other.statMaxLoadTime
         statCacheHttpBytes = other.statCacheHttpBytes
         statCacheStoreBytes = other.statCacheStoreBytes
+        statTrafficBytes = other.statTrafficBytes
+        statTrafficSamples = other.statTrafficSamples
         statErrors = other.statErrors
         statLastError = other.statLastError
         statFirstLoadedAt = other.statFirstLoadedAt

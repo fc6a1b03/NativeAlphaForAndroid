@@ -16,6 +16,14 @@ import com.cylonid.nativealpha.model.DataManager
  * 深/浅两套靛蓝色板与 res/values(-night)/colors.xml 同源。
  */
 
+/**
+ * 主题 surface 底色（系统栏着色复用）：与 [LightIndigo]/[DarkIndigo] 的
+ * surface 同值且以此处为唯一定义源——AppTheme 内的 colorScheme 亦引用本常量，
+ * 防系统栏与页面出现色差（此前各处复制字面量曾导致割裂）。
+ */
+internal const val LIGHT_SURFACE_ARGB = 0xFFFBF8FF.toInt()
+internal const val DARK_SURFACE_ARGB = 0xFF131318.toInt()
+
 private val LightIndigo = lightColorScheme(
     primary = Color(0xFF4A47D6),
     onPrimary = Color.White,
@@ -33,9 +41,9 @@ private val LightIndigo = lightColorScheme(
     onError = Color.White,
     errorContainer = Color(0xFFFFDAD6),
     onErrorContainer = Color(0xFF410002),
-    background = Color(0xFFFBF8FF),
+    background = Color(LIGHT_SURFACE_ARGB),
     onBackground = Color(0xFF1B1B21),
-    surface = Color(0xFFFBF8FF),
+    surface = Color(LIGHT_SURFACE_ARGB),
     onSurface = Color(0xFF1B1B21),
     surfaceVariant = Color(0xFFE3E1EC),
     onSurfaceVariant = Color(0xFF46464F),
@@ -70,9 +78,9 @@ private val DarkIndigo = darkColorScheme(
     onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
-    background = Color(0xFF131318),
+    background = Color(DARK_SURFACE_ARGB),
     onBackground = Color(0xFFE4E1EA),
-    surface = Color(0xFF131318),
+    surface = Color(DARK_SURFACE_ARGB),
     onSurface = Color(0xFFE4E1EA),
     surfaceVariant = Color(0xFF46464F),
     onSurfaceVariant = Color(0xFFC7C5D0),
