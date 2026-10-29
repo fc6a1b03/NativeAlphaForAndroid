@@ -288,6 +288,9 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
 
     fun onHostPause() {
         if (activity.wv != null) {
+            // 流量落账：页面脚本只在 hide/freeze 上报，App 切后台不产生这些
+            // 事件——主动发一发，避免会话中途流量挂到下次隐藏才计
+            WebPerfBridge.flushTraffic(activity.wv!!)
             activity.wv!!.evaluateJavascript(
                 "document.querySelectorAll('audio').forEach(x => x.pause());" +
                     "document.querySelectorAll('video').forEach(x => x.pause());", null

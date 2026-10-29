@@ -243,6 +243,10 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         darkMode.setDarkModeIfNeeded()
+        // manifest 声明了 uiMode（不重建）：系统深色切换时 WebView/错误页会按
+        // prefers-color-scheme 自动换色，系统栏必须同步刷新，否则页面变黑、
+        // 状态栏/虚拟按键仍是旧色
+        ThemeUtils.applySystemBarColors(this)
     }
 
     override fun onDestroy() {

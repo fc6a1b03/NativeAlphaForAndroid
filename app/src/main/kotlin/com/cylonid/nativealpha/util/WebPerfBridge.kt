@@ -98,6 +98,7 @@ internal object WebPerfBridge {
         document.addEventListener('visibilitychange',function(){
           if(document.visibilityState==='hidden')flush();
         });
+        window.__wnTrafficFlush=flush;
         })();
     """.trimIndent()
 
@@ -112,6 +113,21 @@ internal object WebPerfBridge {
                 StatsRecorder.recordTraffic(webappId, delta)
             }
         )
+    }
+
+    /**
+     * 主动触发流量上报（宿主 onPause 调用）。
+     *
+     * 页面脚本只在 pagehide/visibilitychange(hidden)/freeze 上报——App 切后台
+     * 只调 WebView.onPause()，不产生这些事件，会话中途产生的流量会一直挂着
+     * 直到下次隐藏。此处补一发，保证「切后台即落账」。
+     */
+    fun flushTraffic(webView: WebView) {
+        try {
+            webView.evaluateJavascript("__wnTrafficFlush&&__wnTrafficFlush()", null)
+        } catch (ignored: Exception) {
+            // 页面未注入/已销毁：静默（下次隐藏或卸载时页面侧自行上报）
+        }
     }
 
     /**

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.res.Configuration
 import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.WindowCompat
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.model.DataManager
@@ -68,6 +69,10 @@ object ThemeUtils {
 
             window.statusBarColor = color
             window.navigationBarColor = color
+            // targetSdk 35+ 系统栏透明、上述赋值被忽略，栏区显示的是窗口背景
+            // ——必须同步设置窗口背景，否则系统主题切换（uiMode 在 configChanges
+            // 中，Activity 不重建）时页面已换色而栏区仍停留旧色
+            window.setBackgroundDrawable(color.toDrawable())
             // 关闭系统对比度 scrim：栏色已与页面同色，叠罩反而割裂
             window.isStatusBarContrastEnforced = false
             window.isNavigationBarContrastEnforced = false
