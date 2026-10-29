@@ -303,15 +303,19 @@ Profile 等。
 15. **单测调 android.util.Log 会抛 not mocked**：协程内的 Log 调用会静默杀死协程
     （表现为断言 count=0 而非异常），插桩诊断用后必须删除。
 16. **系统栏取色必须与页面深色判定同源**：系统栏色一律走
-    `ThemeUtils.applySystemBarColors`，其深色判定读 **Activity 实际配置**
-    （`resources.configuration.uiMode`）——因为 `localNightMode`（站点强制深色/
-    按站主题）会在运行期改写它，这才是 WebView 的 `prefers-color-scheme` 与
-    错误页 CSS 共用的同一事实。**不要按全局 `themeId` 判断**：错误页等 HTML
-    内容跟的是实际配置，按 themeId 判断会在「系统深色 + 应用浅色」等组合下
-    出现"页面黑、状态栏白"的割裂。同理，任何页面设置 `localNightMode` 必须走
-    `ThemeUtils.appNightMode()`，**禁止写死 `FOLLOW_SYSTEM`**（会覆盖用户的
-    强制浅/深选择）。另需显式关闭 `isNavigationBarContrastEnforced`（三键导航
-    下系统灰罩会盖掉页面色）。新增 Activity 必须调用该方法（规范 R 三件套）。
+    `ThemeUtils.applySystemBarColors`，深色判定读 **Activity 实际配置**
+    （`resources.configuration.uiMode`）——`localNightMode`（站点强制深色）会在
+    运行期改写它，这才是 WebView 的 `prefers-color-scheme` 与错误页 CSS 共用的
+    同一事实。**不要按全局 `themeId` 判断**（错误页跟实际配置，会割裂）。
+    **targetSdk 37 下 `statusBarColor` 赋值是 no-op**（API 35+ 强制 edge-to-edge，
+    日志颜色对但像素不变），栏区实际显示窗口背景——必须同时
+    `window.setBackgroundDrawable(color.toDrawable())`（KTX，别用 ColorDrawable
+    构造，lint 报 UseKtx）。声明了 `uiMode` configChanges 的页面
+    （`WebViewActivity`/`MatrixActivity`）系统切主题**不重建**，必须在
+    `onConfigurationChanged` 显式刷新栏色。任何页面设置 `localNightMode` 必须走
+    `ThemeUtils.appNightMode()`，**禁止写死 `FOLLOW_SYSTEM`**。另需关闭
+    `isNavigationBarContrastEnforced`（三键导航系统灰罩盖掉页面色）。
+    **验收必须覆盖：错误页 + 页面打开中途切系统主题 + 全部 Activity**。
 
 ---
 
