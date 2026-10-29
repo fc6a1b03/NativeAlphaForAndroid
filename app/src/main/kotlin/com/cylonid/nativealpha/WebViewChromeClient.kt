@@ -52,6 +52,7 @@ internal class CustomWebChromeClient(
         if (consoleMessage != null
             && consoleMessage.messageLevel() ==
             ConsoleMessage.MessageLevel.ERROR
+            && !isBrowserConsoleNoise(consoleMessage.message())
         ) {
             StatsRecorder.recordPageError(
                 host.webappID, ErrorType.JS.name,
@@ -59,8 +60,7 @@ internal class CustomWebChromeClient(
                 consoleMessage.message() ?: "JS error"
             )
             // 诊断日志同步留痕（WARNING）：页面刷新循环前 JS 报错
-            // （断连/状态异常）就写在这里，与 page_load_start 时间线对齐
-            // 即见「页面死前遗言」
+            // （断连/状态异常）就写在这里，「页面死前遗言」不被噪音淹没
             ErrorReporter.probe(
                 host, "PageLoad", "js_console_error",
                 fields = mapOf(
@@ -159,13 +159,22 @@ internal class CustomWebChromeClient(
             host.scheduleBlankScreenCheck()
         }
 
+        // 主帧导航配对观测：进度在动而主帧导航窗口未开启 = onPageStarted
+        // 缺席（2026-10-29 实机 4 会话实锤），对数级打点取证根因
+        if (!host.pageChrome.isMainFrameNavActive()) {
+            host.pageChrome.noteProgressWithoutNav(progress)
+        }
+
         // 加载动画（唯一加载进度指示）：页面加载期短暂展示（站点 loader 接管前撤）：
         // - progress < 100（整段加载）
         // - 距加载开始 < animalMaxShowMs（避免长期盖住带自带 loader 的慢站）
         if (progress < 100 && host.loadingAnimal != null) {
-            // 距加载开始时间（首次 onPageStarted 前 pageLoadStartTime2=0 → 视为 0 刚从窗口内开始）
-            val elapsed = if (host.pageLoadStartTime2 == 0L) 0L
-            else System.currentTimeMillis() - host.pageLoadStartTime2
+            // 距加载开始时间；onPageStarted 未触发时（子帧驱动进度）以首个
+            // 进度回调为窗口起点——否则 elapsed 恒 0，3 秒上限永久失效
+            if (host.pageLoadStartTime2 == 0L) {
+                host.pageLoadStartTime2 = System.currentTimeMillis()
+            }
+            val elapsed = System.currentTimeMillis() - host.pageLoadStartTime2
             if (elapsed < host.animalMaxShowMs) {
                 host.startLoadingAnimal()
             } else {
@@ -181,5 +190,24 @@ internal class CustomWebChromeClient(
         callback: GeolocationPermissions.Callback
     ) {
         permissionCoordinator.handleGeolocation(origin, callback)
+    }
+
+    companion object {
+        /**
+         * 浏览器自身预警噪音判定（纯函数可单测）：Chromium 把这三类页面侧
+         * 代码坏味道以 ERROR 级灌进 console（2026-10-29 实机导出单日 22 条，
+         * 全部来自 zcode.z.ai 自身），计入 statErrors 会把统计页错误数灌到虚高、
+         * 挤掉 KEY_PAGE_ERRORS 里真错误的配额。它们不反映 WebView 壳的健康度，
+         * 统计与诊断日志一并过滤（logcat 原样保留）：
+         * - passive listener 里 preventDefault（站点代码问题，浏览器自动降级）
+         * - ResizeObserver loop（浏览器良性提示，布局本身已收敛）
+         * - aria-hidden 聚焦元素（无障碍警告，无功能影响）
+         */
+        internal fun isBrowserConsoleNoise(message: String?): Boolean {
+            if (message == null) return false
+            return message.startsWith("Unable to preventDefault inside passive event listener") ||
+                message.startsWith("ResizeObserver loop") ||
+                message.startsWith("Blocked aria-hidden on an element")
+        }
     }
 }

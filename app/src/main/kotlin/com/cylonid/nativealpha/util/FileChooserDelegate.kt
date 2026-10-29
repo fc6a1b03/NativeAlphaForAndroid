@@ -16,13 +16,14 @@ import com.google.android.material.snackbar.Snackbar
 /**
  * WebView 文件选择统一委托（宿主/矩阵格共用，R3 单一实现）：
  * onShowFileChooser 的三分发——
- * - 图片类+Photo Picker 可用：系统 Photo Picker（实时相册，截图立即可选）；
- * - 图片类+Picker 不可用（Android 11/12 无 GMS backport 的国产 ROM 常态）：
- *   ACTION_PICK 直连相册（返回 media provider URI、权限完好），替代原
+ * - 显式 image accept+Photo Picker 可用：系统 Photo Picker（实时相册，截图立即可选）；
+ * - 显式 image accept+Picker 不可用（Android 11/12 无 GMS backport 的国产 ROM 常态）
+ *   且单选：ACTION_PICK 直连相册（返回 media provider URI、权限完好），替代原
  *   ACTION_GET_CONTENT——实机三修不改的根因取证：GET_CONTENT 被厂商文件
  *   管理器接管后「相册」为二级转发，返回的 URI 常无读权限（grant 断链）
  *   或为 file://，WebView 渲染进程读取失败=上传静默不上（页面无任何报错）；
- * - 非图片/多选：原始 ACTION_GET_CONTENT（文件管理器，文档场景）。
+ * - 其余（含空 accept=任意文件语义、非图片、多选+无 Picker）：ACTION_GET_CONTENT
+ *   （文件管理器，任意文件可传）。
  *
  * 返回归一化收编 FileChooserUriNormalizer（可读直通/file 物化/物理不可读
  * 透传+降级提示）。**取证统一走 ErrorReporter.probe 模式**：关键决策点
@@ -56,7 +57,8 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
         val uris = extractChooserUris(result.resultCode, data)
         // 取证探针（ErrorReporter.probe 统一模式）：返回形态无论成败都记 INFO
         // 现场——厂商兼容问题需要「正常/异常形态对照」才能实锤（v2.3.11
-        // ClipData 实锤案例的教训）
+        // ClipData 实锤案例的教训）。数组直接传值：sanitize 逐元素脱敏，
+        // contentToString 整串会绕过 URL 判定（v2.4.8 泄相册路径实锤）
         ErrorReporter.probe(
             activity, TAG, "returned",
             fields = mapOf(
@@ -65,7 +67,7 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
                 "dataUri" to data?.data,
                 "clip" to data?.clipData?.itemCount,
                 "flags" to data?.flags?.let { "0x${Integer.toHexString(it)}" },
-                "extracted" to uris?.contentToString()
+                "extracted" to uris
             )
         )
         // 用户实际做了选择（OK）却连 ClipData 兜底都提取不到任何 URI：厂商返回
@@ -201,17 +203,21 @@ internal class FileChooserDelegate(private val activity: ComponentActivity) {
 
         /**
          * 分发决策（纯函数，可单测）：
-         * 图片类（含空 accept=AI 站通用上传）优先 Photo Picker；
-         * Picker 不可用且单选 → ACTION_PICK 直连相册（绕开厂商文件管理器转发，
-         * 返回 media provider URI 权限完好）；其余（非图片/多选+无 Picker）
-         * 走 ACTION_GET_CONTENT。
+         * 显式声明 image 才走照片选择器/相册；空 accept（含 Chromium 对无
+         * accept 输入实际传的 [""]，两形态必须同判）语义为「任意文件」→
+         * 文件管理器 LEGACY。v2.4.8 修正：原实现把空 accept 当图片类分发，
+         * 照片选择器 ImageOnly 会拒收非图片文件——实机导出实证 zcode 无
+         * accept 输入上传过 Downloads 文档（msf URI），不可收窄为仅图片。
+         * 厂商返回 URI 的可读性由 FileChooserUriNormalizer 兜底，不依赖
+         * 选择器授权，故 LEGACY 不再复现「上传静默不上」。
          */
         internal fun decidePath(
             acceptTypes: Array<String>,
             multiple: Boolean,
             photoPickerAvailable: Boolean
         ): Path {
-            val wantsImageOnly = acceptTypes.any { it.startsWith("image") } || acceptTypes.isEmpty()
+            val wanted = acceptTypes.filter { it.isNotBlank() }
+            val wantsImageOnly = wanted.any { it.startsWith("image") }
             return when {
                 wantsImageOnly && photoPickerAvailable -> Path.PHOTO_PICKER
                 wantsImageOnly && !multiple -> Path.GALLERY

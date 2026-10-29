@@ -17,7 +17,6 @@ import android.webkit.WebViewClient
 import androidx.core.net.toUri
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
-import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.model.ErrorType
@@ -44,6 +43,9 @@ internal abstract class SiteWebViewClient(
     // 注：onRenderProcessGone 已在下方 override 并实现崩溃恢复；lint 在此类定义处误报，
     // 因方法签名包含 API 26+ 的 RenderProcessGoneDetail，minSdk=31 已完全支持。
 
+    /** 桌面模式视口脚本是否已随当前文档注入（新导航在 onPageStarted 重置） */
+    private var viewportInjectedForCurrentDoc = false
+
     override fun onReceivedHttpAuthRequest(
         view: WebView,
         handler: HttpAuthHandler,
@@ -56,9 +58,13 @@ internal abstract class SiteWebViewClient(
     override fun onPageFinished(view: WebView, url: String) {
         // 加载完成：宿主收尾加载 UI（取消白屏检测/停加载动画）
         site.onPageLoadFinished()
-        // 统计埋点：主体加载耗时（started 到 finished）
-        if (site.pageLoadStartTime > 0) {
-            site.recordPageLoadDuration(System.currentTimeMillis() - site.pageLoadStartTime)
+        // 主帧耗时：统计与探针共用同一份，先取值再清零（先清零后取值会让
+        // page_loaded 探针永远拿不到时间戳——v2.4.7 及之前从未触发的死代码）
+        val durationMs = site.pageLoadStartTime.takeIf { it > 0 }
+            ?.let { System.currentTimeMillis() - it }
+        if (durationMs != null) {
+            // 统计埋点：主体加载耗时（started 到 finished）
+            site.recordPageLoadDuration(durationMs)
             site.pageLoadStartTime = 0
         }
         // 统计埋点：缓存占用（cacheDir + WebStorage，异步不阻塞）
@@ -68,8 +74,6 @@ internal abstract class SiteWebViewClient(
         if (url.startsWith("http")) {
             com.cylonid.nativealpha.util.SiteHealthRegistry.markSuccess(site.webappId)
             // 主帧耗时探针（>10s 标 slow）：页面越来越重的客观证据链
-            val durationMs = site.pageLoadStartTime.takeIf { it > 0 }
-                ?.let { System.currentTimeMillis() - it }
             if (durationMs != null) {
                 ErrorReporter.probe(
                     site.siteContext, "PageLoad", "page_loaded",
@@ -109,6 +113,8 @@ internal abstract class SiteWebViewClient(
     }
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+        // 新文档：桌面视口脚本待重新注入（SPA 软路由不触发本回调，文档未换不重注）
+        viewportInjectedForCurrentDoc = false
         // 新页面加载：宿主重置加载 UI 状态（白屏检测/进度计时/动画起点）
         site.onPageLoadStarted()
         // 导航时间线（刷新定谳：与 error_page/blank_screen 对齐判读）
@@ -270,24 +276,15 @@ internal abstract class SiteWebViewClient(
     override fun onLoadResource(view: WebView, url: String) {
         super.onLoadResource(view, url)
 
-        @Suppress("UNUSED_VARIABLE")
-        val webapp = DataManager.getInstance().getWebApp(site.webappId)
-        val siteConfig = site.webapp
-        if (siteConfig != null && siteConfig.isRequestDesktop) {
-            view.evaluateJavascript(
-                """
-                var needsForcedWidth = document.documentElement.clientWidth < 1200;
-                if(needsForcedWidth) {
-                  document.querySelector('meta[name="viewport"]').setAttribute('content', 'width=1200px, initial-scale=' + (document.documentElement.clientWidth / 1200));
-                }
-                """.trimIndent(),
-                null
-            )
+        // 桌面模式视口：每文档只注入一次（v2.4.8 修正：原实现每资源注入一次，
+        // 数百资源=数百次 JS 执行；且脚本无 null 守卫，meta 未解析时静默失败
+        // 靠下一资源重试）。脚本内置 MutationObserver 自等 meta 出现。
+        if (site.webapp?.isRequestDesktop == true && !viewportInjectedForCurrentDoc) {
+            viewportInjectedForCurrentDoc = true
+            view.evaluateJavascript(DESKTOP_VIEWPORT_JS, null)
         }
-        view.evaluateJavascript(
-            "document.addEventListener(    \"visibilitychange\"    , (event) => {         event.stopImmediatePropagation();    }  );",
-            null
-        )
+        // visibilitychange 拦截不在此注入：onPageFinished 已按文档一次性注册，
+        // 逐资源重复注入只会无限累积死监听器（v2.4.8 移除）
     }
 
     override fun shouldOverrideUrlLoading(
@@ -345,6 +342,35 @@ internal abstract class SiteWebViewClient(
         }
         site.loadSiteUrl(view, url)
         return true
+    }
+
+    companion object {
+        /**
+         * 桌面模式视口脚本（每文档注入一次）：meta 未解析时由 MutationObserver
+         * 等其出现再应用（原实现无守卫靠逐资源重试）；resize 重算覆盖旋转场景。
+         */
+        private val DESKTOP_VIEWPORT_JS = """
+            (function(){
+            var done=false;
+            function apply(){
+              if(done)return;
+              var m=document.querySelector('meta[name="viewport"]');
+              if(!m)return;
+              done=true;
+              if(document.documentElement.clientWidth<1200){
+                m.setAttribute('content','width=1200px, initial-scale='+(document.documentElement.clientWidth/1200));
+              }
+            }
+            apply();
+            if(!done){
+              try{
+                new MutationObserver(function(){apply();}).observe(
+                  document.documentElement,{childList:true,subtree:true,attributes:true});
+              }catch(e){}
+            }
+            window.addEventListener('resize',function(){done=false;apply();});
+            })()
+        """.trimIndent()
     }
 }
 

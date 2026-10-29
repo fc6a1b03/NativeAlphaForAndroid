@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.WebViewActivity
 import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.LoadFailureClassifier
 import com.cylonid.nativealpha.util.LocaleUtils
@@ -49,6 +50,36 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
 
     private val blankScreenHandler = Handler(Looper.getMainLooper())
 
+    /** 主帧导航窗口：onPageLoadStarted→onPageLoadFinished 之间为 true（进度配对观测用） */
+    private var mainFrameNavActive = false
+
+    /** 无导航进度回调计数（配对观测：对数级打点防刷屏） */
+    private var progressWithoutNavCount = 0
+
+    /**
+     * 进度回调配对观测（2026-10-29 实机导出定谳：4 个会话进度回调连跑 4-6 秒
+     * 而 onPageStarted 一次未触发——主帧没动子帧在动，加载耗时统计/健康登记/
+     * 白屏检测全部漏挂）。对数级打点（1/25/100 次各记一条，100 后重新计数）
+     * 上限每百次 3 条，INFO 洪泛不再重演。
+     */
+    fun noteProgressWithoutNav(progress: Int) {
+        if (progress >= 100) return // 加载收尾的散落回调不算
+        progressWithoutNavCount++
+        if (progressWithoutNavCount == 1 || progressWithoutNavCount == 25 ||
+            progressWithoutNavCount == 100
+        ) {
+            ErrorReporter.probe(
+                activity, TAG, "progress_without_nav",
+                fields = mapOf("progress" to progress),
+                level = AppErrorEntry.LEVEL_WARNING
+            )
+        }
+        // 对数周期重启（每百次最多 3 条）
+        if (progressWithoutNavCount >= 100) progressWithoutNavCount = 0
+    }
+
+    fun isMainFrameNavActive(): Boolean = mainFrameNavActive
+
     /** 自定义请求头（initCustomHeaders 构建，loadURL 消费） */
     private var customHeaders: Map<String, String>? = null
 
@@ -57,6 +88,10 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
     fun onPageLoadStarted() {
         // 新页面加载：重置白屏检测（进度从 0 重新计时）
         pageLoadFinished = false
+        // 主帧导航窗口开启（onProgressChanged 配对观测：进度回调无主帧导航
+        // = 子帧在动主帧没动，见 noteProgressWithoutNav）
+        mainFrameNavActive = true
+        progressWithoutNavCount = 0
         // 主帧失败标记清除（新导航开始——错误页 finished 不再误判成功）
         lastMainFrameFailed = false
         activity.lastProgress = 0
@@ -75,6 +110,8 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
     fun onPageLoadFinished() {
         // 加载完成：取消白屏检测（避免误判）
         pageLoadFinished = true
+        // 主帧导航窗口关闭（此后散落的进度回调按无导航观测）
+        mainFrameNavActive = false
         cancelBlankScreenCheck()
         // 页面加载完成：隐藏加载页动物动画
         stopLoadingAnimal()
@@ -139,10 +176,6 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
     fun startLoadingAnimal() {
         try {
             val loadingAnimal = activity.loadingAnimal ?: return
-            // App 发起整页加载的标志探针（每次可见即记，重复触发由时间线
-            // 对齐判读）：刷新定谳用——狗出现=App 加载，狗没出现=网页自刷
-            ErrorReporter.probe(activity, TAG, "page_load_start",
-                fields = mapOf("url" to (activity.retryUrl.ifBlank { activity.webapp?.baseUrl ?: "" })))
             // 主题背景同步显示：加载期 WebView 内容未渲染，铺主题色防深色白屏
             val loadingBg = activity.loadingBg
             if (loadingBg != null && loadingBg.visibility != View.VISIBLE) {

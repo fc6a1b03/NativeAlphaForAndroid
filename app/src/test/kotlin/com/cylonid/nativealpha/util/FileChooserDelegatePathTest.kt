@@ -45,15 +45,25 @@ class FileChooserDelegatePathTest {
     }
 
     @Test
-    fun `empty accept counts as image intent`() {
-        // AI 站通用上传按钮多为空 accept：与既有行为一致按图片类分发
+    fun `empty or blank accept means any file goes legacy`() {
+        // v2.4.8 语义修正：无 accept=任意文件（HTML 规范），Photo Picker
+        // ImageOnly 会拒收非图片——实机实证 zcode 无 accept 输入上传过
+        // Downloads 文档。Chromium 对无 accept 输入传 [""] 而非 []，两形态同判
         assertEquals(
-            FileChooserDelegate.Path.PHOTO_PICKER,
+            FileChooserDelegate.Path.LEGACY,
             FileChooserDelegate.decidePath(emptyArray(), multiple = false, photoPickerAvailable = true)
         )
         assertEquals(
-            FileChooserDelegate.Path.GALLERY,
+            FileChooserDelegate.Path.LEGACY,
             FileChooserDelegate.decidePath(emptyArray(), multiple = false, photoPickerAvailable = false)
+        )
+        assertEquals(
+            FileChooserDelegate.Path.LEGACY,
+            FileChooserDelegate.decidePath(arrayOf(""), multiple = true, photoPickerAvailable = true)
+        )
+        assertEquals(
+            FileChooserDelegate.Path.LEGACY,
+            FileChooserDelegate.decidePath(arrayOf("  "), multiple = false, photoPickerAvailable = true)
         )
     }
 

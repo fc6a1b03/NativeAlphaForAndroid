@@ -5,6 +5,8 @@ import com.cylonid.nativealpha.util.AppStorage
 import com.cylonid.nativealpha.util.Const
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.Collections
 
 /**
@@ -42,37 +44,42 @@ data class PageErrorEntry(
 object PageErrorRepository {
     private const val MAX_ENTRIES = Const.ERROR_LOG_LIMIT  // 上限（条），超出丢最旧
 
+    /** append 读改写串行锁（与 AppErrorLogRepository 同款竞态防御） */
+    private val appendMutex = Mutex()
+
     /** 追加一条页面错误（挂起函数，协程内调用） */
     suspend fun append(context: Context, webappId: Int, type: String, code: String, description: String) {
         try {
-            val current = AppStorage.readString(context, AppStorage.KEY_PAGE_ERRORS)
-            val list = PageErrorEntry.fromJson(current).toMutableList()
-            // 去重：同 type+code+description 的重复错误保留最新（更新 time，不新增）
-            // 唯一哈希 = type|code|description
-            val hash = "$type|$code|$description"
-            val existing = list.indexOfFirst {
-                "${it.type}|${it.code}|${it.description}" == hash
-            }
-            if (existing >= 0) {
-                // 重复：更新时间（保留最新位置）
-                list[existing] = list[existing].copy(time = System.currentTimeMillis())
-            } else {
-                list.add(
-                    PageErrorEntry(
-                        time = System.currentTimeMillis(),
-                        site = webappId.toString(),
-                        type = type,
-                        code = code,
-                        description = description
+            appendMutex.withLock {
+                val current = AppStorage.readString(context, AppStorage.KEY_PAGE_ERRORS)
+                val list = PageErrorEntry.fromJson(current).toMutableList()
+                // 去重：同 type+code+description 的重复错误保留最新（更新 time，不新增）
+                // 唯一哈希 = type|code|description
+                val hash = "$type|$code|$description"
+                val existing = list.indexOfFirst {
+                    "${it.type}|${it.code}|${it.description}" == hash
+                }
+                if (existing >= 0) {
+                    // 重复：更新时间（保留最新位置）
+                    list[existing] = list[existing].copy(time = System.currentTimeMillis())
+                } else {
+                    list.add(
+                        PageErrorEntry(
+                            time = System.currentTimeMillis(),
+                            site = webappId.toString(),
+                            type = type,
+                            code = code,
+                            description = description
+                        )
                     )
-                )
+                }
+                // 超上限丢最旧
+                if (list.size > MAX_ENTRIES) {
+                    Collections.sort(list) { a, b -> a.time.compareTo(b.time) }
+                    list.subList(0, list.size - MAX_ENTRIES).clear()
+                }
+                AppStorage.writeString(context, AppStorage.KEY_PAGE_ERRORS, PageErrorEntry.toJson(list))
             }
-            // 超上限丢最旧
-            if (list.size > MAX_ENTRIES) {
-                Collections.sort(list) { a, b -> a.time.compareTo(b.time) }
-                list.subList(0, list.size - MAX_ENTRIES).clear()
-            }
-            AppStorage.writeString(context, AppStorage.KEY_PAGE_ERRORS, PageErrorEntry.toJson(list))
         } catch (e: Exception) {
             // 写入失败静默（不影响主功能）
         }

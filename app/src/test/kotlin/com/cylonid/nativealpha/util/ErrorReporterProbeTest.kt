@@ -99,4 +99,46 @@ class ErrorReporterProbeTest {
         )
         assertEquals("cell_dark_mode forced=false site=https://zcode.z.ai/remote/v4", out)
     }
+
+    @Test
+    fun `uri list is redacted per element`() {
+        // v2.4.8 实锤：FileChooser extracted 整串 contentToString 以 [ 前缀绕过
+        // URL 判定，相册路径全量进导出日志——集合必须逐元素脱敏
+        val out = ErrorReporter.sanitizeFieldValue(
+            listOf("content://com.miui.gallery/raw/a?token=x", "content://msf/1#frag")
+        )
+        assertEquals("[\"content://com.miui.gallery/raw/a\", \"content://msf/1\"]", out)
+    }
+
+    @Test
+    fun `uri array redacted same as list`() {
+        val out = ErrorReporter.sanitizeFieldValue(
+            arrayOf("content://com.miui.gallery.open/raw/%2Fstorage%2FDCIM%2Fshot.jpg")
+        )
+        assertEquals("[\"content://com.miui.gallery.open/raw/%2Fstorage%2FDCIM%2Fshot.jpg\"]", out)
+    }
+
+    @Test
+    fun `blank string element stays visible`() {
+        // ["" ] ≠ []：空 accept 被渲染成 [] 掩盖 LEGACY 路径成因的教训
+        assertEquals("[\"\"]", ErrorReporter.sanitizeFieldValue(listOf("")))
+        assertEquals("[]", ErrorReporter.sanitizeFieldValue(emptyList<String>()))
+    }
+
+    @Test
+    fun `url inside mixed text is redacted without anchor`() {
+        // 原 ^ 锚点只命中整串 URL：混合文本里的 query 凭证同样必须截断
+        assertEquals(
+            "failed at https://a.com/p end",
+            ErrorReporter.redactUrlsInText("failed at https://a.com/p?tok=1 end")
+        )
+    }
+
+    @Test
+    fun `null and plain values in collection render untouched`() {
+        assertEquals(
+            "[null, 3, \"LEGACY\"]",
+            ErrorReporter.sanitizeFieldValue(listOf(null, 3, "LEGACY"))
+        )
+    }
 }

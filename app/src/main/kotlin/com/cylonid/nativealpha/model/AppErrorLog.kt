@@ -5,7 +5,7 @@ import com.cylonid.nativealpha.util.AppStorage
 import com.cylonid.nativealpha.util.Const
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import java.util.Collections
+import kotlinx.coroutines.sync.withLock
 
 /**
  * 应用自身运行错误日志（全局，与统计页页面错误分离）。
@@ -73,10 +73,14 @@ data class LevelCounts(val errors: Int = 0, val warnings: Int = 0, val probes: I
 
 /** 应用错误日志仓库：DataStore 唯一读写（异步，不阻塞主线程）。
  *  保留策略：仅保留近 [com.cylonid.nativealpha.util.Const.APP_ERROR_DAYS] 天
- *  （超龄在写入时清理）+ 条数上限丢最旧；导出成功即清空历史（用户定调：
- *  避免反复导出同一批旧错误）。 */
+ *  （超龄在写入时清理）+ 条数上限先丢最旧探针 INFO 再丢最旧；导出成功即清空
+ *  历史（用户定调：避免反复导出同一批旧错误）。 */
 object AppErrorLogRepository {
-    private const val MAX_ENTRIES = Const.ERROR_LOG_LIMIT  // 上限（条），超出丢最旧
+    private const val MAX_ENTRIES = Const.ERROR_LOG_LIMIT  // 上限（条），先丢最旧 INFO 再丢最旧
+
+    /** append 读改写串行锁：probe 每次新起 IO 协程，读全量→改→写回跨两个
+     *  DataStore 事务，不串行会并发覆盖互相的追加（丢条目） */
+    private val appendMutex = kotlinx.coroutines.sync.Mutex()
 
     /** 保留窗口起点（epoch ms）——清理/过滤统一口径（能力唯一实现处） */
     private fun retentionCutoff(): Long =
@@ -88,28 +92,52 @@ object AppErrorLogRepository {
         entry: AppErrorEntry
     ) {
         try {
-            val current = AppStorage.readString(
-                context,
-                AppStorage.KEY_APP_ERRORS
-            )
-            val list = AppErrorEntry.fromJson(current).toMutableList()
-            list.add(entry)
-            // 超龄清理：仅保留近 3 天（在 add 之后执行，保证任何写入后库内无超龄记录）
-            list.removeAll { it.time < retentionCutoff() }
-            // 超上限丢最旧
-            if (list.size > MAX_ENTRIES) {
-                Collections.sort(list) { a, b -> a.time.compareTo(b.time) }
-                val overflow = list.size - MAX_ENTRIES
-                list.subList(0, overflow).clear()
+            appendMutex.withLock {
+                val current = AppStorage.readString(
+                    context,
+                    AppStorage.KEY_APP_ERRORS
+                )
+                // 超龄清理：仅保留近 3 天（先 add 后滤——超龄条目自身一并清理，
+                // 保证任何写入后库内无超龄记录）
+                val list = AppErrorEntry.fromJson(current)
+                    .plus(entry)
+                    .filter { it.time >= retentionCutoff() }
+                AppStorage.writeString(
+                    context,
+                    AppStorage.KEY_APP_ERRORS,
+                    AppErrorEntry.toJson(applyRetention(list, MAX_ENTRIES))
+                )
             }
-            AppStorage.writeString(
-                context,
-                AppStorage.KEY_APP_ERRORS,
-                AppErrorEntry.toJson(list)
-            )
         } catch (e: Exception) {
             // 日志写入失败静默：不影响主功能
         }
+    }
+
+    /**
+     * 超上限逐出策略（纯函数可单测）：先丢最旧 INFO（取证探针可再生），
+     * 仍超再丢最旧任意级别。v2.4.8 实锤：探针洪泛时 200 条配额 68% 是
+     * page_load_start，先进先出会把真错误/崩溃挤出保留窗口。
+     */
+    internal fun applyRetention(entries: List<AppErrorEntry>, max: Int): List<AppErrorEntry> {
+        if (entries.size <= max) return entries
+        val ordered = entries.sortedBy { it.time }
+        var over = ordered.size - max
+        val drop = BooleanArray(ordered.size)
+        for (i in ordered.indices) {
+            if (over == 0) break
+            if (ordered[i].level == AppErrorEntry.LEVEL_INFO) {
+                drop[i] = true
+                over--
+            }
+        }
+        for (i in ordered.indices) {
+            if (over == 0) break
+            if (!drop[i]) {
+                drop[i] = true
+                over--
+            }
+        }
+        return ordered.filterIndexed { index, _ -> !drop[index] }
     }
 
     /** 读取全部（异步，协程内调用） */

@@ -28,6 +28,7 @@ class App : Application() {
             )
         )
         context = applicationContext
+        reportLastExitReason()
 
         // 网页事件运行时（P5）：规则库载入 + 通知 Channel 幂等创建 + 动作分发装配
         com.cylonid.nativealpha.webevent.WebeventRuntime.init(context)
@@ -142,6 +143,40 @@ class App : Application() {
 
         @JvmStatic
         fun getAppContext(): Context = context
+    }
+
+    /**
+     * 上次进程退出原因探针（v2.4.8 定谳「两次 app_start 相隔 4 秒却零 CRASH」）：
+     * LMK 回收、崩溃兜底写入失败、还是用户手动清理，系统 ExitInfo 直接给答案，
+     * 不再靠间接推断。每进程启动至多一条 INFO。
+     */
+    private fun reportLastExitReason() {
+        try {
+            val am = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+            val last = am.getHistoricalProcessExitReasons(packageName, 0, 1).firstOrNull() ?: return
+            ErrorReporter.probe(
+                this, "App", "app_exit_reason",
+                fields = mapOf(
+                    "reason" to exitReasonName(last.reason),
+                    "desc" to last.description
+                )
+            )
+        } catch (ignored: Exception) {
+            // ExitInfo 不可得（部分 ROM/多用户场景）：跳过取证
+        }
+    }
+
+    /** ExitInfo 原因码转可读名（排查导出日志可 grep） */
+    private fun exitReasonName(reason: Int): String = when (reason) {
+        android.app.ApplicationExitInfo.REASON_LOW_MEMORY -> "low_memory"
+        android.app.ApplicationExitInfo.REASON_CRASH -> "crash"
+        android.app.ApplicationExitInfo.REASON_ANR -> "anr"
+        android.app.ApplicationExitInfo.REASON_USER_REQUESTED -> "user_requested"
+        android.app.ApplicationExitInfo.REASON_USER_STOPPED -> "user_stopped"
+        android.app.ApplicationExitInfo.REASON_SIGNALED -> "signaled"
+        android.app.ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "excessive_resource"
+        android.app.ApplicationExitInfo.REASON_OTHER -> "other"
+        else -> "code_$reason"
     }
 
     /**

@@ -24,10 +24,23 @@ object ErrorReporter {
     /** 探针 URL 字段脱敏后保留上限：scheme://host/路径主干可读即可，防超长 URL 刷屏膨胀 */
     private const val MAX_URL_FIELD_LENGTH = 80
 
-    /** URL 形态判定：`scheme://` 前缀（http/https/content/file 等统一命中） */
-    private val urlPrefix = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*://")
+    /** URL 形态判定：`scheme://`（不锚定行首——数组元素/混合文本中的 URL 同样命中，
+     *  v2.4.8 实锤：`^` 锚点让 contentToString 的 `[` 前缀整体绕过脱敏，
+     *  相册路径全量进了导出日志） */
+    private val urlInText = Regex("[a-zA-Z][a-zA-Z0-9+.-]*://[^\\s\",\\]]*")
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * 单测沙箱判定：Robolectric 的 FINGERPRINT 以 robolectric 开头。异步探针
+     * 写库与测试的 store 重置存在跨方法竞态（每个测试方法的 Application.onCreate
+     * 都会发 app_start，协程可能落在 @Before 重置之后污染断言——2026-10-29
+     * AppErrorLogTest 实锤），单测下探针只留 logcat 副本，不进 DataStore。
+     * runCatching 兜底：纯 JVM 无 Robolectric 时 Build 存根抛异常按 false 处理。
+     */
+    private val inUnitTestSandbox: Boolean = runCatching {
+        android.os.Build.FINGERPRINT.startsWith("robolectric", ignoreCase = true)
+    }.getOrDefault(false)
 
     /**
      * 记录一条错误到应用错误日志（异步、永不抛）。
@@ -38,6 +51,7 @@ object ErrorReporter {
      */
     fun report(context: Context, tag: String, message: String, error: Throwable? = null, level: String = AppErrorEntry.LEVEL_ERROR) {
         Log.w(tag, message, error)
+        if (inUnitTestSandbox) return
         val appContext = context.applicationContext
         scope.launch {
             try {
@@ -92,6 +106,7 @@ object ErrorReporter {
     ) {
         val message = formatProbe(event, fields)
         Log.i(tag, message)
+        if (inUnitTestSandbox) return
         val appContext = context.applicationContext
         scope.launch {
             try {
@@ -120,11 +135,31 @@ object ErrorReporter {
         return "$event $rendered"
     }
 
-    /** 字段值渲染（纯函数可单测）：URL 形态字符串脱敏，其余保持 toString 语义（null 显式保留） */
+    /**
+     * 字段值渲染（纯函数可单测）：URL 形态字符串脱敏，其余保持 toString 语义
+     * （null 显式保留）。集合/数组逐元素脱敏——整串 contentToString 会以 `[`
+     * 前缀绕过 URL 判定（FileChooser extracted 字段实锤泄相册路径），且
+     * 字符串元素加引号区分「空串元素」与「空集合」（`[""]` ≠ `[]`，
+     * v2.4.8 实锤：accept=[""] 被渲染成 [] 掩盖了 LEGACY 路径的真实成因）。
+     */
     internal fun sanitizeFieldValue(v: Any?): String {
-        val s = v?.toString() ?: return "null"
-        return if (urlPrefix.containsMatchIn(s)) redactUrl(s) else s
+        return when (v) {
+            null -> "null"
+            is Collection<*> -> v.joinToString(", ", "[", "]") { renderElement(it) }
+            is Array<*> -> v.joinToString(", ", "[", "]") { renderElement(it) }
+            else -> redactUrlsInText(v.toString())
+        }
     }
+
+    /** 集合元素渲染：字符串加引号（保留空串可见性）并逐 URL 脱敏，其余递归 */
+    private fun renderElement(v: Any?): String = when (v) {
+        null -> "null"
+        is String -> "\"" + redactUrlsInText(v) + "\""
+        else -> sanitizeFieldValue(v)
+    }
+
+    /** 文本内所有 URL 逐个截断 query/fragment，非 URL 部分原样保留 */
+    internal fun redactUrlsInText(s: String): String = urlInText.replace(s) { redactUrl(it.value) }
 
     /** URL 脱敏（纯函数可单测）：截断 query/fragment（登录凭证所在，如 `#token=`、`?sid=`），
      *  保留 scheme://host/path 主干并限长——站点 URL 与 content:// 文件 URI 同规则覆盖 */

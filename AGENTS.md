@@ -322,6 +322,33 @@ Profile 等。
     必须显式刷新。另需关闭 `isNavigationBarContrastEnforced`（三键导航灰罩）。
     **已知限制**：站点若在切换自身深浅色时**不更新 theme-color meta**（只改 CSS），
     桥无法感知，栏色会停留旧值——需站点侧更新 meta 才能跟随。
+    **v2.4.8 修正**：v2.4.6-2.4.7 的观察器挂载是坏的——document-start 时机
+    `document.head` 尚未建出，裸 `if(document.head)` 恒 false，MutationObserver
+    从未挂上（实机 8 会话仅 3 次上报站点色的根因）；此前「站点运行中切色不
+    跟随」的归因即源于此，观察器修好后（挂 `document.documentElement` + 200ms
+    重试兜底，`theme_bridge_diag` 探针可查挂载与 readyState）该限制需重新实测。
+    **教训：document-start 脚本里挂 observer 用 `documentElement`（此时机已存在），
+    参照 `JsHookScript` 先例；元素级守卫必须带重试兜底。**
+17. **探针打点必须在「事件级」而非「回调级」**：v2.4.7 及之前 `page_load_start`
+    打在 `startLoadingAnimal()`（onProgressChanged 每次进度回调都进），单日导出
+    200 条配额被灌掉 68%、真错误被挤出 3 天保留窗口。探针洪泛三守则：
+    ① 一类事件一条日志（导航打 `page_nav`、完成打 `page_loaded`）；
+    ② 高频回调路径（onProgressChanged/onLoadResource）禁止直接打点，需对数级
+    限流或事件级去重（参照 `noteProgressWithoutNav` 的 1/25/100 打点）；
+    ③ 日志仓库超上限**先丢最旧 INFO 再丢最旧**（`applyRetention`），探针可再生、
+    崩溃不可再生。
+18. **ErrorReporter 集合字段会整体绕过 URL 脱敏**：`contentToString()` 的 `[`
+    前缀使 `^` 锚定的 URL 正则不命中（FileChooser `extracted` 字段泄相册路径
+    实锤）——集合/数组直接作为 fields 值传入（sanitize 逐元素脱敏，字符串元素
+    加引号保留 `[""]` 与 `[]` 的区分），禁止调用点自行拼串。
+19. **ErrorReporter 在 Robolectric 单测沙箱不写库**：FINGERPRINT 以 robolectric
+    开头即跳过 DataStore 写（保留 logcat）——否则每个测试方法的
+    Application.onCreate 都会异步发 `app_start`，协程落在 `@Before` 重置之后
+    污染断言（时序相关、偶发，极难排查）。
+20. **空 accept 的 `<input type=file>` 语义是「任意文件」**：Chromium 对无
+    accept 输入传 `[""]` 而非 `[]`（渲染成 `[]` 会掩盖真实形态）；两形态同判
+    → LEGACY 文件管理器。按图片类收窄会让用户传不了非图片文件（实机实证
+    zcode 上传过 Downloads 文档）。
 
 ---
 
@@ -341,4 +368,6 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-10-29（系统栏探针节流按页面分键 + 桥回调闭包优化，版本 2.4.7）。*
+*最后更新：2026-10-29（诊断日志地基修复：探针事件级打点/脱敏容器化/日志
+500+INFO 优先逐出/仓库写串行化；站点色桥观察器挂载修正——坑位 16 的已知
+限制需重新实测；空 accept 上传语义归正为任意文件。基于 2.4.7，未发版）。*
