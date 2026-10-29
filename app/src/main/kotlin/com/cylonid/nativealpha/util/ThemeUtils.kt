@@ -83,15 +83,31 @@ object ThemeUtils {
     }
 
     /**
-     * 当前实际深色与否：themeId 指定优先，跟随系统时读资源配置
-     * （与 [resolveTheme]/[applyUiMode] 同一判定口径）。
+     * Activity 当前实际深色与否。
+     *
+     * 必须读 Activity 实际配置而非全局 themeId：`localNightMode`（站点强制
+     * 深色、按站主题）会在运行期改写该 Activity 的 uiMode，只有实际配置才是
+     * 系统栏与页面（WebView 的 prefers-color-scheme）共用的同一事实。读
+     * themeId 会在「应用浅色 + 系统深色」等组合下与实际渲染割裂——错误页已
+     * 按系统转深，系统栏却仍是浅色。
      */
-    private fun isDarkTheme(activity: Activity): Boolean {
+    private fun isDarkTheme(activity: Activity): Boolean =
+        (activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+
+    /**
+     * 应用内主题对应的 AppCompat 夜间模式（全应用唯一口径）：
+     * themeId 1=强制浅色 / 2=强制深色 / 其他=跟随系统。
+     * 供运行期显式设置 localNightMode 的页面复用，防止各处写死
+     * FOLLOW_SYSTEM 覆盖用户选择。
+     */
+    @JvmStatic
+    fun appNightMode(): Int {
+        DataManager.getInstance().loadAppData()
         return when (DataManager.getInstance().settings.themeId) {
-            2 -> true
-            1 -> false
-            else -> (activity.resources.configuration.uiMode and
-                Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            1 -> AppCompatDelegate.MODE_NIGHT_NO
+            2 -> AppCompatDelegate.MODE_NIGHT_YES
+            else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
         }
     }
 }
