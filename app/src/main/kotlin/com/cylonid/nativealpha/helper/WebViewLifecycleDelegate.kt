@@ -181,7 +181,6 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
 
         val url = app.baseUrl
 
-        activity.progressBar = activity.findViewById(R.id.progressBar)
         activity.loadingAnimal = activity.findViewById(R.id.loadingAnimal)
         activity.loadingBg = activity.findViewById(R.id.loadingBg)
 

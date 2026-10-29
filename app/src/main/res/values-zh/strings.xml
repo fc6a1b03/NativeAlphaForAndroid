@@ -109,7 +109,6 @@
     <string name="chooser_notif_title">正在选择文件…</string>
     <string name="no_pdf_app">设备上没有可以打开 PDF 文件的应用</string>
     <string name="custom_icon">选择自定义图标</string>
-    <string name="show_progress_bar_during_page_load">页面加载时显示进度条</string>
     <string name="use_custom_user_agent">使用自定义 User Agent</string>
     <string name="insert_custom_user_agent">在此输入自定义 User Agent…</string>
 
@@ -173,7 +172,6 @@
     <string name="desc_two_finger_nav">双指左右滑动进行后退/前进。</string>
     <string name="desc_three_finger_switch">三指左右滑动在多个 Web App 之间切换。</string>
     <string name="desc_edge_swipe_nav">从屏幕左右边缘横向滑动切换上一页/下一页。默认关闭。</string>
-    <string name="desc_show_progressbar">页面加载时在底部显示加载进度条。</string>
     <string name="desc_always_show_buttons">在全屏页面中保持系统导航按钮可见。</string>
     <string name="desc_allow_js">大多数现代网站正常运行所必需。</string>
     <string name="desc_block_third_party">阻止对其他域名的请求（广告、追踪器）。</string>

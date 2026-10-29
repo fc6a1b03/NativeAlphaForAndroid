@@ -10,7 +10,6 @@ import android.view.View
 import android.view.WindowManager
 import android.webkit.HttpAuthHandler
 import android.webkit.WebView
-import android.widget.ProgressBar
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.airbnb.lottie.LottieAnimationView
@@ -36,7 +35,7 @@ import com.cylonid.nativealpha.util.WebViewLauncher
  * 深色/系统栏（WebViewDarkModeController）、页面加载 UI（WebViewPageChrome）、
  * 触摸/快捷键/菜单/权限（WebViewTouchHandler 等既有 helper）。
  *
- * 契约留守本类：ChromeClient/BrowserClient 直读的字段（wv/progressBar 等）、
+ * 契约留守本类：ChromeClient/BrowserClient 直读的字段（wv/loadingAnimal 等）、
  * parseShortcut（CoreLogicTest 单测契约）、权限回写三件套
  * （WebViewChromeClient 直接引用）、生命周期与返回键 override 入口。
  */
@@ -86,7 +85,6 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
     var webappID = -1
     var webappTabIndex = 0
     internal var wv: WebView? = null
-    internal var progressBar: ProgressBar? = null
     internal var loadingAnimal: LottieAnimationView? = null
     internal var loadingBg: View? = null
 
@@ -95,7 +93,6 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
 
     /** 动画显示起止计时（onProgressChanged 里判定短暂显示窗口用） */
     internal var pageLoadStartTime2 = 0L
-    internal var currentlyReloading = true
     // 白屏检测进度值（onProgressChanged 更新；计时与判定在 WebViewPageChrome）
     internal var lastProgress = 0
     internal var lastProgressTime = 0L

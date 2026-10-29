@@ -351,7 +351,6 @@ class WebViewTouchHandler(private val activity: WebViewActivity) {
                         kotlin.math.abs(startY - stopY) > TRESHOLD
                     ) {
                         if (stopY > startY) {
-                            activity.currentlyReloading = true
                             activity.safeReload()
                         }
                         return@setOnTouchListener true

@@ -279,12 +279,6 @@ fun GlobalSettingsScreen(
                     description = stringResource(R.string.desc_edge_swipe_nav)
                 )
                 SettingsSwitchRow(
-                    title = stringResource(R.string.show_progress_bar_during_page_load),
-                    checked = modified.isShowProgressbar,
-                    onCheckedChange = { modified = modified.copy(isShowProgressbar = it) },
-                    description = stringResource(R.string.desc_show_progressbar)
-                )
-                SettingsSwitchRow(
                     title = stringResource(R.string.always_show_software_buttons),
                     checked = modified.alwaysShowSoftwareButtons,
                     onCheckedChange = { modified = modified.copy(alwaysShowSoftwareButtons = it) },

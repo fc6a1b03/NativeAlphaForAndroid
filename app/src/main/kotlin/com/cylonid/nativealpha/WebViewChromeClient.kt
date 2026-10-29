@@ -6,7 +6,6 @@ import androidx.annotation.StringRes
 import android.net.Uri
 import android.os.Message
 import androidx.core.graphics.createBitmap
-import androidx.core.view.isGone
 import android.view.View
 import android.webkit.ConsoleMessage
 import android.webkit.GeolocationPermissions
@@ -21,7 +20,6 @@ import android.webkit.WebChromeClient
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.cylonid.nativealpha.model.DataManager
-import com.google.android.material.snackbar.Snackbar
 import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.util.ErrorReporter
@@ -33,12 +31,11 @@ import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.widget.EditText
 import android.widget.FrameLayout
-import android.widget.ProgressBar
 import com.cylonid.nativealpha.R
 
 /**
  * WebView 的 WebChromeClient：控制台日志/权限请求/文件选择/全屏视频/
- * 进度条/地理定位/HTTP 认证等浏览器外壳事件。
+ * 地理定位/HTTP 认证等浏览器外壳事件。
  *
  * 从 WebViewActivity.kt 拆出（R3 治理）：原 private inner class 独立化，
  * Activity 引用经 host 构造参数注入——行为零变更。
@@ -162,10 +159,9 @@ internal class CustomWebChromeClient(
             host.scheduleBlankScreenCheck()
         }
 
-        // 加载动画：独立于进度条显示开关——页面加载期短暂展示（站点 loader 接管前撤）：
+        // 加载动画（唯一加载进度指示）：页面加载期短暂展示（站点 loader 接管前撤）：
         // - progress < 100（整段加载）
-        // - 距加载开始 < ANIMAL_MAX_SHOW_MS（避免长期盖住带自带 loader 的慢站）
-        // 注意：放进度条判断外，用户未开启进度条时动画依然可见（此前默认关闭进度条导致动画不显示）
+        // - 距加载开始 < animalMaxShowMs（避免长期盖住带自带 loader 的慢站）
         if (progress < 100 && host.loadingAnimal != null) {
             // 距加载开始时间（首次 onPageStarted 前 pageLoadStartTime2=0 → 视为 0 刚从窗口内开始）
             val elapsed = if (host.pageLoadStartTime2 == 0L) 0L
@@ -177,21 +173,6 @@ internal class CustomWebChromeClient(
             }
         } else {
             host.stopLoadingAnimal()
-        }
-
-        if (DataManager.getInstance().settings.isShowProgressbar || host.currentlyReloading) {
-            if (host.progressBar!!.isGone && progress < 100) {
-                host.progressBar!!.visibility = ProgressBar.VISIBLE
-            }
-
-            // 平滑过渡（150ms），避免进度跳变
-            host.progressBar!!.setProgress(progress, true)
-
-            if (progress == 100) {
-                host.progressBar!!.visibility = ProgressBar.GONE
-                host.currentlyReloading = false
-                host.stopLoadingAnimal()
-            }
         }
     }
 

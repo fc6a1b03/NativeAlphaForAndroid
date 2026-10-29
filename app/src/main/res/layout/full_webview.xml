@@ -28,17 +28,6 @@
             android:focusableInTouchMode="true"
             tools:ignore="MissingConstraints" />
 
-        <ProgressBar
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="3dp"
-            android:layout_gravity="bottom"
-            android:indeterminate="false"
-            android:forceDarkAllowed="false"
-            android:id="@+id/progressBar"
-            android:progressDrawable="@drawable/webnative_progressbar"
-            android:background="@android:color/transparent"
-            tools:ignore="UnusedAttribute" />
         <!-- 加载页主题背景：动画显示时铺主题色底（防深色主题白屏——加载期 WebView 内容未渲染默认白） -->
         <View
             android:id="@+id/loadingBg"
