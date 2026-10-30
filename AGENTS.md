@@ -334,7 +334,9 @@ Profile 等。
     200 条配额被灌掉 68%、真错误被挤出 3 天保留窗口。探针洪泛三守则：
     ① 一类事件一条日志（导航打 `page_nav`、完成打 `page_loaded`）；
     ② 高频回调路径（onProgressChanged/onLoadResource）禁止直接打点，需对数级
-    限流或事件级去重（参照 `noteProgressWithoutNav` 的 1/25/100 打点）；
+    限流或事件级去重（参照 `noteProgressWithoutNav` 的 5/25/100 打点——
+    首条即报会把正常加载的零星前置进度误报成 WARNING，窗口拉长才算异常；
+    `js_console_error` 同 msg+src+line 3s 冷却同理）；
     ③ 日志仓库超上限**先丢最旧 INFO 再丢最旧**（`applyRetention`），探针可再生、
     崩溃不可再生。
 18. **ErrorReporter 集合字段会整体绕过 URL 脱敏**：`contentToString()` 的 `[`
@@ -349,6 +351,15 @@ Profile 等。
     accept 输入传 `[""]` 而非 `[]`（渲染成 `[]` 会掩盖真实形态）；两形态同判
     → LEGACY 文件管理器。按图片类收窄会让用户传不了非图片文件（实机实证
     zcode 上传过 Downloads 文档）。
+21. **WebView 对私网段有 LNA 门禁（单镜像观测，变量未分离）**：Pixel_9a
+    镜像（WebView 149）实测 `loadUrl` 到私网地址（`10.0.2.2`）直接
+    `net::ERR_LOCAL_NETWORK_PERMISSION_MISSING`——对应 AppOp
+    `ACCESS_LOCAL_NETWORK`（该镜像有此 op 但 `appops set` allow 不生效、
+    设置页无用户授权开关；另一 API 36 GA 镜像**无此 op 定义**且未测私网段
+    ——镜像/API 级别/回环三变量未分离，勿当普适结论引用）。**loopback
+    （127.0.0.1 + `adb reverse`）在 GA 镜像实测可加载**——模拟器测本地页
+    一律走 reverse，不走 10.0.2.2。用户自建 LAN 站点在 Android 16 真机
+    是否被拦，待实机验证（潜在待办：跟进平台授权开关的公开 API）。
 
 ---
 
