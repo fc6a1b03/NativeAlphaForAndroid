@@ -59,18 +59,20 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
     /**
      * 进度回调配对观测（2026-10-29 实机导出定谳：4 个会话进度回调连跑 4-6 秒
      * 而 onPageStarted 一次未触发——主帧没动子帧在动，加载耗时统计/健康登记/
-     * 白屏检测全部漏挂）。对数级打点（1/25/100 次各记一条，100 后重新计数）
+     * 白屏检测全部漏挂）。阈值 5/25/100：正常加载也有零星进度回调先于
+     * onPageStarted 到达（模拟器实测 97ms 窗口），首条即报会把每次正常加载
+     * 污染成一条假 WARNING——第 5 条才报，窗口拉长才算异常；对数级打点
      * 上限每百次 3 条，INFO 洪泛不再重演。
      */
     fun noteProgressWithoutNav(progress: Int) {
         if (progress >= 100) return // 加载收尾的散落回调不算
         progressWithoutNavCount++
-        if (progressWithoutNavCount == 1 || progressWithoutNavCount == 25 ||
+        if (progressWithoutNavCount == 5 || progressWithoutNavCount == 25 ||
             progressWithoutNavCount == 100
         ) {
             ErrorReporter.probe(
                 activity, TAG, "progress_without_nav",
-                fields = mapOf("progress" to progress),
+                fields = mapOf("count" to progressWithoutNavCount, "progress" to progress),
                 level = AppErrorEntry.LEVEL_WARNING
             )
         }

@@ -5,6 +5,7 @@ import com.cylonid.nativealpha.util.AppStorage
 import com.cylonid.nativealpha.util.Const
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
@@ -80,13 +81,19 @@ object AppErrorLogRepository {
 
     /** append 读改写串行锁：probe 每次新起 IO 协程，读全量→改→写回跨两个
      *  DataStore 事务，不串行会并发覆盖互相的追加（丢条目） */
-    private val appendMutex = kotlinx.coroutines.sync.Mutex()
+    private val appendMutex = Mutex()
 
     /** 保留窗口起点（epoch ms）——清理/过滤统一口径（能力唯一实现处） */
     private fun retentionCutoff(): Long =
         System.currentTimeMillis() - Const.APP_ERROR_DAYS * 24L * 60 * 60 * 1000
 
-    /** 追加一条错误日志（异步，协程内调用）；写入时清理超龄（>3 天）记录 */
+    /**
+     * 追加一条错误日志（异步，协程内调用）；写入时清理超龄（>3 天）记录。
+     * 成本模型：读全量 JSON→Gson 解析→改→序列化写回，500 条≈100KB≈单次
+     * 数毫秒（IO 线程）——打点频率已在调用方节流（页面级 1-2 条/加载、
+     * 同消息 3s 冷却、对数探针），O(n) 读改写可承受；内存缓存读侧需解决
+     * clearAll 直写 AppStorage 的失效问题，收益不值复杂度，勿轻改。
+     */
     suspend fun append(
         context: Context,
         entry: AppErrorEntry

@@ -48,6 +48,10 @@ internal class CustomWebChromeClient(
     private var mCustomViewCallback: CustomViewCallback? = null
     private var mOriginalOrientation = 0
 
+    /** 同一条 JS 错误的诊断留痕冷却键/时刻（3s 窗口，见 onConsoleMessage） */
+    private var lastJsErrorProbeKey: String? = null
+    private var lastJsErrorProbeAt = 0L
+
     override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
         // 统计埋点：页面 JS 错误（未捕获异常/语法错误走 console.error 上报）
         if (consoleMessage != null
@@ -61,16 +65,26 @@ internal class CustomWebChromeClient(
                 consoleMessage.message() ?: "JS error"
             )
             // 诊断日志同步留痕（WARNING）：页面刷新循环前 JS 报错
-            // （断连/状态异常）就写在这里，「页面死前遗言」不被噪音淹没
-            ErrorReporter.probe(
-                host, "PageLoad", "js_console_error",
-                fields = mapOf(
-                    "msg" to (consoleMessage.message() ?: ""),
-                    "src" to (consoleMessage.sourceId() ?: ""),
-                    "line" to consoleMessage.lineNumber()
-                ),
-                level = AppErrorEntry.LEVEL_WARNING
-            )
+            // （断连/状态异常）就写在这里，「页面死前遗言」不被噪音淹没。
+            // 同 msg+src+line 3 秒冷却：刷新循环类站点会高频重复同一条，
+            // 每条一次全量 JSON 重写会把诊断日志存储打成 IO 热点——统计侧
+            // 已有 PageErrorRepository 按 type|code|desc 去重，此处只防日志刷屏
+            val msg = consoleMessage.message() ?: ""
+            val probeKey = "$msg|${consoleMessage.sourceId()}|${consoleMessage.lineNumber()}"
+            val now = System.currentTimeMillis()
+            if (probeKey != lastJsErrorProbeKey || now - lastJsErrorProbeAt > 3_000) {
+                lastJsErrorProbeKey = probeKey
+                lastJsErrorProbeAt = now
+                ErrorReporter.probe(
+                    host, "PageLoad", "js_console_error",
+                    fields = mapOf(
+                        "msg" to msg,
+                        "src" to (consoleMessage.sourceId() ?: ""),
+                        "line" to consoleMessage.lineNumber()
+                    ),
+                    level = AppErrorEntry.LEVEL_WARNING
+                )
+            }
         }
         return false // 不阻断页面（仅采集）
     }

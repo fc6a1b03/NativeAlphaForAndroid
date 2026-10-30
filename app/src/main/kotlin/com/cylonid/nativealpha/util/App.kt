@@ -3,6 +3,7 @@ package com.cylonid.nativealpha.util
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Application
+import android.app.ApplicationExitInfo
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.os.Bundle
@@ -168,14 +169,14 @@ class App : Application() {
 
     /** ExitInfo 原因码转可读名（排查导出日志可 grep） */
     private fun exitReasonName(reason: Int): String = when (reason) {
-        android.app.ApplicationExitInfo.REASON_LOW_MEMORY -> "low_memory"
-        android.app.ApplicationExitInfo.REASON_CRASH -> "crash"
-        android.app.ApplicationExitInfo.REASON_ANR -> "anr"
-        android.app.ApplicationExitInfo.REASON_USER_REQUESTED -> "user_requested"
-        android.app.ApplicationExitInfo.REASON_USER_STOPPED -> "user_stopped"
-        android.app.ApplicationExitInfo.REASON_SIGNALED -> "signaled"
-        android.app.ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "excessive_resource"
-        android.app.ApplicationExitInfo.REASON_OTHER -> "other"
+        ApplicationExitInfo.REASON_LOW_MEMORY -> "low_memory"
+        ApplicationExitInfo.REASON_CRASH -> "crash"
+        ApplicationExitInfo.REASON_ANR -> "anr"
+        ApplicationExitInfo.REASON_USER_REQUESTED -> "user_requested"
+        ApplicationExitInfo.REASON_USER_STOPPED -> "user_stopped"
+        ApplicationExitInfo.REASON_SIGNALED -> "signaled"
+        ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "excessive_resource"
+        ApplicationExitInfo.REASON_OTHER -> "other"
         else -> "code_$reason"
     }
 
