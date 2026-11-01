@@ -167,16 +167,27 @@ class App : Application() {
         }
     }
 
-    /** ExitInfo 原因码转可读名（排查导出日志可 grep） */
+    /** ExitInfo 原因码转可读名（排查导出日志可 grep）。全量覆盖 API 37 的
+     *  17 个原因码（数值经 javap 对 android-37 android.jar 实测核对——
+     *  v2.4.8 实机首条 code_16 即 PACKAGE_UPDATED，靠 desc 才读懂，故补全） */
     private fun exitReasonName(reason: Int): String = when (reason) {
+        ApplicationExitInfo.REASON_UNKNOWN -> "unknown"
+        ApplicationExitInfo.REASON_EXIT_SELF -> "exit_self"
+        ApplicationExitInfo.REASON_SIGNALED -> "signaled"
         ApplicationExitInfo.REASON_LOW_MEMORY -> "low_memory"
         ApplicationExitInfo.REASON_CRASH -> "crash"
+        ApplicationExitInfo.REASON_CRASH_NATIVE -> "crash_native"
         ApplicationExitInfo.REASON_ANR -> "anr"
+        ApplicationExitInfo.REASON_INITIALIZATION_FAILURE -> "initialization_failure"
+        ApplicationExitInfo.REASON_PERMISSION_CHANGE -> "permission_change"
+        ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "excessive_resource"
         ApplicationExitInfo.REASON_USER_REQUESTED -> "user_requested"
         ApplicationExitInfo.REASON_USER_STOPPED -> "user_stopped"
-        ApplicationExitInfo.REASON_SIGNALED -> "signaled"
-        ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "excessive_resource"
+        ApplicationExitInfo.REASON_DEPENDENCY_DIED -> "dependency_died"
         ApplicationExitInfo.REASON_OTHER -> "other"
+        ApplicationExitInfo.REASON_FREEZER -> "freezer"
+        ApplicationExitInfo.REASON_PACKAGE_STATE_CHANGE -> "package_state_change"
+        ApplicationExitInfo.REASON_PACKAGE_UPDATED -> "package_updated"
         else -> "code_$reason"
     }
 
