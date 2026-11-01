@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -61,6 +62,7 @@ import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.util.LocalNetworkAccessManager
 import com.cylonid.nativealpha.util.UrlUtils
 import com.cylonid.nativealpha.util.WebAppDataFetcher
 import com.cylonid.nativealpha.util.WebAppIconManager
@@ -132,6 +134,11 @@ private fun AddWebAppScreen(
     var fetchFailed by remember { mutableStateOf(false) }
     // 保存防抖：坏站 favicon 补拉可达 20s+，期间连点会重复创建条目（重复条目即此 bug 产物）
     var isSaving by remember { mutableStateOf(false) }
+    // Android 17 本地网络门禁（LNA）：私网站点先引导授权再进第二步——
+    // 否则第一步 startFetch 直接撞 ERR_LOCAL_NETWORK_PERMISSION_MISSING，
+    // 用户面对的是「识别失败」而非「权限缺失」，割裂且不可自救
+    var showLnaRationale by remember { mutableStateOf(false) }
+    var pendingLnaUrl by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
@@ -234,6 +241,22 @@ private fun AddWebAppScreen(
         }
     }
 
+    // LNA 运行时请求通道：授权后按待进站 URL 继续原第二步流程；拒绝则留在
+    // 第一步（fetch 必败，不放行）——用户可改 URL 或再次点击下一步。
+    // 声明序约束：回调引用 startFetch，须置于其声明之后（本地函数无前向引用）
+    val lnaPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val url = pendingLnaUrl
+        pendingLnaUrl = null
+        if (granted && url != null) {
+            urlText = url
+            focusManager.clearFocus()
+            step = 2
+            startFetch(url)
+        }
+    }
+
     fun onStep1Next() {
         val error = validateUrl(urlText)
         if (error != null) {
@@ -241,6 +264,13 @@ private fun AddWebAppScreen(
             return
         }
         val url = normalizeUrl(urlText)
+        // Android 17 LNA：私网站点先引导授权（needsPermission 内含 SDK_INT≥37
+        // 判定，低版本设备恒 false 不触发），授权后经 launcher 续进第二步
+        if (LocalNetworkAccessManager.needsPermission(context, url)) {
+            pendingLnaUrl = url
+            showLnaRationale = true
+            return
+        }
         urlText = url
         focusManager.clearFocus()
         step = 2
@@ -351,6 +381,30 @@ private fun AddWebAppScreen(
                 }
             }
         }
+    }
+    // Android 17 LNA 说明对话框：先讲清「为什么需要本地网络权限」再进系统
+    // 弹窗（无上下文的裸系统弹窗易被拒，拒后进 reset 计数更难再请求）
+    if (showLnaRationale) {
+        AlertDialog(
+            onDismissRequest = {
+                showLnaRationale = false
+                pendingLnaUrl = null
+            },
+            title = { Text(stringResource(R.string.lna_rationale_title)) },
+            text = { Text(stringResource(R.string.lna_rationale_msg)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLnaRationale = false
+                    lnaPermissionLauncher.launch(LocalNetworkAccessManager.PERMISSION)
+                }) { Text(stringResource(R.string.lna_rationale_continue)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showLnaRationale = false
+                    pendingLnaUrl = null
+                }) { Text(stringResource(android.R.string.cancel)) }
+            }
+        )
     }
 }
 

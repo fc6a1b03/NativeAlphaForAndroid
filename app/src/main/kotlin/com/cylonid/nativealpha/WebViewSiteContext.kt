@@ -79,4 +79,13 @@ internal interface WebViewSiteContext {
      */
     fun recordPageError(errorType: String, code: String, desc: String)
 
+    /**
+     * 本地网络权限授权请求（错误页 webnative://lna-grant 按钮，Android 17 LNA）。
+     * 语义分歧（规格决策，非漂移）：宿主实现发起运行时请求、授权后重载
+     * retryUrl；矩阵实现仅计数不弹框——授权是应用级状态（WebView 流量继承
+     * 宿主权限）且多格并发请求系统对话框会互相顶掉，矩阵格经宿主路径授权
+     * 后重试即通。
+     */
+    fun onLocalNetworkGrantRequested()
+
 }

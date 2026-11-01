@@ -2,6 +2,7 @@ package com.cylonid.nativealpha.util
 
 import android.net.Uri
 import androidx.core.net.toUri
+import java.net.URI
 
 /**
  * URL 规范化与校验工具（纯逻辑，便于单元测试）。
@@ -68,13 +69,56 @@ object UrlUtils {
      */
     @JvmStatic
     fun displayHost(url: String): String {
-        val uri = runCatching { java.net.URI(url) }.getOrNull()
+        val uri = runCatching { URI(url) }.getOrNull()
         val host = uri?.host
         if (!host.isNullOrBlank()) {
             val port = if (uri.port > 0) ":${uri.port}" else ""
             return host.removePrefix("www.") + port
         }
         return url.replace("http://", "").replace("https://", "").replace("www.", "")
+    }
+
+    // ===== 本地/私网地址判定（Android 17 本地网络权限场景化申请依据） =====
+
+    /**
+     * 判断 URL 是否指向本地/私网地址。纯字符串判定——不做 DNS 解析
+     * （[java.net.InetAddress] 解析会触发网络查询，禁止在主线程判定路径引入）。
+     *
+     * 覆盖：IPv4 环回/RFC1918 私网（10/172.16-31/192.168）/链路本地 169.254/
+     * 运营商级 NAT 100.64/10、localhost 主机名、mDNS `.local` 后缀、
+     * IPv6 环回(::1)/ULA fc00::/7/链路本地 fe80::/10。
+     * 公网域名不在判定内（即使其解析结果落内网——向导场景 URL 形态是字面的）。
+     */
+    @JvmStatic
+    fun isPrivateNetworkHost(url: String): Boolean {
+        val host = runCatching { URI(url).host }
+            .getOrNull()?.lowercase()?.takeIf { it.isNotBlank() }
+            ?: return false
+        if (host.contains(':')) {
+            // IPv6 字面地址：java.net.URI 保留 [] 括号，统一去除后按前缀分段判定
+            val raw = host.trim('[', ']')
+            return raw == "::1" ||
+                // ULA fc00::/7 = fc/fd 两个首 nibble 区段
+                raw.startsWith("fc") || raw.startsWith("fd") ||
+                // 链路本地 fe80::/10 = fe8-feb 首三个字符区段
+                raw.startsWith("fe8") || raw.startsWith("fe9") ||
+                raw.startsWith("fea") || raw.startsWith("feb")
+        }
+        if (host == "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) {
+            return true
+        }
+        // IPv4 字面地址：按点分段数值判定（字符串前缀匹配会误伤 10.x vs 100.x）
+        val parts = host.split('.')
+        if (parts.size != 4) return false
+        val octets = parts.map { it.toIntOrNull() }
+        if (octets.any { it == null || it < 0 || it > 255 }) return false
+        val a = octets[0] ?: return false
+        val b = octets[1] ?: return false
+        return a == 10 || a == 127 ||
+            (a == 172 && b in 16..31) ||
+            (a == 192 && b == 168) ||
+            (a == 169 && b == 254) ||
+            (a == 100 && b in 64..127)
     }
 
     // ===== 追踪参数剥离（白名单制） =====

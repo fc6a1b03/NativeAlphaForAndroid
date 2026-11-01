@@ -282,6 +282,7 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
             val reasonRes = when (LoadFailureClassifier.classify(safeCode, safeDesc)) {
                 LoadFailureClassifier.Kind.SECURITY -> R.string.load_failure_hint_security
                 LoadFailureClassifier.Kind.BAD_ADDRESS -> R.string.load_failure_hint_bad_address
+                LoadFailureClassifier.Kind.PERMISSION -> R.string.load_failure_hint_permission
                 LoadFailureClassifier.Kind.RETRYABLE -> R.string.load_failure_hint_retryable
             }
             val encodedReason = URLEncoder.encode(activity.getString(reasonRes), "UTF-8")

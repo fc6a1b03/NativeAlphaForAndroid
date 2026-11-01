@@ -448,6 +448,11 @@
     <string name="load_failure_hint_security">站点证书存在问题。若你信任该站点，可在其设置里开启「忽略 SSL 错误」。</string>
     <string name="load_failure_hint_bad_address">地址似乎无效。请在本应用设置中核对该站点网址。</string>
     <string name="load_failure_hint_retryable">网络似乎不可用。恢复后请点「重试一次」。</string>
+    <string name="load_failure_hint_permission">Android 拦截了本地网络访问。请点下方「授予本地网络权限」后再重试。</string>
+    <!-- ===== 本地网络权限（Android 17，场景化申请） ===== -->
+    <string name="lna_rationale_title">需要本地网络权限</string>
+    <string name="lna_rationale_msg">该地址指向你局域网内的设备（如 NAS、路由器或自建服务）。Android 要求应用先取得本地网络访问权限才能加载它。</string>
+    <string name="lna_rationale_continue">继续</string>
     <string name="webevent_hook_stale">最近一次加载未检测到注入钩子，站点可能已改版，规则可能失效。请重新打开该站点后再次查看。</string>
     <string name="site_health_recent_failure">本次会话内最近一次加载失败</string>
     <!-- ===== 站点分享（二维码+深链，借鉴 happier 配对纪律） ===== -->

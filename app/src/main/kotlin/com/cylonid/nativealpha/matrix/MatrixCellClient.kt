@@ -86,6 +86,15 @@ internal class MatrixCellContext(
         FeatureMetrics.count(FeatureMetrics.MODULE_MATRIX, "PageError:$errorType")
     }
 
+    override fun onLocalNetworkGrantRequested() {
+        // 授权是应用级状态（官方：WebView 流量继承宿主权限）且多格并发请求
+        // 系统对话框会互相顶掉——格内不弹框仅计数；错误页 HTML 授权按钮本身
+        // 不进格（格错误态走五态状态机），用户经宿主路径授权后格内重试即通。
+        // PERMISSION 分类经 LoadFailureClassifier.isRetryable=false 自动
+        // 排除断线重连（权限未授予时重试必败，白耗退避周期）
+        FeatureMetrics.count(FeatureMetrics.MODULE_MATRIX, "lna_grant_requested")
+    }
+
 }
 
 /**

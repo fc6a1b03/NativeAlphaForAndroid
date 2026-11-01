@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
@@ -17,12 +18,14 @@ import com.cylonid.nativealpha.helper.WebViewDarkModeController
 import com.cylonid.nativealpha.helper.WebViewGestureHelper
 import com.cylonid.nativealpha.helper.WebViewLifecycleDelegate
 import com.cylonid.nativealpha.helper.WebViewMenuHelper
+import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.util.FileChooserDelegate
 import com.cylonid.nativealpha.helper.WebViewPageChrome
 import com.cylonid.nativealpha.helper.WebViewShortcutInjectHelper
 import com.cylonid.nativealpha.helper.WebViewTouchHandler
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.util.LocalNetworkAccessManager
 import com.cylonid.nativealpha.util.StatsRecorder
 import com.cylonid.nativealpha.util.SystemBars
 import com.cylonid.nativealpha.util.ThemeUtils
@@ -125,6 +128,23 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
      * 自 v2.3.7 起统一走 FileChooserDelegate，二者零消费 */
     internal val fileChooserDelegate = FileChooserDelegate(this)
 
+    /**
+     * 本地网络权限请求通道（Android 17 LNA，构造期注册约束同上）。
+     * 授权成功重载失败地址（与 webnative://retry 同口径恢复 textZoom）；
+     * 结果打点供实机取证（授权链路仅在宿主路径，矩阵格经此生效）。
+     */
+    private val lnaPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        ErrorReporter.probe(
+            this, "PageLoad", "lna_grant_result", fields = mapOf("granted" to granted)
+        )
+        if (granted && retryUrl.isNotEmpty()) {
+            webapp?.let { wv?.settings?.textZoom = it.textZoom }
+            wv?.loadUrl(retryUrl)
+        }
+    }
+
     // ===== 处理器装配（构造注入；delegate 依赖 pageChrome/darkMode，须在其后声明） =====
     internal val touchHandler = WebViewTouchHandler(this)
     internal val shortcutHelper = WebViewShortcutInjectHelper(this)
@@ -173,6 +193,22 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
 
     override fun recordPageError(errorType: String, code: String, desc: String) {
         StatsRecorder.recordPageError(webappID, errorType, code, desc)
+    }
+
+    override fun onLocalNetworkGrantRequested() {
+        // 错误页「授予本地网络权限」按钮（Android 17 LNA）：发起运行时请求，
+        // 结果经 launcher 回调重载 retryUrl。已授权（如 NEARBY_DEVICES 组内
+        // 其他权限带入时系统静默授予）则直接重试
+        if (LocalNetworkAccessManager.isPermissionGranted(this)) {
+            if (retryUrl.isNotEmpty()) {
+                webapp?.let { wv?.settings?.textZoom = it.textZoom }
+                wv?.loadUrl(retryUrl)
+            }
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
+            lnaPermissionLauncher.launch(LocalNetworkAccessManager.PERMISSION)
+        }
     }
 
     // ===== 页面加载 UI 桥（WebViewChromeClient/WebViewTouchHandler 直接调用） =====

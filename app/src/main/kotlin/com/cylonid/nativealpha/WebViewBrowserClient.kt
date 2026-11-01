@@ -21,6 +21,8 @@ import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.util.FeatureMetrics
+import com.cylonid.nativealpha.util.LoadFailureClassifier
+import com.cylonid.nativealpha.util.LocalNetworkAccessManager
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.google.android.material.snackbar.Snackbar
 
@@ -136,6 +138,17 @@ internal abstract class SiteWebViewClient(
             val desc = error?.description?.toString() ?: ""
             // 统计埋点：记录页面错误
             site.recordPageError(ErrorType.NETWORK.name, code, desc)
+            // LNA 拦截探针（事件级，Android 17 私网门禁实锤取证——坑位 21
+            // 模拟器单镜像观测升级为常驻结构化现场；url 由 ErrorReporter
+            // 统一去 query/fragment 脱敏，调用点不自行截断）
+            if (LoadFailureClassifier.classify(code, desc) ==
+                LoadFailureClassifier.Kind.PERMISSION
+            ) {
+                ErrorReporter.probe(
+                    site.siteContext, "PageLoad", "lna_blocked",
+                    fields = mapOf("url" to (request.url?.toString() ?: ""))
+                )
+            }
             // 记录重试目标 + 加载自定义错误页（不显示系统默认白屏）
             site.retryUrl = request.url?.toString() ?: site.urlOnFirstPageload
             site.showCustomErrorPage(code, desc)
@@ -306,7 +319,7 @@ internal abstract class SiteWebViewClient(
         }
 
         // 错误页重试：重新加载失败时的原地址（恢复用户 textZoom）
-        if (url.startsWith("webnative://retry")) {
+        if (url.startsWith(RETRY_URL)) {
             ErrorReporter.probe(site.siteContext, "PageLoad", "retry_clicked",
                 fields = mapOf("target" to site.retryUrl))
             if (site.retryUrl.isNotEmpty()) {
@@ -314,6 +327,13 @@ internal abstract class SiteWebViewClient(
                 if (webapp != null) view.settings.textZoom = webapp.textZoom
                 view.loadUrl(site.retryUrl)
             }
+            return true
+        }
+
+        // 错误页「授予本地网络权限」按钮（Android 17 LNA）：交宿主环境发起
+        // 运行时请求——授权是应用级状态，宿主授予后矩阵格重试即通
+        if (url == LocalNetworkAccessManager.GRANT_URL) {
+            site.onLocalNetworkGrantRequested()
             return true
         }
 
@@ -345,6 +365,9 @@ internal abstract class SiteWebViewClient(
     }
 
     companion object {
+        /** 错误页「重试一次」按钮的拦截地址（HTML retry() 发起，见 RETRY_URL 判定） */
+        const val RETRY_URL = "webnative://retry"
+
         /**
          * 桌面模式视口脚本（每文档注入一次）：meta 未解析时由 MutationObserver
          * 等其出现再应用（原实现无守卫靠逐资源重试）；resize 重算覆盖旋转场景。

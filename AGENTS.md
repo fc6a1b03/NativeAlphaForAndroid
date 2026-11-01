@@ -251,7 +251,7 @@ Profile 等。
 
 ## 安全与隐私
 
-- **权限最小化**：仅声明 `INTERNET`、`ACCESS_NETWORK_STATE`（矩阵失败格自动恢复的网络探测）、`POST_NOTIFICATIONS`（网页事件通知，保存首条 notify 规则时场景化申请）、位置、相机、录音、修改音频设置；均为按需向用户申请
+- **权限最小化**：仅声明 `INTERNET`、`ACCESS_NETWORK_STATE`（矩阵失败格自动恢复的网络探测）、`ACCESS_LOCAL_NETWORK`（Android 17 本地网络门禁，target 37 在 Android 17 默认拦私网流量——场景化申请：添加私网站点时/宿主错误页引导，见坑位 21）、`POST_NOTIFICATIONS`（网页事件通知，保存首条 notify 规则时场景化申请）、位置、相机、录音、修改音频设置；均为按需向用户申请
 - **WebView 默认加固**（全局 + 每站两级，默认开启）：
     - 禁用文件访问（`setAllowFileAccess(false)`）
     - 禁用内容提供器访问（`setAllowContentAccess(false)`）
@@ -353,15 +353,21 @@ Profile 等。
     accept 输入传 `[""]` 而非 `[]`（渲染成 `[]` 会掩盖真实形态）；两形态同判
     → LEGACY 文件管理器。按图片类收窄会让用户传不了非图片文件（实机实证
     zcode 上传过 Downloads 文档）。
-21. **WebView 对私网段有 LNA 门禁（单镜像观测，变量未分离）**：Pixel_9a
-    镜像（WebView 149）实测 `loadUrl` 到私网地址（`10.0.2.2`）直接
-    `net::ERR_LOCAL_NETWORK_PERMISSION_MISSING`——对应 AppOp
-    `ACCESS_LOCAL_NETWORK`（该镜像有此 op 但 `appops set` allow 不生效、
-    设置页无用户授权开关；另一 API 36 GA 镜像**无此 op 定义**且未测私网段
-    ——镜像/API 级别/回环三变量未分离，勿当普适结论引用）。**loopback
-    （127.0.0.1 + `adb reverse`）在 GA 镜像实测可加载**——模拟器测本地页
-    一律走 reverse，不走 10.0.2.2。用户自建 LAN 站点在 Android 16 真机
-    是否被拦，待实机验证（潜在待办：跟进平台授权开关的公开 API）。
+21. **WebView 对私网段有 LNA 门禁（2026-11-01 官方定谳 + 权限链路已落地）**：
+    官方文档实锤——Android 16 时代本地网络保护仅 opt-in（坑位早期实测的
+    Pixel_9a 镜像拦截属 opt-in 镜像特殊状态，勿再当普适结论）；**Android 17
+    (API 37) 起 target ≥37 的应用私网/localhost 流量默认拦截**，WebView 流量
+    继承宿主 App 权限状态（`ACCESS_LOCAL_NETWORK`，NEARBY_DEVICES 组）。
+    WebNative 已 target 37 → **本应用已落地权限链路**（v2.4.10）：manifest
+    声明 + 场景化申请（`LocalNetworkAccessManager` 唯一入口，SDK_INT≥
+    `CINNAMON_BUN` 守卫）——添加向导检测私网 URL 先引导（说明框+运行时
+    请求）、宿主错误页 `webnative://lna-grant` 按钮授权后自动重载；矩阵格
+    经 `LoadFailureClassifier.Kind.PERMISSION` 排除断线重连（授权前重试必败）
+    且不弹框（多格并发请求系统对话框会互相顶掉），授权是应用级状态、宿主
+    授予后格内重试即通。私网判定 `UrlUtils.isPrivateNetworkHost`（纯字符串，
+    禁 DNS 解析）。**loopback（127.0.0.1 + `adb reverse`）在 GA 镜像实测可
+    加载**——模拟器测本地页一律走 reverse，不走 10.0.2.2。待办：Android 17
+    真机/模拟器验证授权闭环（向导+错误页两路径）。
 
 ---
 
@@ -381,6 +387,6 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-11-01（v2.4.8 已发版且真机三日验证通过：诊断日志地基/观察器
-挂载修正——坑位 16 切色跟随限制已实测解除/上传语义归正/质量批/探针减配；
-已发版 v2.4.9：theme_bridge_diag 探针移除 + exitReasonName 全码命名）。*
+*最后更新：2026-11-02（v2.4.8/v2.4.9 已发版真机验证通过；dev 已落地
+Android 17 LNA 本地网络权限链路——坑位 21 官方口径修正 + 场景化申请/
+错误页授权/矩阵重连排除，待随下版发版）。*

@@ -32,6 +32,8 @@
     <div class="detail" id="detail">Looking for clues…</div>
 
     <button onclick="retry()" id="retryBtn">Try again</button>
+    <!-- Android 17 local network permission: shown only for reason=permission (LNA block) -->
+    <button onclick="grantLna()" id="lnaBtn" style="display:none">Grant local network access</button>
 
     <p class="tip" id="tip"></p>
   </div>
@@ -53,6 +55,13 @@
         detail.style.display = 'none';
       }
 
+      // Local network permission block (Android 17): reveal the grant button,
+      // retry succeeds once the permission is granted
+      if (reason === 'permission') {
+        var lna = document.getElementById('lnaBtn');
+        if (lna) { lna.style.display = 'inline-block'; }
+      }
+
       var tips = [
         'Double-check the address?',
         'A quick refresh might help',
@@ -67,6 +76,12 @@
 
     function retry() {
       location.href = 'webnative://retry';
+    }
+
+    // Notify Android to launch the runtime permission request;
+    // the page reloads automatically once granted
+    function grantLna() {
+      location.href = 'webnative://lna-grant';
     }
   </script>
 </body>

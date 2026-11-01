@@ -455,6 +455,11 @@
     <string name="load_failure_hint_security">Certificate error at the site side. If you trust the site, enable \'"Ignore SSL errors"\' in its settings.</string>
     <string name="load_failure_hint_bad_address">The address looks invalid. Check the site URL in this app\'s settings.</string>
     <string name="load_failure_hint_retryable">Network seems unreachable. Tap retry once it\'s back.</string>
+    <string name="load_failure_hint_permission">Local network access is blocked by Android. Tap \'"Grant local network access"\' below, then retry.</string>
+    <!-- ===== Local network permission (Android 17, scenario-based request) ===== -->
+    <string name="lna_rationale_title">Local network access needed</string>
+    <string name="lna_rationale_msg">This address points to a device on your local network (such as a NAS, router, or homelab service). Android requires this app to hold the local network permission before it can load it.</string>
+    <string name="lna_rationale_continue">Continue</string>
     <string name="webevent_hook_stale">Hook not detected on latest load. The site may have changed; rules might not fire. Reopen the site and re-check.</string>
     <string name="site_health_recent_failure">Failed to load recently in this session</string>
     <!-- ===== Site share (QR + deep link, borrowed from happier pairing discipline) ===== -->

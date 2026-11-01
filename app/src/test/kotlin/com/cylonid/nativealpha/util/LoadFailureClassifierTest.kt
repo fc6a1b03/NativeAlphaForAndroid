@@ -84,4 +84,28 @@ class LoadFailureClassifierTest {
         assertEquals(false, LoadFailureClassifier.isRetryable(Kind.SECURITY))
         assertEquals(false, LoadFailureClassifier.isRetryable(Kind.BAD_ADDRESS))
     }
+
+    /** 终态：Android 17 本地网络权限拦截（坑位 21 真机实测 desc 形态） */
+    @Test
+    fun permission_lnaBlockedFamily() {
+        assertEquals(
+            Kind.PERMISSION,
+            LoadFailureClassifier.classify(
+                "-1", "net::ERR_LOCAL_NETWORK_PERMISSION_MISSING"
+            )
+        )
+        // 大小写不敏感（chromium 错误名经 WebView description 传递形态可能变化）
+        assertEquals(
+            Kind.PERMISSION,
+            LoadFailureClassifier.classify("-1", "net::err_local_network_permission_missing")
+        )
+        // LNA 优先级最高：desc 同时含 LNA 与其他错误名时按权限拦截判定
+        assertEquals(
+            Kind.PERMISSION,
+            LoadFailureClassifier.classify(
+                "-1", "net::ERR_CONNECTION_CLOSED net::ERR_LOCAL_NETWORK_PERMISSION_MISSING"
+            )
+        )
+        assertEquals(false, LoadFailureClassifier.isRetryable(Kind.PERMISSION))
+    }
 }
