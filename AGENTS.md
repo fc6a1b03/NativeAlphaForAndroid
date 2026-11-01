@@ -25,7 +25,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 ## 技术栈
 
 - **语言**：Kotlin 2.4.21（AGP 9 内置 built-in Kotlin），Java 17 字节码
-- **构建工具**：Gradle 9.8.2 + Android Gradle Plugin 9.4.1
+- **构建工具**：Gradle 9.8.2 + Android Gradle Plugin 9.5.0（lint.xml 抑制 ThreadConstraint 误报，见 app/lint.xml 注释）
 - **UI 框架**：Jetpack Compose + Material 3（Compose BOM `2026.09.00`，Compose 1.12.1 stable）
     - 所有配置/列表/向导/统计/关于页面均为 Compose
     - `WebViewActivity` 虽为 Kotlin，但仍使用传统 View/XML 布局（`res/layout/full_webview.xml`）承载 `WebView` 渲染核心
@@ -395,6 +395,7 @@ Android SDK 路径已配置在 local.properties
 ---
 
 *最后更新：2026-11-02（v2.4.8/v2.4.9 已发版真机验证通过；dev 已落地
-Android 17 LNA 本地网络权限链路（fe8d303+9be0a74）——官方口径修正 +
-场景化申请/错误页授权/静默挂起形态全覆盖，API 37 模拟器端到端实证双路径
-闭环 + 探针落库，待随下版发版）。*
+Android 17 LNA 本地网络权限链路（fe8d303→ff7b853 四提交）——官方口径
+修正 + 场景化申请/错误页授权/静默挂起全覆盖 + 向导直达系统弹窗简约化，
+API 37 模拟器双路径闭环实证；AGP 升级 9.5.0（3a89ca5）+ 位图回退死资产
+清理，待随下版发版）。*
