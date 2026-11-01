@@ -44,6 +44,7 @@
       var code = params.get('code');
       var desc = params.get('desc');
       var reason = params.get('reason');
+      var kind = params.get('kind');
       var sub = document.getElementById('sub');
       if (reason && reason !== 'null' && sub) {
         sub.textContent = reason;
@@ -57,7 +58,7 @@
 
       // Local network permission block (Android 17): reveal the grant button,
       // retry succeeds once the permission is granted
-      if (reason === 'permission') {
+      if (kind === 'permission') {
         var lna = document.getElementById('lnaBtn');
         if (lna) { lna.style.display = 'inline-block'; }
       }

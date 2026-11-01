@@ -11,6 +11,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -254,6 +255,18 @@ private fun AddWebAppScreen(
             focusManager.clearFocus()
             step = 2
             startFetch(url)
+        } else if (!granted && url != null) {
+            // 永久拒绝（拒绝回调里 rationale=false = 勾选了「不再询问」，
+            // 系统此后不再弹窗）：引导去系统设置自救，避免无提示死循环
+            // （minSdk 31 ≥ M，rationale API 无版本守卫需求）
+            val act = context as? Activity
+            val permanentlyDenied = act != null &&
+                !ActivityCompat.shouldShowRequestPermissionRationale(
+                    act, LocalNetworkAccessManager.PERMISSION
+                )
+            if (permanentlyDenied) {
+                Toast.makeText(context, R.string.lna_perm_denied_hint, Toast.LENGTH_LONG).show()
+            }
         }
     }
 

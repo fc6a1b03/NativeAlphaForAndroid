@@ -50,6 +50,7 @@
       var code = params.get('code');
       var desc = params.get('desc');
       var reason = params.get('reason');
+      var kind = params.get('kind');
       var sub = document.getElementById('sub');
       if (reason && reason !== 'null' && sub) {
         sub.textContent = reason;
@@ -62,7 +63,7 @@
       }
 
       // 本地网络权限拦截（Android 17）：显示授权按钮，授予后重试即通
-      if (reason === 'permission') {
+      if (kind === 'permission') {
         var lna = document.getElementById('lnaBtn');
         if (lna) { lna.style.display = 'inline-block'; }
       }

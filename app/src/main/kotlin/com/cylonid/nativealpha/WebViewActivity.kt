@@ -132,6 +132,8 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
      * 本地网络权限请求通道（Android 17 LNA，构造期注册约束同上）。
      * 授权成功重载失败地址（与 webnative://retry 同口径恢复 textZoom）；
      * 结果打点供实机取证（授权链路仅在宿主路径，矩阵格经此生效）。
+     * 重试目标兜底 urlOnFirstPageload：静默挂起形态（API 37 实测无错误
+     * 回调）下 retryUrl 从未被赋值，首帧 URL 是唯一可用目标。
      */
     private val lnaPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -139,9 +141,12 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
         ErrorReporter.probe(
             this, "PageLoad", "lna_grant_result", fields = mapOf("granted" to granted)
         )
-        if (granted && retryUrl.isNotEmpty()) {
-            webapp?.let { wv?.settings?.textZoom = it.textZoom }
-            wv?.loadUrl(retryUrl)
+        if (granted) {
+            val target = retryUrl.ifEmpty { urlOnFirstPageload }
+            if (target.isNotEmpty()) {
+                webapp?.let { wv?.settings?.textZoom = it.textZoom }
+                wv?.loadUrl(target)
+            }
         }
     }
 
@@ -197,12 +202,13 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
 
     override fun onLocalNetworkGrantRequested() {
         // 错误页「授予本地网络权限」按钮（Android 17 LNA）：发起运行时请求，
-        // 结果经 launcher 回调重载 retryUrl。已授权（如 NEARBY_DEVICES 组内
-        // 其他权限带入时系统静默授予）则直接重试
+        // 结果经 launcher 回调重载失败地址。已授权（如 NEARBY_DEVICES 组内
+        // 其他权限带入时系统静默授予）则直接重试——目标兜底同 launcher 回调
         if (LocalNetworkAccessManager.isPermissionGranted(this)) {
-            if (retryUrl.isNotEmpty()) {
+            val target = retryUrl.ifEmpty { urlOnFirstPageload }
+            if (target.isNotEmpty()) {
                 webapp?.let { wv?.settings?.textZoom = it.textZoom }
-                wv?.loadUrl(retryUrl)
+                wv?.loadUrl(target)
             }
             return
         }

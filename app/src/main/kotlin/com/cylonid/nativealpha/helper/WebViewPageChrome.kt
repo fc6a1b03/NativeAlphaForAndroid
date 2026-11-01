@@ -19,6 +19,7 @@ import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.LoadFailureClassifier
 import com.cylonid.nativealpha.util.LocaleUtils
+import com.cylonid.nativealpha.util.LocalNetworkAccessManager
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.WebViewDownloads
 import com.cylonid.nativealpha.webevent.EventRuleStore
@@ -238,6 +239,18 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
         if (idle >= Const.BLANK_SCREEN_TIMEOUT_MS && activity.lastProgress < 100) {
             ErrorReporter.probe(activity, TAG, "blank_screen_triggered",
                 fields = mapOf("idleMs" to idle, "progress" to activity.lastProgress))
+            // Android 17 LNA 双形态判定：私网未授权的拦截在 API 37 GA 镜像
+            // 实测为连接静默挂起（无 onReceivedError 回调，坑位 21 的 opt-in
+            // 镜像才有回调）——白屏检测是唯一出场路径，timeout 错误页必须
+            // 按权限语义渲染（hint+授权按钮），否则用户只看到「网络不可达」
+            // 误导文案且无自救入口；判定命中的同时补 lna_blocked 探针取证
+            // （该形态下基类 onReceivedError 的探针不触发）
+            val targetUrl = activity.wv?.url ?: activity.urlOnFirstPageload
+            val lnaNeeded = LocalNetworkAccessManager.needsPermission(activity, targetUrl)
+            if (lnaNeeded) {
+                ErrorReporter.probe(activity, TAG, "lna_blocked",
+                    fields = mapOf("form" to "silent_hang", "url" to targetUrl))
+            }
             // 加载卡死：加载本地错误页（带重试），避免白屏挂起
             activity.runOnUiThread {
                 NotificationUtils.showInfoSnackbar(
@@ -248,7 +261,9 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
                 // 加载中断：重置计时起点，避免错误页误计为页面加载耗时
                 activity.pageLoadStartTime = 0
                 activity.wv!!.stopLoading()
-                loadCustomErrorPage("timeout", activity.getString(R.string.blank_screen_detected))
+                loadCustomErrorPage(
+                    "timeout", activity.getString(R.string.blank_screen_detected), lnaNeeded
+                )
             }
         }
     }
@@ -260,8 +275,14 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
      * 带错误码/描述参数（query 传入，页面显示开发者向信息）。
      * 语言：跟随 LocaleUtils（zh/en）。
      * 字体/页面缩放：跟随当前生效配置（与页面同一套，不再有独立缩放）。
+     *
+     * [forcePermissionReason]：调用方已判定为 Android 17 LNA 静默挂起形态
+     * （无错误回调，desc 无法携带 net::ERR_*）时强制按权限语义渲染 reason
+     * 行与授权按钮——timeout 码本身分类不出权限拦截，必须由调用方传位。
      */
-    fun loadCustomErrorPage(code: String?, desc: String?) {
+    fun loadCustomErrorPage(
+        code: String?, desc: String?, forcePermissionReason: Boolean = false
+    ) {
         val wv = activity.wv ?: return
         ErrorReporter.probe(activity, TAG, "error_page", fields = mapOf("code" to (code ?: "")))
         // 主帧失败标记：错误页自身也会回调 onPageFinished——finished 时
@@ -279,7 +300,12 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
             val safeDesc = desc ?: ""
             // 本地化原因行（分类驱动）：证书/地址类终态给出可行动提示，
             // 瞬态失败引导手动重试（自动恢复已移除，用户定调）
-            val reasonRes = when (LoadFailureClassifier.classify(safeCode, safeDesc)) {
+            val kind = if (forcePermissionReason) {
+                LoadFailureClassifier.Kind.PERMISSION
+            } else {
+                LoadFailureClassifier.classify(safeCode, safeDesc)
+            }
+            val reasonRes = when (kind) {
                 LoadFailureClassifier.Kind.SECURITY -> R.string.load_failure_hint_security
                 LoadFailureClassifier.Kind.BAD_ADDRESS -> R.string.load_failure_hint_bad_address
                 LoadFailureClassifier.Kind.PERMISSION -> R.string.load_failure_hint_permission
@@ -288,10 +314,13 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
             val encodedReason = URLEncoder.encode(activity.getString(reasonRes), "UTF-8")
             // URL 编码 desc（含空格/特殊字符安全）
             val encodedDesc = URLEncoder.encode(safeDesc, "UTF-8")
+            // 分类 key 独立传参（reason 传的是本地化文案，不可作判定依据）——
+            // HTML 据此控制 LNA 授权按钮显隐（permission 时显示）
+            val kindKey = kind.name.lowercase()
             wv.loadUrl(
                 "file:///android_asset/errorSite/error_" + lang
                     + ".html?code=" + safeCode + "&desc=" + encodedDesc
-                    + "&reason=" + encodedReason
+                    + "&reason=" + encodedReason + "&kind=" + kindKey
             )
         } catch (ignored: Exception) {
             // 错误页加载失败静默（保持现状）

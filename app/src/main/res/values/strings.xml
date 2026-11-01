@@ -460,6 +460,7 @@
     <string name="lna_rationale_title">Local network access needed</string>
     <string name="lna_rationale_msg">This address points to a device on your local network (such as a NAS, router, or homelab service). Android requires this app to hold the local network permission before it can load it.</string>
     <string name="lna_rationale_continue">Continue</string>
+    <string name="lna_perm_denied_hint">Local network permission was denied. Enable it in system settings, or use a public address.</string>
     <string name="webevent_hook_stale">Hook not detected on latest load. The site may have changed; rules might not fire. Reopen the site and re-check.</string>
     <string name="site_health_recent_failure">Failed to load recently in this session</string>
     <!-- ===== Site share (QR + deep link, borrowed from happier pairing discipline) ===== -->

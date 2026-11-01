@@ -453,6 +453,7 @@
     <string name="lna_rationale_title">需要本地网络权限</string>
     <string name="lna_rationale_msg">该地址指向你局域网内的设备（如 NAS、路由器或自建服务）。Android 要求应用先取得本地网络访问权限才能加载它。</string>
     <string name="lna_rationale_continue">继续</string>
+    <string name="lna_perm_denied_hint">本地网络权限已被拒绝。请到系统设置开启，或改用公网地址。</string>
     <string name="webevent_hook_stale">最近一次加载未检测到注入钩子，站点可能已改版，规则可能失效。请重新打开该站点后再次查看。</string>
     <string name="site_health_recent_failure">本次会话内最近一次加载失败</string>
     <!-- ===== 站点分享（二维码+深链，借鉴 happier 配对纪律） ===== -->
