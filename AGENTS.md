@@ -326,7 +326,9 @@ Profile 等。
     `document.head` 尚未建出，裸 `if(document.head)` 恒 false，MutationObserver
     从未挂上（实机 8 会话仅 3 次上报站点色的根因）；此前「站点运行中切色不
     跟随」的归因即源于此，观察器修好后（挂 `document.documentElement` + 200ms
-    重试兜底，`theme_bridge_diag` 探针可查挂载与 readyState）该限制需重新实测。
+    重试兜底）该限制已实测解除——真机运行中切色实时跟随（2026-10-30/31 日志
+    实锤：浅色两跳/暗色单跳均正确）。挂载诊断探针 theme_bridge_diag 已随调查
+    结束移除，桥的健康度由 sysbar_apply 的 site= 字段间接观测。
     **教训：document-start 脚本里挂 observer 用 `documentElement`（此时机已存在），
     参照 `JsHookScript` 先例；元素级守卫必须带重试兜底。**
 17. **探针打点必须在「事件级」而非「回调级」**：v2.4.7 及之前 `page_load_start`

@@ -24,11 +24,11 @@ internal object WebThemeColorBridge {
     private const val BRIDGE_NAME = "webnativeTheme"
 
     /**
-     * 采集脚本。契约：{color:"#rrggbb"}，仅在值真变化时 postMessage；
-     * 首次成功挂载观察器后回发一条 {diag:1,ready:...}（每文档至多一条，
-     * 定谳「站点色 8 会话仅 3 次上报」用——v2.4.8 实锤裸 if(document.head)
-     * 在 document-start 时机恒为 false，观察器从未挂上）。
+     * 采集脚本。契约：{color:"#rrggbb"}，仅在值真变化时 postMessage。
      * 兼容 3/6 位十六进制与 rgb()；取第一个匹配的 meta（与浏览器行为一致）。
+     * 观察器挂 `documentElement`（document-start 时机 head 尚未建出，参照
+     * JsHookScript 先例）+ 200ms 重试兜底——v2.4.6/2.4.7 裸 if(document.head)
+     * 恒 false 致观察器从未挂上的教训。
      */
     internal val THEME_JS = """
         (function(){
@@ -67,10 +67,7 @@ internal object WebThemeColorBridge {
           var retries=0;
           function startObserver(){
             try{
-              // document-start 时机 head 尚未建出，documentElement 已存在
-              // （JsHookScript 同场景先例）——挂文档根节点即覆盖 head 内 meta 变化
               ob.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['content']});
-              webnativeTheme.postMessage(JSON.stringify({diag:1,ready:document.readyState}));
               return;
             }catch(e){}
             if(++retries<50)setTimeout(startObserver,200);
@@ -85,32 +82,11 @@ internal object WebThemeColorBridge {
         webView: WebView,
         onColor: (argb: Int?) -> Unit
     ) {
-        val appContext = webView.context.applicationContext
-        var diagReported = false
         WebBridgeKit.install(
             webView,
             documentStartJs = THEME_JS,
             bridgeName = BRIDGE_NAME,
-            onMessage = { _, payload ->
-                // diag 消息（观察器挂载回执）：每 WebView 至多记一条，定谳
-                // 站点色覆盖率用——readyState 证明脚本在 document-start 跑过
-                if (payload.contains("\"diag\"")) {
-                    if (!diagReported) {
-                        diagReported = true
-                        val ready = try {
-                            JSONObject(payload).optString("ready")
-                        } catch (e: JSONException) {
-                            ""
-                        }
-                        ErrorReporter.probe(
-                            appContext, "SysBar", "theme_bridge_diag",
-                            fields = mapOf("ready" to ready)
-                        )
-                    }
-                } else {
-                    onColor(parseThemeColor(payload))
-                }
-            }
+            onMessage = { _, payload -> onColor(parseThemeColor(payload)) }
         )
     }
 
