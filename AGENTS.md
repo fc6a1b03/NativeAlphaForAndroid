@@ -365,9 +365,16 @@ Profile 等。
     经 `LoadFailureClassifier.Kind.PERMISSION` 排除断线重连（授权前重试必败）
     且不弹框（多格并发请求系统对话框会互相顶掉），授权是应用级状态、宿主
     授予后格内重试即通。私网判定 `UrlUtils.isPrivateNetworkHost`（纯字符串，
-    禁 DNS 解析）。**loopback（127.0.0.1 + `adb reverse`）在 GA 镜像实测可
-    加载**——模拟器测本地页一律走 reverse，不走 10.0.2.2。待办：Android 17
-    真机/模拟器验证授权闭环（向导+错误页两路径）。
+    禁 DNS 解析）。**API 37 GA 镜像实测两定谳（2026-11-02）**：①拦截形态是
+    **连接静默挂起、无 onReceivedError 回调**（opt-in 镜像才有错误回调）——
+    白屏检测 timeout 是唯一出场路径，`handleBlankScreen` 已接
+    `forcePermissionReason` 按权限语义渲染错误页+授权按钮，授权重试目标兜底
+    `urlOnFirstPageload`（该形态 retryUrl 从未赋值）；②enforcement **跟随
+    AppOp 而非 permission 运行时层**（`pm revoke` 后 op 残留 allow 仍放行）
+    ——模拟撤销必须 `appops set <pkg> ACCESS_LOCAL_NETWORK deny`。模拟器
+    环境注意：37.1+ 镜像只发 ps16k 变体（本机起不来），测试用
+    `android-37.0/google_apis/x86_64` 标准镜像；emulator 后台启动禁接管道
+    （head 断流即退出），异常退出后要清 AVD 锁文件+查 qemu 残留进程。
 
 ---
 
@@ -388,5 +395,6 @@ Android SDK 路径已配置在 local.properties
 ---
 
 *最后更新：2026-11-02（v2.4.8/v2.4.9 已发版真机验证通过；dev 已落地
-Android 17 LNA 本地网络权限链路——坑位 21 官方口径修正 + 场景化申请/
-错误页授权/矩阵重连排除，待随下版发版）。*
+Android 17 LNA 本地网络权限链路（fe8d303+9be0a74）——官方口径修正 +
+场景化申请/错误页授权/静默挂起形态全覆盖，API 37 模拟器端到端实证双路径
+闭环 + 探针落库，待随下版发版）。*
