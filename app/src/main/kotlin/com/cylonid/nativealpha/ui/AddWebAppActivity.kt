@@ -29,7 +29,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -135,10 +134,11 @@ private fun AddWebAppScreen(
     var fetchFailed by remember { mutableStateOf(false) }
     // 保存防抖：坏站 favicon 补拉可达 20s+，期间连点会重复创建条目（重复条目即此 bug 产物）
     var isSaving by remember { mutableStateOf(false) }
-    // Android 17 本地网络门禁（LNA）：私网站点先引导授权再进第二步——
+    // Android 17 本地网络门禁（LNA）：私网站点先取权再进第二步——
     // 否则第一步 startFetch 直接撞 ERR_LOCAL_NETWORK_PERMISSION_MISSING，
-    // 用户面对的是「识别失败」而非「权限缺失」，割裂且不可自救
-    var showLnaRationale by remember { mutableStateOf(false) }
+    // 用户面对的是「识别失败」而非「权限缺失」，割裂且不可自救。
+    // 交互保持简约：命中即直接弹系统权限框（自带语义文案），
+    // 不插自定义说明层（用户定调「不增加操作复杂度」）
     var pendingLnaUrl by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
@@ -277,11 +277,12 @@ private fun AddWebAppScreen(
             return
         }
         val url = normalizeUrl(urlText)
-        // Android 17 LNA：私网站点先引导授权（needsPermission 内含 SDK_INT≥37
-        // 判定，低版本设备恒 false 不触发），授权后经 launcher 续进第二步
+        // Android 17 LNA：私网站点直接弹系统权限框（needsPermission 内含
+        // SDK_INT≥37 判定，低版本设备恒 false 不触发），授权后经 launcher
+        // 续进第二步——不加自定义说明层，保持原流程简约
         if (LocalNetworkAccessManager.needsPermission(context, url)) {
             pendingLnaUrl = url
-            showLnaRationale = true
+            lnaPermissionLauncher.launch(LocalNetworkAccessManager.PERMISSION)
             return
         }
         urlText = url
@@ -394,30 +395,6 @@ private fun AddWebAppScreen(
                 }
             }
         }
-    }
-    // Android 17 LNA 说明对话框：先讲清「为什么需要本地网络权限」再进系统
-    // 弹窗（无上下文的裸系统弹窗易被拒，拒后进 reset 计数更难再请求）
-    if (showLnaRationale) {
-        AlertDialog(
-            onDismissRequest = {
-                showLnaRationale = false
-                pendingLnaUrl = null
-            },
-            title = { Text(stringResource(R.string.lna_rationale_title)) },
-            text = { Text(stringResource(R.string.lna_rationale_msg)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showLnaRationale = false
-                    lnaPermissionLauncher.launch(LocalNetworkAccessManager.PERMISSION)
-                }) { Text(stringResource(R.string.lna_rationale_continue)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showLnaRationale = false
-                    pendingLnaUrl = null
-                }) { Text(stringResource(android.R.string.cancel)) }
-            }
-        )
     }
 }
 
