@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.4.8`（`versionCode 2408`）
+- **当前版本**：`2.4.9`（`versionCode 2409`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -383,5 +383,4 @@ Android SDK 路径已配置在 local.properties
 
 *最后更新：2026-11-01（v2.4.8 已发版且真机三日验证通过：诊断日志地基/观察器
 挂载修正——坑位 16 切色跟随限制已实测解除/上传语义归正/质量批/探针减配；
-本地 dev 2 个提交待随 2.4.9：theme_bridge_diag 探针移除 + exitReasonName
-全码命名）。*
+已发版 v2.4.9：theme_bridge_diag 探针移除 + exitReasonName 全码命名）。*
