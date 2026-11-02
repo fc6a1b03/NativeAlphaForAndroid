@@ -169,7 +169,7 @@ internal fun PlaceholderContent(onClick: () -> Unit) {
 
 @Composable
 internal fun LoadingContent(onCancel: () -> Unit) {
-    // 最低消耗加载指示（纯 Compose 绘制；不用宿主 animal_walk 动画）。
+    // 最低消耗加载指示（纯 Compose 绘制；不用宿主加载动画）。
     // 工具条在 LOADING 态即渲染（用户定调：任何状态都可操作，白屏/
     // 卡死格必须始终有关闭出口——close=取消加载销毁回占位）
     Column(modifier = Modifier.fillMaxSize()) {

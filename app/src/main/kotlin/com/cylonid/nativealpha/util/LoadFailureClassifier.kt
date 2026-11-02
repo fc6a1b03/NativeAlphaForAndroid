@@ -7,6 +7,9 @@ package com.cylonid.nativealpha.util
  *   （探测会成功、重载会再败，白耗退避周期）；用户需检查站点证书或开启
  *   忽略 SSL 错误
  * - [Kind.BAD_ADDRESS]：scheme/URL 本身非法，重试语义为零
+ * - [Kind.PERMISSION]：OS 级本地网络权限拦截（Android 17 起 target ≥37 默认
+ *   拦私网流量，坑位 21）——权限不授予则重试必败，禁止进入断线重连闭环；
+ *   出口是引导用户授权（宿主错误页授权按钮，授权是应用级状态）
  * - [Kind.RETRYABLE]：断网/DNS/超时/连接拒绝等瞬态（缺省兜底），适合
  *   SiteReconnectSupervisor 的探测-恢复闭环
  *
@@ -15,7 +18,7 @@ package com.cylonid.nativealpha.util
  */
 internal object LoadFailureClassifier {
 
-    enum class Kind { SECURITY, BAD_ADDRESS, RETRYABLE }
+    enum class Kind { SECURITY, BAD_ADDRESS, PERMISSION, RETRYABLE }
 
     /** WebViewClient.ERROR_FAILED_SSL_HANDSHAKE */
     private const val CODE_SSL_HANDSHAKE = "-11"
@@ -26,9 +29,13 @@ internal object LoadFailureClassifier {
     /** WebViewClient.ERROR_BAD_URL */
     private const val CODE_BAD_URL = "-12"
 
+    /** chromium 网络栈的本地网络权限拦截错误名（坑位 21 真机实测 desc 携带） */
+    private const val DESC_LNA_BLOCKED = "ERR_LOCAL_NETWORK_PERMISSION_MISSING"
+
     fun classify(code: String?, desc: String?): Kind {
         val d = desc ?: ""
         return when {
+            d.contains(DESC_LNA_BLOCKED, ignoreCase = true) -> Kind.PERMISSION
             d.contains("ERR_SSL", ignoreCase = true) ||
                 d.contains("ERR_CERT_", ignoreCase = true) ||
                 d.contains("ERR_HTTPS", ignoreCase = true) ||

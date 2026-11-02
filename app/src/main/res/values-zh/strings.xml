@@ -105,14 +105,12 @@
     <string name="file_download_started">已开始下载</string>
     <string name="filechooser_unreadable_file">无法读取所选文件，请重新选择或换一个文件</string>
     <string name="filechooser_result_lost">选择期间页面已刷新，所选文件丢失，请重新选择</string>
+    <string name="chooser_channel_name">文件选择</string>
+    <string name="chooser_notif_title">正在选择文件…</string>
     <string name="no_pdf_app">设备上没有可以打开 PDF 文件的应用</string>
     <string name="custom_icon">选择自定义图标</string>
-    <string name="show_progress_bar_during_page_load">页面加载时显示进度条</string>
     <string name="use_custom_user_agent">使用自定义 User Agent</string>
     <string name="insert_custom_user_agent">在此输入自定义 User Agent…</string>
-    <string name="webapp_autoreload">自动刷新页面</string>
-    <string name="webapp_interval_for_reload">刷新间隔（秒）</string>
-    <string name="webapp_autoreload_switch">定期刷新页面</string>
 
     <string name="label">名称</string>
     <string name="force_dark_mode">强制深色模式</string>
@@ -146,6 +144,7 @@
     <string name="app_icon_reset">重置</string>
 <string name="copy_url">复制 URL</string>
     <string name="copy_url_done">链接已复制</string>
+    <string name="copied_toast">已复制</string>
     <string name="search_webapps">搜索应用</string>
     <string name="clear_search">清空搜索</string>
     <string name="no_search_result">没有匹配的应用</string>
@@ -173,7 +172,6 @@
     <string name="desc_two_finger_nav">双指左右滑动进行后退/前进。</string>
     <string name="desc_three_finger_switch">三指左右滑动在多个 Web App 之间切换。</string>
     <string name="desc_edge_swipe_nav">从屏幕左右边缘横向滑动切换上一页/下一页。默认关闭。</string>
-    <string name="desc_show_progressbar">页面加载时在底部显示加载进度条。</string>
     <string name="desc_always_show_buttons">在全屏页面中保持系统导航按钮可见。</string>
     <string name="desc_allow_js">大多数现代网站正常运行所必需。</string>
     <string name="desc_block_third_party">阻止对其他域名的请求（广告、追踪器）。</string>
@@ -188,7 +186,6 @@
     <string name="desc_timespan_dark">仅在设定的时间段内应用强制深色模式。</string>
     <string name="desc_save_data">请求网站发送精简数据（移动版内容）。</string>
     <string name="desc_block_images">屏蔽所有图片，节省流量并加快加载。</string>
-    <string name="desc_autoreload">按固定间隔自动刷新页面。</string>
     <string name="desc_fullscreen">隐藏系统栏，获得沉浸式体验。</string>
     <string name="desc_keep_awake">打开时防止屏幕自动熄灭。</string>
     <string name="desc_request_desktop">请求网站返回桌面版页面。</string>
@@ -219,7 +216,7 @@
     <string name="export_app_errors">导出诊断日志（近 3 天）</string>
     <string name="desc_export_app_errors">导出应用自身最近 3 天的错误、警告与取证探针记录，供开发排查；导出后自动清空。</string>
     <string name="stat_log_network_errors">站点统计记录网络错误</string>
-    <string name="desc_stat_log_network_errors">关闭后，断网等网络类页面错误不计入站点统计。</string>
+    <string name="desc_stat_log_network_errors">关闭后，断网、HTTP 状态、证书等网络类页面错误不计入站点统计。</string>
     <string name="app_errors_export_success">已导出，诊断记录已清空</string>
     <string name="app_errors_export_failed">诊断日志导出失败</string>
     <string name="app_errors_none">近 3 天无诊断记录</string>
@@ -249,6 +246,10 @@
     <string name="stats_companionship">相伴记录</string>
     <string name="stats_hero_streak">%1$s · 连续 %2$d 周</string>
     <string name="stats_section_performance">性能</string>
+    <string name="stats_section_traffic">流量消耗</string>
+    <string name="stat_traffic_total">累计流量</string>
+    <string name="stat_traffic_per_launch">每次打开平均</string>
+    <string name="stat_traffic_note">按页面资源传输字节累计（跨域未授权的资源不计入，为实际用量下界）</string>
     <string name="stats_section_automation">自动化</string>
     <string name="stats_section_habits">使用习惯</string>
     <string name="stats_section_storage">存储与清理</string>
@@ -446,7 +447,10 @@
     <!-- ===== 加载失败分类（借鉴 happier：终态 vs 瞬态） ===== -->
     <string name="load_failure_hint_security">站点证书存在问题。若你信任该站点，可在其设置里开启「忽略 SSL 错误」。</string>
     <string name="load_failure_hint_bad_address">地址似乎无效。请在本应用设置中核对该站点网址。</string>
-    <string name="load_failure_hint_retryable">网络似乎不可用。我们会持续探测，恢复后自动重新加载。</string>
+    <string name="load_failure_hint_retryable">网络似乎不可用。恢复后请点「重试一次」。</string>
+    <string name="load_failure_hint_permission">Android 拦截了本地网络访问。请点下方「授予本地网络权限」后再重试。</string>
+    <!-- ===== 本地网络权限（Android 17，场景化申请） ===== -->
+    <string name="lna_perm_denied_hint">本地网络权限已被拒绝。请到系统设置开启，或改用公网地址。</string>
     <string name="webevent_hook_stale">最近一次加载未检测到注入钩子，站点可能已改版，规则可能失效。请重新打开该站点后再次查看。</string>
     <string name="site_health_recent_failure">本次会话内最近一次加载失败</string>
     <!-- ===== 站点分享（二维码+深链，借鉴 happier 配对纪律） ===== -->

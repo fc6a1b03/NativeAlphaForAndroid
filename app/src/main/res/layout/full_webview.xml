@@ -28,17 +28,6 @@
             android:focusableInTouchMode="true"
             tools:ignore="MissingConstraints" />
 
-        <ProgressBar
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="3dp"
-            android:layout_gravity="bottom"
-            android:indeterminate="false"
-            android:forceDarkAllowed="false"
-            android:id="@+id/progressBar"
-            android:progressDrawable="@drawable/webnative_progressbar"
-            android:background="@android:color/transparent"
-            tools:ignore="UnusedAttribute" />
         <!-- 加载页主题背景：动画显示时铺主题色底（防深色主题白屏——加载期 WebView 内容未渲染默认白） -->
         <View
             android:id="@+id/loadingBg"
@@ -47,13 +36,17 @@
             android:background="?android:attr/colorBackground"
             android:visibility="gone"
             tools:ignore="UnusedAttribute" />
-        <!-- 加载页动画：可爱的动物走路动画（页面加载时显示，加载完成隐藏） -->
-        <ImageView
+        <!-- 加载页动画：Lottie 狗走路循环（页面加载时显示，加载完成隐藏）。
+             素材 lottie_dog_walk.json 来自 LottieFiles「Dog walking」
+             （Syed Asim Ali Shah，LottieFiles Free License，已去地面横线） -->
+        <com.airbnb.lottie.LottieAnimationView
             android:id="@+id/loadingAnimal"
-            android:layout_width="96dp"
-            android:layout_height="96dp"
+            android:layout_width="220dp"
+            android:layout_height="220dp"
             android:layout_gravity="center"
-            android:src="@drawable/animal_walk_anim"
+            app:lottie_rawRes="@raw/lottie_dog_walk"
+            app:lottie_autoPlay="false"
+            app:lottie_loop="true"
             android:visibility="gone"
             android:contentDescription="@string/loading"
             android:importantForAccessibility="no"

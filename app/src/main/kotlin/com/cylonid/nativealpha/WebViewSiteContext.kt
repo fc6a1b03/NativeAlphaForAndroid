@@ -80,12 +80,12 @@ internal interface WebViewSiteContext {
     fun recordPageError(errorType: String, code: String, desc: String)
 
     /**
-     * 断线自动恢复：主帧加载失败后启动探测监视（先探测站点可达再自动
-     * 重载，避免盲目重试与无出口等待）；探测目标为站点 baseUrl，恢复
-     * 动作由实现方注入（宿主 reload retryUrl / 矩阵 pickSite 重载）。
+     * 本地网络权限授权请求（错误页 webnative://lna-grant 按钮，Android 17 LNA）。
+     * 语义分歧（规格决策，非漂移）：宿主实现发起运行时请求、授权后重载
+     * retryUrl；矩阵实现仅计数不弹框——授权是应用级状态（WebView 流量继承
+     * 宿主权限）且多格并发请求系统对话框会互相顶掉，矩阵格经宿主路径授权
+     * 后重试即通。
      */
-    fun startReconnectWatch()
+    fun onLocalNetworkGrantRequested()
 
-    /** 停止断线监视（页面加载成功或宿主/窗格销毁时调用） */
-    fun stopReconnectWatch()
 }

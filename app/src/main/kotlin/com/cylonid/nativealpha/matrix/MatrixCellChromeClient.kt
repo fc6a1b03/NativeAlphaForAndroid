@@ -15,6 +15,7 @@ import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import com.cylonid.nativealpha.helper.WebPermissionCoordinator
 import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.util.BrowserConsoleNoise
 import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.FileChooserDelegate
 
@@ -82,9 +83,11 @@ internal class MatrixCellChromeClient(
     }
 
     override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-        // 与宿主同语义的 JS 错误观测（矩阵 QC 口径=FeatureMetrics 计数）
+        // 与宿主同语义的 JS 错误观测（矩阵 QC 口径=FeatureMetrics 计数）；
+        // 浏览器自身预警噪音过滤与宿主同源（BrowserConsoleNoise）
         if (consoleMessage != null &&
-            consoleMessage.messageLevel() == ConsoleMessage.MessageLevel.ERROR
+            consoleMessage.messageLevel() == ConsoleMessage.MessageLevel.ERROR &&
+            !BrowserConsoleNoise.isNoise(consoleMessage.message())
         ) {
             FeatureMetrics.count(FeatureMetrics.MODULE_MATRIX, "console_error")
         }

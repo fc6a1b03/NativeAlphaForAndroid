@@ -3,6 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 本地网络权限（Android 17 / API 37）：target ≥37 的应用访问私网/localhost
+         默认被系统拦截，WebView 流量继承宿主权限状态——用户添加 NAS/homelab
+         等局域网站点是本应用核心场景。低版本设备声明无害；运行时按需场景化
+         请求（添加私网站点时/错误页引导），非启动即弹（XR1 权限最小化） -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <!-- 网页事件通知（P5）：按需场景化请求（保存首条 notify 规则时），非启动即弹 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>

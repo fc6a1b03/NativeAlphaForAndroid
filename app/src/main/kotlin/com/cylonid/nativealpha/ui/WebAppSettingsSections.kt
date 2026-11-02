@@ -310,34 +310,6 @@ internal fun DataSavingSection(
     }
 }
 
-/** 自动刷新区块：开关 + 间隔输入（开时显示） */
-@Composable
-internal fun AutoReloadSection(
-    modified: WebApp,
-    updateSettings: (WebApp.() -> Unit) -> Unit,
-) {
-    WebAppSettingsSectionTitle(stringResource(R.string.webapp_autoreload))
-    WebAppSettingsCard {
-        WebAppSettingsSwitchRow(
-            title = stringResource(R.string.webapp_autoreload_switch),
-            checked = modified.isAutoreload,
-            onCheckedChange = { updateSettings { isAutoreload = it } },
-            description = stringResource(R.string.desc_autoreload)
-        )
-        if (modified.isAutoreload) {
-            OutlinedTextField(
-                value = modified.timeAutoreload.toString(),
-                onValueChange = { updateSettings { timeAutoreload = it.toIntOrNull() ?: 0 } },
-                label = { Text(stringResource(R.string.webapp_interval_for_reload)) },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-        }
-    }
-}
-
 /** 信息亭区块：全屏 + 保持唤醒 */
 @Composable
 internal fun KioskSection(

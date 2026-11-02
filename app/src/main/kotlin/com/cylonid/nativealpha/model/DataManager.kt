@@ -279,8 +279,6 @@ class DataManager private constructor() {
             appdata!!.getBoolean(SHARED_PREF_GLOB_MULTITOUCH_RELOAD, true)
         _settings.isThreeFingerMultitouch =
             appdata!!.getBoolean(SHARED_PREF_GLOB_3F_MULTITOUCH, false)
-        _settings.isShowProgressbar =
-            appdata!!.getBoolean(SHARED_PREF_GLOB_PROGRESSBAR, false)
         _settings.themeId = appdata!!.getInt(SHARED_PREF_GLOB_UI_THEME, 0)
     }
 
@@ -346,6 +344,8 @@ class DataManager private constructor() {
                 merged.statMaxLoadTime = webApp.statMaxLoadTime
                 merged.statCacheHttpBytes = webApp.statCacheHttpBytes
                 merged.statCacheStoreBytes = webApp.statCacheStoreBytes
+                merged.statTrafficBytes = webApp.statTrafficBytes
+                merged.statTrafficSamples = webApp.statTrafficSamples
                 merged.statErrors = webApp.statErrors
                 merged.statLastError = webApp.statLastError
                 merged.statFirstLoadedAt = webApp.statFirstLoadedAt
@@ -547,7 +547,6 @@ class DataManager private constructor() {
         private const val SHARED_PREF_GLOB_2F_MULTITOUCH = "TwoFingerMultiTouch"
         private const val SHARED_PREF_GLOB_MULTITOUCH_RELOAD = "ReloadMultiTouch"
         private const val SHARED_PREF_GLOB_3F_MULTITOUCH = "ThreeFingerMultiTouch"
-        private const val SHARED_PREF_GLOB_PROGRESSBAR = "LoadProgressBarAlwaysShown"
         private const val SHARED_PREF_GLOB_UI_THEME = "UITheme"
         private const val SHARED_PREF_GLOBAL_SETTINGS_JSON = "globalSettingsStoredAsJson"
 

@@ -3,6 +3,7 @@ package com.cylonid.nativealpha.util
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Application
+import android.app.ApplicationExitInfo
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.os.Bundle
@@ -18,7 +19,17 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // 启动环境探针：版本定谳之根（排查「装没装新版」不再靠问）
+        ErrorReporter.probe(
+            this, "App", "app_start",
+            fields = mapOf(
+                "v" to BuildConfig.VERSION_NAME,
+                "android" to android.os.Build.VERSION.RELEASE,
+                "model" to android.os.Build.MODEL
+            )
+        )
         context = applicationContext
+        reportLastExitReason()
 
         // 网页事件运行时（P5）：规则库载入 + 通知 Channel 幂等创建 + 动作分发装配
         com.cylonid.nativealpha.webevent.WebeventRuntime.init(context)
@@ -133,6 +144,51 @@ class App : Application() {
 
         @JvmStatic
         fun getAppContext(): Context = context
+    }
+
+    /**
+     * 上次进程退出原因探针（v2.4.8 定谳「两次 app_start 相隔 4 秒却零 CRASH」）：
+     * LMK 回收、崩溃兜底写入失败、还是用户手动清理，系统 ExitInfo 直接给答案，
+     * 不再靠间接推断。每进程启动至多一条 INFO。
+     */
+    private fun reportLastExitReason() {
+        try {
+            val am = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+            val last = am.getHistoricalProcessExitReasons(packageName, 0, 1).firstOrNull() ?: return
+            ErrorReporter.probe(
+                this, "App", "app_exit_reason",
+                fields = mapOf(
+                    "reason" to exitReasonName(last.reason),
+                    "desc" to last.description
+                )
+            )
+        } catch (ignored: Exception) {
+            // ExitInfo 不可得（部分 ROM/多用户场景）：跳过取证
+        }
+    }
+
+    /** ExitInfo 原因码转可读名（排查导出日志可 grep）。全量覆盖 API 37 的
+     *  17 个原因码（数值经 javap 对 android-37 android.jar 实测核对——
+     *  v2.4.8 实机首条 code_16 即 PACKAGE_UPDATED，靠 desc 才读懂，故补全） */
+    private fun exitReasonName(reason: Int): String = when (reason) {
+        ApplicationExitInfo.REASON_UNKNOWN -> "unknown"
+        ApplicationExitInfo.REASON_EXIT_SELF -> "exit_self"
+        ApplicationExitInfo.REASON_SIGNALED -> "signaled"
+        ApplicationExitInfo.REASON_LOW_MEMORY -> "low_memory"
+        ApplicationExitInfo.REASON_CRASH -> "crash"
+        ApplicationExitInfo.REASON_CRASH_NATIVE -> "crash_native"
+        ApplicationExitInfo.REASON_ANR -> "anr"
+        ApplicationExitInfo.REASON_INITIALIZATION_FAILURE -> "initialization_failure"
+        ApplicationExitInfo.REASON_PERMISSION_CHANGE -> "permission_change"
+        ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "excessive_resource"
+        ApplicationExitInfo.REASON_USER_REQUESTED -> "user_requested"
+        ApplicationExitInfo.REASON_USER_STOPPED -> "user_stopped"
+        ApplicationExitInfo.REASON_DEPENDENCY_DIED -> "dependency_died"
+        ApplicationExitInfo.REASON_OTHER -> "other"
+        ApplicationExitInfo.REASON_FREEZER -> "freezer"
+        ApplicationExitInfo.REASON_PACKAGE_STATE_CHANGE -> "package_state_change"
+        ApplicationExitInfo.REASON_PACKAGE_UPDATED -> "package_updated"
+        else -> "code_$reason"
     }
 
     /**

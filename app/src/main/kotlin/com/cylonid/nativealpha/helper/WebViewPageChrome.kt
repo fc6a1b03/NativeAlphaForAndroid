@@ -1,7 +1,8 @@
 
 package com.cylonid.nativealpha.helper
 
-import android.graphics.drawable.AnimationDrawable
+import com.cylonid.nativealpha.util.ErrorReporter
+
 import android.os.Handler
 import android.os.Looper
 import android.view.LayoutInflater
@@ -14,11 +15,12 @@ import androidx.lifecycle.lifecycleScope
 import com.cylonid.nativealpha.R
 import com.cylonid.nativealpha.WebViewActivity
 import com.cylonid.nativealpha.model.DataManager
+import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.LoadFailureClassifier
 import com.cylonid.nativealpha.util.LocaleUtils
+import com.cylonid.nativealpha.util.LocalNetworkAccessManager
 import com.cylonid.nativealpha.util.NotificationUtils
-import com.cylonid.nativealpha.util.SiteReconnectSupervisor
 import com.cylonid.nativealpha.util.WebViewDownloads
 import com.cylonid.nativealpha.webevent.EventRuleStore
 import com.cylonid.nativealpha.webevent.JsHookScript
@@ -32,12 +34,14 @@ import java.util.Collections
  *
  * 职责：加载动物动画、白屏检测、自定义错误页、HTTP 认证对话框、
  * 安全导航（前进/后退/刷新兜底）、站内加载（HTTP 明文确认 + 自定义请求头）、
- * 下载监听装配、断线自动恢复监视。
+ * 下载监听装配。
  *
  * 设计约束：持有 Activity 实例引用（构造注入，非静态——防泄漏）；
  * 方法体与原实现逐行对应，行为差异零容忍。
  */
 class WebViewPageChrome(private val activity: WebViewActivity) {
+
+    private val TAG = "PageLoad"
 
     /** 上次主帧是否失败（错误页 finished 与真成功的区分依据） */
     private var lastMainFrameFailed = false
@@ -47,10 +51,40 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
 
     private val blankScreenHandler = Handler(Looper.getMainLooper())
 
-    /** 断线自动恢复监视器（加载失败后探测站点可达性，恢复即自动重载） */
-    private val reconnectSupervisor by lazy {
-        SiteReconnectSupervisor(activity.applicationContext, activity.lifecycleScope)
+    /** 主帧导航窗口：onPageLoadStarted→onPageLoadFinished 之间为 true（进度配对观测用） */
+    private var mainFrameNavActive = false
+
+    /** 无导航进度回调计数（配对观测：对数级打点防刷屏） */
+    private var progressWithoutNavCount = 0
+
+    /**
+     * 进度回调配对观测（2026-10-29 实机导出定谳：4 个会话进度回调连跑 4-6 秒
+     * 而 onPageStarted 一次未触发——主帧没动子帧在动，加载耗时统计/健康登记/
+     * 白屏检测全部漏挂）。阈值 5/25/100：正常加载也有零星进度回调先于
+     * onPageStarted 到达（模拟器实测 97ms 窗口），首条即报会把每次正常加载
+     * 污染成一条假 WARNING——第 5 条才报，窗口拉长才算异常；对数级打点
+     * 上限每百次 3 条，INFO 洪泛不再重演。
+     */
+    fun noteProgressWithoutNav(progress: Int) {
+        if (progress >= 100) return // 加载收尾的散落回调不算
+        progressWithoutNavCount++
+        if (progressWithoutNavCount == 5 || progressWithoutNavCount == 25 ||
+            progressWithoutNavCount == 100
+        ) {
+            ErrorReporter.probe(
+                activity, TAG, "progress_without_nav",
+                fields = mapOf("count" to progressWithoutNavCount, "progress" to progress),
+                level = AppErrorEntry.LEVEL_WARNING
+            )
+        }
+        // 对数周期重启（每百次最多 3 条）
+        if (progressWithoutNavCount >= 100) progressWithoutNavCount = 0
     }
+
+    fun isMainFrameNavActive(): Boolean = mainFrameNavActive
+
+    /** 页面是否已完成加载（加载后散落的子帧进度回调不算无导航异常） */
+    fun isPageLoadFinished(): Boolean = pageLoadFinished
 
     /** 自定义请求头（initCustomHeaders 构建，loadURL 消费） */
     private var customHeaders: Map<String, String>? = null
@@ -60,6 +94,10 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
     fun onPageLoadStarted() {
         // 新页面加载：重置白屏检测（进度从 0 重新计时）
         pageLoadFinished = false
+        // 主帧导航窗口开启（onProgressChanged 配对观测：进度回调无主帧导航
+        // = 子帧在动主帧没动，见 noteProgressWithoutNav）
+        mainFrameNavActive = true
+        progressWithoutNavCount = 0
         // 主帧失败标记清除（新导航开始——错误页 finished 不再误判成功）
         lastMainFrameFailed = false
         activity.lastProgress = 0
@@ -78,12 +116,11 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
     fun onPageLoadFinished() {
         // 加载完成：取消白屏检测（避免误判）
         pageLoadFinished = true
+        // 主帧导航窗口关闭（此后散落的进度回调按无导航观测）
+        mainFrameNavActive = false
         cancelBlankScreenCheck()
         // 页面加载完成：隐藏加载页动物动画
         stopLoadingAnimal()
-        // 成功加载即停止断线探测（恢复闭环完成）；失败页的 finished
-        // 不算成功（lastMainFrameFailed），监视继续等探测通过
-        if (!lastMainFrameFailed) stopReconnectWatch()
         // hook 存活探针：规则失效显式提示的数据源——注入过的幂等标记在
         // SPA 换文档/站点改版后是否仍在（站点改版致 hook 挂载失败时，
         // 规则入口卡显示「可能失效」而非静默无效）
@@ -98,24 +135,6 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
                 )
             }
         }
-    }
-
-    // ===== 断线自动恢复 =====
-
-    fun startReconnectWatch() {
-        val baseUrl = DataManager.getInstance().getWebApp(activity.webappID)?.baseUrl ?: return
-        reconnectSupervisor.start(baseUrl) { _ ->
-            activity.runOnUiThread {
-                val target = activity.retryUrl.ifBlank { baseUrl }
-                val wv = activity.wv ?: return@runOnUiThread
-                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
-                loadURL(wv, target)
-            }
-        }
-    }
-
-    fun stopReconnectWatch() {
-        reconnectSupervisor.stop()
     }
 
     // ===== 安全导航（内核态异常兜底） =====
@@ -155,7 +174,11 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
 
     // ===== 加载页动物动画 =====
 
-    /** 启动加载页动物走路动画（ImageView + AnimationDrawable）+ 主题背景 */
+    /**
+     * 启动加载页动物走路动画（LottieAnimationView）+ 主题背景。
+     * 素材 lottie_dog_walk.json：LottieFiles「Dog walking」（Syed Asim Ali
+     * Shah，LottieFiles Free License，已去地面横线 layer）。
+     */
     fun startLoadingAnimal() {
         try {
             val loadingAnimal = activity.loadingAnimal ?: return
@@ -167,16 +190,16 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
             if (loadingAnimal.visibility != View.VISIBLE) {
                 loadingAnimal.visibility = View.VISIBLE
             }
-            val anim = loadingAnimal.drawable as? AnimationDrawable
-            if (anim != null && !anim.isRunning) {
-                anim.start()
+            // 已在播不重启（onPageStarted 可能连续触发），避免从头闪帧
+            if (!loadingAnimal.isAnimating) {
+                loadingAnimal.playAnimation()
             }
         } catch (ignored: Exception) {
             // 动画启动失败不影响主功能
         }
     }
 
-    /** 停止并隐藏加载页动物动画 + 主题背景 */
+    /** 停止并隐藏加载页动物动画 + 主题背景（cancel 复位进度，下次从头播） */
     fun stopLoadingAnimal() {
         try {
             val loadingBg = activity.loadingBg
@@ -184,10 +207,7 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
                 loadingBg.visibility = View.GONE
             }
             val loadingAnimal = activity.loadingAnimal ?: return
-            val anim = loadingAnimal.drawable as? AnimationDrawable
-            if (anim != null && anim.isRunning) {
-                anim.stop()
-            }
+            loadingAnimal.cancelAnimation()
             loadingAnimal.visibility = View.GONE
         } catch (ignored: Exception) {
         }
@@ -217,6 +237,20 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
         if (pageLoadFinished || activity.wv == null) return
         val idle = System.currentTimeMillis() - activity.lastProgressTime
         if (idle >= Const.BLANK_SCREEN_TIMEOUT_MS && activity.lastProgress < 100) {
+            ErrorReporter.probe(activity, TAG, "blank_screen_triggered",
+                fields = mapOf("idleMs" to idle, "progress" to activity.lastProgress))
+            // Android 17 LNA 双形态判定：私网未授权的拦截在 API 37 GA 镜像
+            // 实测为连接静默挂起（无 onReceivedError 回调，坑位 21 的 opt-in
+            // 镜像才有回调）——白屏检测是唯一出场路径，timeout 错误页必须
+            // 按权限语义渲染（hint+授权按钮），否则用户只看到「网络不可达」
+            // 误导文案且无自救入口；判定命中的同时补 lna_blocked 探针取证
+            // （该形态下基类 onReceivedError 的探针不触发）
+            val targetUrl = activity.wv?.url ?: activity.urlOnFirstPageload
+            val lnaNeeded = LocalNetworkAccessManager.needsPermission(activity, targetUrl)
+            if (lnaNeeded) {
+                ErrorReporter.probe(activity, TAG, "lna_blocked",
+                    fields = mapOf("form" to "silent_hang", "url" to targetUrl))
+            }
             // 加载卡死：加载本地错误页（带重试），避免白屏挂起
             activity.runOnUiThread {
                 NotificationUtils.showInfoSnackbar(
@@ -227,7 +261,9 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
                 // 加载中断：重置计时起点，避免错误页误计为页面加载耗时
                 activity.pageLoadStartTime = 0
                 activity.wv!!.stopLoading()
-                loadCustomErrorPage("timeout", activity.getString(R.string.blank_screen_detected))
+                loadCustomErrorPage(
+                    "timeout", activity.getString(R.string.blank_screen_detected), lnaNeeded
+                )
             }
         }
     }
@@ -239,9 +275,16 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
      * 带错误码/描述参数（query 传入，页面显示开发者向信息）。
      * 语言：跟随 LocaleUtils（zh/en）。
      * 字体/页面缩放：跟随当前生效配置（与页面同一套，不再有独立缩放）。
+     *
+     * [forcePermissionReason]：调用方已判定为 Android 17 LNA 静默挂起形态
+     * （无错误回调，desc 无法携带 net::ERR_*）时强制按权限语义渲染 reason
+     * 行与授权按钮——timeout 码本身分类不出权限拦截，必须由调用方传位。
      */
-    fun loadCustomErrorPage(code: String?, desc: String?) {
+    fun loadCustomErrorPage(
+        code: String?, desc: String?, forcePermissionReason: Boolean = false
+    ) {
         val wv = activity.wv ?: return
+        ErrorReporter.probe(activity, TAG, "error_page", fields = mapOf("code" to (code ?: "")))
         // 主帧失败标记：错误页自身也会回调 onPageFinished——finished 时
         // 据此区分「真成功」与「失败页完成」，避免误停断线监视
         lastMainFrameFailed = true
@@ -256,19 +299,28 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
             val safeCode = code ?: ""
             val safeDesc = desc ?: ""
             // 本地化原因行（分类驱动）：证书/地址类终态给出可行动提示，
-            // 瞬态失败给「会自动恢复」预期
-            val reasonRes = when (LoadFailureClassifier.classify(safeCode, safeDesc)) {
+            // 瞬态失败引导手动重试（自动恢复已移除，用户定调）
+            val kind = if (forcePermissionReason) {
+                LoadFailureClassifier.Kind.PERMISSION
+            } else {
+                LoadFailureClassifier.classify(safeCode, safeDesc)
+            }
+            val reasonRes = when (kind) {
                 LoadFailureClassifier.Kind.SECURITY -> R.string.load_failure_hint_security
                 LoadFailureClassifier.Kind.BAD_ADDRESS -> R.string.load_failure_hint_bad_address
+                LoadFailureClassifier.Kind.PERMISSION -> R.string.load_failure_hint_permission
                 LoadFailureClassifier.Kind.RETRYABLE -> R.string.load_failure_hint_retryable
             }
             val encodedReason = URLEncoder.encode(activity.getString(reasonRes), "UTF-8")
             // URL 编码 desc（含空格/特殊字符安全）
             val encodedDesc = URLEncoder.encode(safeDesc, "UTF-8")
+            // 分类 key 独立传参（reason 传的是本地化文案，不可作判定依据）——
+            // HTML 据此控制 LNA 授权按钮显隐（permission 时显示）
+            val kindKey = kind.name.lowercase()
             wv.loadUrl(
                 "file:///android_asset/errorSite/error_" + lang
                     + ".html?code=" + safeCode + "&desc=" + encodedDesc
-                    + "&reason=" + encodedReason
+                    + "&reason=" + encodedReason + "&kind=" + kindKey
             )
         } catch (ignored: Exception) {
             // 错误页加载失败静默（保持现状）

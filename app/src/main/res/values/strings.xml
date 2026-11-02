@@ -105,14 +105,12 @@
     <string name="file_download_started">Download started</string>
     <string name="filechooser_unreadable_file">Can’t read the selected file. Please pick it again or choose a different file.</string>
     <string name="filechooser_result_lost">The page was refreshed during file selection — please pick the file(s) again.</string>
+    <string name="chooser_channel_name">File selection</string>
+    <string name="chooser_notif_title">Selecting file…</string>
     <string name="no_pdf_app">No app on this device can open PDF files.</string>
     <string name="custom_icon">Select custom icon</string>
-    <string name="show_progress_bar_during_page_load">Show progress bar during page load</string>
     <string name="use_custom_user_agent">Use custom user agent</string>
     <string name="insert_custom_user_agent">Insert custom user agent here…</string>
-    <string name="webapp_autoreload">Auto-reload page</string>
-    <string name="webapp_interval_for_reload">Interval in seconds</string>
-    <string name="webapp_autoreload_switch">Refresh page regularly</string>
 
     <string name="label">Name</string>
     <string name="force_dark_mode">Force Dark Mode</string>
@@ -146,6 +144,7 @@
     <string name="app_icon_reset">Reset</string>
 <string name="copy_url">Copy URL</string>
     <string name="copy_url_done">URL copied</string>
+    <string name="copied_toast">Copied</string>
     <string name="search_webapps">Search apps</string>
     <string name="clear_search">Clear search</string>
     <string name="no_search_result">No matching apps</string>
@@ -173,7 +172,6 @@
     <string name="desc_two_finger_nav">Swipe left/right with two fingers to go back or forward.</string>
     <string name="desc_three_finger_switch">Swipe left/right with three fingers to switch between Web Apps.</string>
     <string name="desc_edge_swipe_nav">Swipe horizontally from the left or right screen edge to go back or forward. Off by default.</string>
-    <string name="desc_show_progressbar">Show a loading progress bar at the bottom during page load.</string>
     <string name="desc_always_show_buttons">Keep the system navigation buttons visible in full-screen pages.</string>
     <string name="desc_allow_js">Required by most modern websites to work correctly.</string>
     <string name="desc_block_third_party">Block requests to other domains (ads, trackers).</string>
@@ -188,7 +186,6 @@
     <string name="desc_timespan_dark">Only apply forced dark mode during the set time span.</string>
     <string name="desc_save_data">Ask the website to send reduced data (mobile-friendly version).</string>
     <string name="desc_block_images">Block all images to save data and speed up loading.</string>
-    <string name="desc_autoreload">Automatically reload the page at a fixed interval.</string>
     <string name="desc_fullscreen">Hide system bars for an immersive experience.</string>
     <string name="desc_keep_awake">Prevent the screen from turning off while open.</string>
     <string name="desc_request_desktop">Request the desktop version of the website.</string>
@@ -219,7 +216,7 @@
     <string name="export_app_errors">Export diagnostics (last 3 days)</string>
     <string name="desc_export_app_errors">Export the app\'s errors, warnings and diagnostic probe records of the last 3 days. Cleared after export.</string>
     <string name="stat_log_network_errors">Log network errors in site stats</string>
-    <string name="desc_stat_log_network_errors">When off, network failures (like being offline) are not counted in site stats.</string>
+    <string name="desc_stat_log_network_errors">When off, network-layer errors (offline, HTTP status, certificate) are not counted in site stats.</string>
     <string name="app_errors_export_success">Exported — diagnostics cleared</string>
     <string name="app_errors_export_failed">Failed to export diagnostics</string>
     <string name="app_errors_none">No diagnostics in the last 3 days</string>
@@ -250,6 +247,10 @@
     <string name="stats_companionship">Companionship</string>
     <string name="stats_hero_streak">%1$s · %2$d-week streak</string>
     <string name="stats_section_performance">Performance</string>
+    <string name="stats_section_traffic">Data usage</string>
+    <string name="stat_traffic_total">Total traffic</string>
+    <string name="stat_traffic_per_launch">Average per open</string>
+    <string name="stat_traffic_note">Accumulated bytes of page resources (cross-origin resources without Timing-Allow-Origin are not counted, so this is a lower bound).</string>
     <string name="stats_section_automation">Automation</string>
     <string name="stats_section_habits">Habits</string>
     <string name="stats_section_storage">Storage &amp; cleanup</string>
@@ -453,7 +454,10 @@
     <!-- ===== Load failure classification (borrowed from happier: terminal vs transient) ===== -->
     <string name="load_failure_hint_security">Certificate error at the site side. If you trust the site, enable \'"Ignore SSL errors"\' in its settings.</string>
     <string name="load_failure_hint_bad_address">The address looks invalid. Check the site URL in this app\'s settings.</string>
-    <string name="load_failure_hint_retryable">Network seems unreachable. We\'ll keep watching and reload automatically once it\'s back.</string>
+    <string name="load_failure_hint_retryable">Network seems unreachable. Tap retry once it\'s back.</string>
+    <string name="load_failure_hint_permission">Local network access is blocked by Android. Tap \'"Grant local network access"\' below, then retry.</string>
+    <!-- ===== Local network permission (Android 17, scenario-based request) ===== -->
+    <string name="lna_perm_denied_hint">Local network permission was denied. Enable it in system settings, or use a public address.</string>
     <string name="webevent_hook_stale">Hook not detected on latest load. The site may have changed; rules might not fire. Reopen the site and re-check.</string>
     <string name="site_health_recent_failure">Failed to load recently in this session</string>
     <!-- ===== Site share (QR + deep link, borrowed from happier pairing discipline) ===== -->

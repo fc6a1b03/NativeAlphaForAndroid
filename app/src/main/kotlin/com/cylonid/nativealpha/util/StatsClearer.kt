@@ -26,6 +26,8 @@ internal object StatsClearer {
             original.statLoadTimeSum = 0L
             original.statLoadTimeCount = 0
             original.statMaxLoadTime = 0L
+            original.statTrafficBytes = 0L
+            original.statTrafficSamples = 0
             original.statErrors = 0
             original.statLastError = null
             original.statLoadTimes = mutableListOf()

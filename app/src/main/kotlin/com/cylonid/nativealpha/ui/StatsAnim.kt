@@ -2,13 +2,16 @@ package com.cylonid.nativealpha.ui
 
 import android.provider.Settings
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
@@ -27,12 +30,34 @@ internal const val COUNT_UP_MS = 400
 /** 卡片进入 stagger 步长（ms）——仅此一处 */
 private const val STAGGER_STEP_MS = 30L
 
+/*
+ * Expressive 弹簧规格（交互反馈统一口径，仅此一处定义，主列表/统计页
+ * 共用——动效参数不散落调用点，与「时长缓动只在本文件定义」同纪律）。
+ */
+/** 按压/出现：中弹跳——形状与缩放反馈带轻微过冲的 Q 弹手感 */
+internal val EXPRESSIVE_PRESS_SPRING = spring<Float>(
+    dampingRatio = Spring.DampingRatioMediumBouncy,
+    stiffness = Spring.StiffnessMediumLow
+)
+
+/** 形状/数值收敛：无弹跳——圆角与计数不允许过冲出中间错值 */
+internal val EXPRESSIVE_SETTLE_SPRING = spring<Float>(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMediumLow
+)
+
+/** 形状/数值收敛（Dp 维度）：圆角变形用 */
+internal val EXPRESSIVE_SETTLE_SPRING_DP = spring<Dp>(
+    dampingRatio = Spring.DampingRatioNoBouncy,
+    stiffness = Spring.StiffnessMediumLow
+)
+
 /**
  * 系统动画总开关（组合期读取一次；ANIMATOR_DURATION_SCALE 为系统缓存值，
  * 非阻塞读）。缩放为 0 = 用户要求减少动效。
  */
 @Composable
-private fun animationsEnabled(): Boolean {
+internal fun animationsEnabled(): Boolean {
     val context = LocalContext.current
     return Settings.Global.getFloat(
         context.contentResolver,
@@ -49,7 +74,12 @@ fun rememberCountUp(target: Int): Int {
     val enabled = animationsEnabled()
     val state by animateIntAsState(
         targetValue = target,
-        animationSpec = tween(durationMillis = if (enabled) COUNT_UP_MS else 0),
+        // Expressive：无弹跳 spring（数字过冲会闪错值）——物理收敛替代匀速曲线
+        animationSpec = if (enabled) {
+            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+        } else {
+            tween(durationMillis = 0)
+        },
         label = "statsCountUp"
     )
     return state

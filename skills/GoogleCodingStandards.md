@@ -60,6 +60,7 @@
 
 - 禁止在逻辑体内写 `com.xxx.SomeClass.method()`；必须顶部 `import` 后直接使用
 - 唯一豁免：`import` 会产生命名冲突时，顶部声明别名 `import a.B as Alias`
+- **执行口径（2026-11-02 用户强调）：存量内联同属违规——触碰相关文件时全局收口，不得「新代码守规、存量放行」；KDoc/行注释里的全限定引用（如 `[java.net.InetAddress]` 文档链接）合法保留**
 
 ### R8. 附属逻辑不得阻塞主线程
 
@@ -140,6 +141,7 @@
 - Compose：`@Composable` 大驼峰、state 提升、`stringResource()` 组合期预取（禁回调内 `context.getString`）
 - WebView 渲染优化（setRendererPriorityPolicy(WAIVED, waivedWhenNotVisible=true) + OffscreenPreRaster）不得回退——废弃的 setRenderPriority 已于 v2.2.0 P6 移除
 - Cookie 隔离走 `CookieSessionManager`（唯一入口）；头像走 `WebAppIconManager`（统一源）
+- **运行时权限一律场景化申请**（禁启动即弹）：在「触发场景先讲清楚为什么，再进系统弹窗」的引导链后请求——先例 `POST_NOTIFICATIONS`（保存首条 notify 规则时）与 `ACCESS_LOCAL_NETWORK`（添加私网站点时/错误页授权按钮）；请求通道走 `ActivityResultContracts`（Activity 构造期注册）；权限能力必须唯一入口 object（先例 `LocalNetworkAccessManager`），调用方只编排
 
 ---
 
@@ -239,6 +241,10 @@
 - `OutlinedTextFieldDefaults.colors` 参数名随 Material3 版本变化（避免新旧歧义参数）
 - CRLF 文件用 Python `newline=''` 处理（Edit 工具的 LF 匹配可能失败）
 - Gson 旧数据字段缺失 → getter 归一化（如 `sessionTabCount`/`textZoom`）
+- **平台新 API 符号名禁止凭记忆猜测**：`Build.VERSION_CODES` 等符号用 `javap -constants -cp <sdk>/platforms/android-NX/android.jar android.os.Build\$VERSION_CODES` 对 android.jar 实测核对（2026-11 实证 API 37 = `CINNAMON_BUN`）——网络搜索旧文不可信，错误符号名只在编译期暴露
+- **常量收口/重构禁带语义变更**：把魔法值收口为常量时严禁顺带改变判定语义（`startsWith` → `==` 收紧匹配面）、严禁去掉防御兜底（`?.toString() ?: fallback`）——收口提交必须是零行为变更，蓝军自查逐行 diff 验证
+- **Compose 内本地函数无前向引用**：`rememberLauncherForActivityResult` 回调引用同函数体内后声明的本地函数（如 `startFetch`）会编译失败（UNRESOLVED_REFERENCE）——launcher 必须声明在被引用本地函数之后（Activity 字段级 launcher 无此约束，字段初始化器引用的是成员）
+- **lint 基线会随 Google 发版漂移**：`AndroidGradlePluginVersion` 类工具链提示在 Google 发布新版后自动出现（2026-11 实证 AGP 9.4.1 → 9.5.0 提示），对照警告清单时先区分「代码债」与「环境漂移」，后者单独归档勿混入卫生清理清单
 - **Gson+R8 泛型退化**：keep 缺失的 Gson 载荷类，反序列化集合元素退化为 LinkedTreeMap——对象字段不报错、取字段才崩、只崩 release；排查靠 `app/build/outputs/mapping/release/mapping.txt` 反查混淆类名（如 `kq1 cannot be cast to v14`）；防御双保险=精确 keep+decode 条目 `filterInstances` 清洗（JsonPrefsStore 顶层 helper）
 - `copyStatsAndShortcuts` 保留统计/快捷键字段（防保存清空）
 

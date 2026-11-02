@@ -6,6 +6,7 @@ import com.cylonid.nativealpha.WebViewSiteContext
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.util.FeatureMetrics
+import com.cylonid.nativealpha.util.LoadFailureClassifier
 import com.cylonid.nativealpha.util.UrlUtils
 import android.app.AlertDialog
 import android.content.Context
@@ -85,13 +86,15 @@ internal class MatrixCellContext(
         FeatureMetrics.count(FeatureMetrics.MODULE_MATRIX, "PageError:$errorType")
     }
 
-    override fun startReconnectWatch() {
-        engine.startCellReconnect(cellIndex)
+    override fun onLocalNetworkGrantRequested() {
+        // 授权是应用级状态（官方：WebView 流量继承宿主权限）且多格并发请求
+        // 系统对话框会互相顶掉——格内不弹框仅计数；错误页 HTML 授权按钮本身
+        // 不进格（格错误态走五态状态机），用户经宿主路径授权后格内重试即通。
+        // PERMISSION 分类经 LoadFailureClassifier.isRetryable=false 自动
+        // 排除断线重连（权限未授予时重试必败，白耗退避周期）
+        FeatureMetrics.count(FeatureMetrics.MODULE_MATRIX, "lna_grant_requested")
     }
 
-    override fun stopReconnectWatch() {
-        engine.stopCellReconnect(cellIndex)
-    }
 }
 
 /**
@@ -99,8 +102,16 @@ internal class MatrixCellContext(
  * 崩溃处置覆写为格错误态 + 批量恢复调度，宿主永不 finish（D3/A）。
  */
 internal class MatrixCellClient(
-    cellContext: MatrixCellContext
+    private val cellContext: MatrixCellContext
 ) : SiteWebViewClient(cellContext) {
+
+    override fun onMainFrameLoadFailed(code: String, desc: String) {
+        // 分类驱动（借鉴 happier「终态/瞬态」三分法）：仅瞬态失败启动格
+        // 断线监视——格内无用户输入状态，自动恢复收益明确；宿主已移除
+        if (LoadFailureClassifier.isRetryable(LoadFailureClassifier.classify(code, desc))) {
+            cellContext.engine.startCellReconnect(cellContext.cellIndex)
+        }
+    }
 
     override fun onRenderCrashCleanup(view: WebView): Boolean {
         val context = site as MatrixCellContext

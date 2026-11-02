@@ -6,7 +6,6 @@ import androidx.annotation.StringRes
 import android.net.Uri
 import android.os.Message
 import androidx.core.graphics.createBitmap
-import androidx.core.view.isGone
 import android.view.View
 import android.webkit.ConsoleMessage
 import android.webkit.GeolocationPermissions
@@ -21,8 +20,10 @@ import android.webkit.WebChromeClient
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.cylonid.nativealpha.model.DataManager
-import com.google.android.material.snackbar.Snackbar
+import com.cylonid.nativealpha.model.AppErrorEntry
 import com.cylonid.nativealpha.model.ErrorType
+import com.cylonid.nativealpha.util.BrowserConsoleNoise
+import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.util.StatsRecorder
 import android.webkit.WebView
 import com.cylonid.nativealpha.helper.WebPermissionCoordinator
@@ -31,12 +32,11 @@ import android.app.AlertDialog
 import android.content.pm.PackageManager
 import android.widget.EditText
 import android.widget.FrameLayout
-import android.widget.ProgressBar
 import com.cylonid.nativealpha.R
 
 /**
  * WebView 的 WebChromeClient：控制台日志/权限请求/文件选择/全屏视频/
- * 进度条/地理定位/HTTP 认证等浏览器外壳事件。
+ * 地理定位/HTTP 认证等浏览器外壳事件。
  *
  * 从 WebViewActivity.kt 拆出（R3 治理）：原 private inner class 独立化，
  * Activity 引用经 host 构造参数注入——行为零变更。
@@ -48,17 +48,43 @@ internal class CustomWebChromeClient(
     private var mCustomViewCallback: CustomViewCallback? = null
     private var mOriginalOrientation = 0
 
+    /** 同一条 JS 错误的诊断留痕冷却键/时刻（3s 窗口，见 onConsoleMessage） */
+    private var lastJsErrorProbeKey: String? = null
+    private var lastJsErrorProbeAt = 0L
+
     override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
         // 统计埋点：页面 JS 错误（未捕获异常/语法错误走 console.error 上报）
         if (consoleMessage != null
             && consoleMessage.messageLevel() ==
             ConsoleMessage.MessageLevel.ERROR
+            && !BrowserConsoleNoise.isNoise(consoleMessage.message())
         ) {
             StatsRecorder.recordPageError(
                 host.webappID, ErrorType.JS.name,
                 ErrorType.JS.code,
                 consoleMessage.message() ?: "JS error"
             )
+            // 诊断日志同步留痕（WARNING）：页面刷新循环前 JS 报错
+            // （断连/状态异常）就写在这里，「页面死前遗言」不被噪音淹没。
+            // 同 msg+src+line 3 秒冷却：刷新循环类站点会高频重复同一条，
+            // 每条一次全量 JSON 重写会把诊断日志存储打成 IO 热点——统计侧
+            // 已有 PageErrorRepository 按 type|code|desc 去重，此处只防日志刷屏
+            val msg = consoleMessage.message() ?: ""
+            val probeKey = "$msg|${consoleMessage.sourceId()}|${consoleMessage.lineNumber()}"
+            val now = System.currentTimeMillis()
+            if (probeKey != lastJsErrorProbeKey || now - lastJsErrorProbeAt > 3_000) {
+                lastJsErrorProbeKey = probeKey
+                lastJsErrorProbeAt = now
+                ErrorReporter.probe(
+                    host, "PageLoad", "js_console_error",
+                    fields = mapOf(
+                        "msg" to msg,
+                        "src" to (consoleMessage.sourceId() ?: ""),
+                        "line" to consoleMessage.lineNumber()
+                    ),
+                    level = AppErrorEntry.LEVEL_WARNING
+                )
+            }
         }
         return false // 不阻断页面（仅采集）
     }
@@ -148,14 +174,25 @@ internal class CustomWebChromeClient(
             host.scheduleBlankScreenCheck()
         }
 
-        // 加载动画：独立于进度条显示开关——页面加载期短暂展示（站点 loader 接管前撤）：
+        // 主帧导航配对观测：进度在动而主帧导航窗口未开启 = onPageStarted
+        // 缺席（2026-10-29 实机 4 会话实锤），对数级打点取证根因。
+        // 页面加载完成后的散落子帧进度是常态，不算异常
+        if (!host.pageChrome.isMainFrameNavActive() &&
+            !host.pageChrome.isPageLoadFinished()
+        ) {
+            host.pageChrome.noteProgressWithoutNav(progress)
+        }
+
+        // 加载动画（唯一加载进度指示）：页面加载期短暂展示（站点 loader 接管前撤）：
         // - progress < 100（整段加载）
-        // - 距加载开始 < ANIMAL_MAX_SHOW_MS（避免长期盖住带自带 loader 的慢站）
-        // 注意：放进度条判断外，用户未开启进度条时动画依然可见（此前默认关闭进度条导致动画不显示）
+        // - 距加载开始 < animalMaxShowMs（避免长期盖住带自带 loader 的慢站）
         if (progress < 100 && host.loadingAnimal != null) {
-            // 距加载开始时间（首次 onPageStarted 前 pageLoadStartTime2=0 → 视为 0 刚从窗口内开始）
-            val elapsed = if (host.pageLoadStartTime2 == 0L) 0L
-            else System.currentTimeMillis() - host.pageLoadStartTime2
+            // 距加载开始时间；onPageStarted 未触发时（子帧驱动进度）以首个
+            // 进度回调为窗口起点——否则 elapsed 恒 0，3 秒上限永久失效
+            if (host.pageLoadStartTime2 == 0L) {
+                host.pageLoadStartTime2 = System.currentTimeMillis()
+            }
+            val elapsed = System.currentTimeMillis() - host.pageLoadStartTime2
             if (elapsed < host.animalMaxShowMs) {
                 host.startLoadingAnimal()
             } else {
@@ -163,21 +200,6 @@ internal class CustomWebChromeClient(
             }
         } else {
             host.stopLoadingAnimal()
-        }
-
-        if (DataManager.getInstance().settings.isShowProgressbar || host.currentlyReloading) {
-            if (host.progressBar!!.isGone && progress < 100) {
-                host.progressBar!!.visibility = ProgressBar.VISIBLE
-            }
-
-            // 平滑过渡（150ms），避免进度跳变
-            host.progressBar!!.setProgress(progress, true)
-
-            if (progress == 100) {
-                host.progressBar!!.visibility = ProgressBar.GONE
-                host.currentlyReloading = false
-                host.stopLoadingAnimal()
-            }
         }
     }
 

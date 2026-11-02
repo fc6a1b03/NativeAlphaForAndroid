@@ -4,26 +4,28 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.webkit.HttpAuthHandler
 import android.webkit.WebView
-import android.widget.ImageView
-import android.widget.ProgressBar
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.airbnb.lottie.LottieAnimationView
 import com.cylonid.nativealpha.helper.WebViewDarkModeController
 import com.cylonid.nativealpha.helper.WebViewGestureHelper
 import com.cylonid.nativealpha.helper.WebViewLifecycleDelegate
 import com.cylonid.nativealpha.helper.WebViewMenuHelper
+import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.util.FileChooserDelegate
 import com.cylonid.nativealpha.helper.WebViewPageChrome
 import com.cylonid.nativealpha.helper.WebViewShortcutInjectHelper
 import com.cylonid.nativealpha.helper.WebViewTouchHandler
 import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.WebApp
+import com.cylonid.nativealpha.util.LocalNetworkAccessManager
 import com.cylonid.nativealpha.util.StatsRecorder
 import com.cylonid.nativealpha.util.SystemBars
 import com.cylonid.nativealpha.util.ThemeUtils
@@ -36,7 +38,7 @@ import com.cylonid.nativealpha.util.WebViewLauncher
  * 深色/系统栏（WebViewDarkModeController）、页面加载 UI（WebViewPageChrome）、
  * 触摸/快捷键/菜单/权限（WebViewTouchHandler 等既有 helper）。
  *
- * 契约留守本类：ChromeClient/BrowserClient 直读的字段（wv/progressBar 等）、
+ * 契约留守本类：ChromeClient/BrowserClient 直读的字段（wv/loadingAnimal 等）、
  * parseShortcut（CoreLogicTest 单测契约）、权限回写三件套
  * （WebViewChromeClient 直接引用）、生命周期与返回键 override 入口。
  */
@@ -86,8 +88,7 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
     var webappID = -1
     var webappTabIndex = 0
     internal var wv: WebView? = null
-    internal var progressBar: ProgressBar? = null
-    internal var loadingAnimal: ImageView? = null
+    internal var loadingAnimal: LottieAnimationView? = null
     internal var loadingBg: View? = null
 
     /** 加载页动物动画最长显示时间（ms）：站点自带 loader/慢加载站点不长期盖住 */
@@ -95,10 +96,18 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
 
     /** 动画显示起止计时（onProgressChanged 里判定短暂显示窗口用） */
     internal var pageLoadStartTime2 = 0L
-    internal var currentlyReloading = true
     // 白屏检测进度值（onProgressChanged 更新；计时与判定在 WebViewPageChrome）
     internal var lastProgress = 0
     internal var lastProgressTime = 0L
+
+    /**
+     * 站点当前声明的 theme-color（WebThemeColorBridge 上报后缓存）。
+     *
+     * 系统切深浅色 / 回前台时会重新着色，那时页面脚本不会重发（meta 没变），
+     * 必须用这里的缓存值重放——否则回落应用主题色，与仍深色的页面割裂。
+     * 换站/新导航时置 null（回到主题色兜底）。
+     */
+    internal var currentSiteColor: Int? = null
 
     override var webapp: WebApp? = null
 
@@ -118,6 +127,28 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
      * 历史遗留的 fileChooserLauncher/filePathCallback 已删除：onShowFileChooser
      * 自 v2.3.7 起统一走 FileChooserDelegate，二者零消费 */
     internal val fileChooserDelegate = FileChooserDelegate(this)
+
+    /**
+     * 本地网络权限请求通道（Android 17 LNA，构造期注册约束同上）。
+     * 授权成功重载失败地址（与 webnative://retry 同口径恢复 textZoom）；
+     * 结果打点供实机取证（授权链路仅在宿主路径，矩阵格经此生效）。
+     * 重试目标兜底 urlOnFirstPageload：静默挂起形态（API 37 实测无错误
+     * 回调）下 retryUrl 从未被赋值，首帧 URL 是唯一可用目标。
+     */
+    private val lnaPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        ErrorReporter.probe(
+            this, "PageLoad", "lna_grant_result", fields = mapOf("granted" to granted)
+        )
+        if (granted) {
+            val target = retryUrl.ifEmpty { urlOnFirstPageload }
+            if (target.isNotEmpty()) {
+                webapp?.let { wv?.settings?.textZoom = it.textZoom }
+                wv?.loadUrl(target)
+            }
+        }
+    }
 
     // ===== 处理器装配（构造注入；delegate 依赖 pageChrome/darkMode，须在其后声明） =====
     internal val touchHandler = WebViewTouchHandler(this)
@@ -169,9 +200,22 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
         StatsRecorder.recordPageError(webappID, errorType, code, desc)
     }
 
-    override fun startReconnectWatch() = pageChrome.startReconnectWatch()
-
-    override fun stopReconnectWatch() = pageChrome.stopReconnectWatch()
+    override fun onLocalNetworkGrantRequested() {
+        // 错误页「授予本地网络权限」按钮（Android 17 LNA）：发起运行时请求，
+        // 结果经 launcher 回调重载失败地址。已授权（如 NEARBY_DEVICES 组内
+        // 其他权限带入时系统静默授予）则直接重试——目标兜底同 launcher 回调
+        if (LocalNetworkAccessManager.isPermissionGranted(this)) {
+            val target = retryUrl.ifEmpty { urlOnFirstPageload }
+            if (target.isNotEmpty()) {
+                webapp?.let { wv?.settings?.textZoom = it.textZoom }
+                wv?.loadUrl(target)
+            }
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN) {
+            lnaPermissionLauncher.launch(LocalNetworkAccessManager.PERMISSION)
+        }
+    }
 
     // ===== 页面加载 UI 桥（WebViewChromeClient/WebViewTouchHandler 直接调用） =====
 
@@ -205,6 +249,9 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
         ThemeUtils.applyUiMode()
         setTheme(ThemeUtils.resolveTheme())
         super.onCreate(savedInstanceState)
+        // 系统栏跟随应用主题（规范 R：Activity 三件套补全——此前本类漏调，
+        // 渲染页系统栏停留在系统夜间模式解析出的颜色）
+        ThemeUtils.applySystemBarColors(this)
         lifecycleDelegate.registerBackCallback()
         lifecycleDelegate.handleIntent(intent)
     }
@@ -247,6 +294,11 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         darkMode.setDarkModeIfNeeded()
+        // manifest 声明了 uiMode（不重建）：系统深色切换时 WebView/错误页会按
+        // prefers-color-scheme 自动换色，系统栏必须同步刷新。
+        // 必须重放缓存的站点色——页面脚本此时不会重发 meta（值没变），
+        // 传 null 会回落应用主题色，与仍是站点深色的页面割裂（实机报障）
+        ThemeUtils.applySystemBarColors(this, currentSiteColor)
     }
 
     override fun onDestroy() {

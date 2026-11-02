@@ -127,12 +127,22 @@ object StatsRecorder {
     }
 
     /**
+     * 网络类页面错误（降噪开关管辖范围）：断网/DNS（NETWORK）、HTTP 状态
+     * 错误、SSL 证书错误——三者同属网络层，用户视角同为「网络错误」
+     * （2026-10-28 定调：开关不得部分控制，HTTP/SSL 纳入管辖）。
+     * JS/RENDER 是页面与渲染缺陷，有分析价值，恒记录。
+     */
+    private val NETWORK_KIND_ERRORS = setOf(
+        ErrorType.NETWORK.name, ErrorType.HTTP.name, ErrorType.SSL.name
+    )
+
+    /**
      * 页面错误记录判定（纯函数，可单测）。
-     * 网络类默认不记录：断网/DNS 失败属环境观测非站点缺陷（用户定调为噪音），
-     * 开启 statLogNetworkErrors 后恢复完整记录。
+     * 网络类默认不记录：断网/DNS/HTTP/SSL 属环境观测非站点缺陷（用户定调
+     * 为噪音），开启 statLogNetworkErrors 后恢复完整记录。
      */
     internal fun shouldRecordPageError(type: String, networkLoggingEnabled: Boolean): Boolean {
-        if (type == ErrorType.NETWORK.name && !networkLoggingEnabled) return false
+        if (type in NETWORK_KIND_ERRORS && !networkLoggingEnabled) return false
         return true
     }
 
@@ -144,6 +154,27 @@ object StatsRecorder {
             // 设置未初始化等异常：按默认口径（不记录网络类），不阻塞埋点
             false
         }
+
+    /**
+     * 记录累计流量增量（字节）。调用点：WebPerfBridge 流量桥（页面隐藏时上报）。
+     * 单批上限与解析层同口径（异常值已在 parseTrafficDelta 拦截，此处再夹一次防
+     * 其他调用点误传）。累计溢出保护：接近 Long 上限时不再累加。
+     */
+    fun recordTraffic(webappId: Int, deltaBytes: Long) {
+        if (deltaBytes <= 0) return
+        val clamped = deltaBytes.coerceAtMost(WebPerfBridge.MAX_TRAFFIC_DELTA)
+        record {
+            updateStats(webappId) { w ->
+                val current = w.statTrafficBytes
+                // 溢出保护：Long 上限前停止累加（实际不可能达到，纯防御）
+                if (current < Long.MAX_VALUE - clamped) {
+                    w.statTrafficBytes = current + clamped
+                    w.statTrafficSamples++
+                }
+                w.statLastUsedAt = System.currentTimeMillis()
+            }
+        }
+    }
 
     /**
      * 记录快捷键发送次数（统计反馈：面板/统计页显示使用频率）。

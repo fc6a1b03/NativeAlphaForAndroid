@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.3.16`（`versionCode 2316`）
+- **当前版本**：`2.4.9`（`versionCode 2409`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -25,7 +25,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 ## 技术栈
 
 - **语言**：Kotlin 2.4.21（AGP 9 内置 built-in Kotlin），Java 17 字节码
-- **构建工具**：Gradle 9.8.2 + Android Gradle Plugin 9.4.1
+- **构建工具**：Gradle 9.8.2 + Android Gradle Plugin 9.5.0（lint.xml 抑制 ThreadConstraint 误报，见 app/lint.xml 注释）
 - **UI 框架**：Jetpack Compose + Material 3（Compose BOM `2026.09.00`，Compose 1.12.1 stable）
     - 所有配置/列表/向导/统计/关于页面均为 Compose
     - `WebViewActivity` 虽为 Kotlin，但仍使用传统 View/XML 布局（`res/layout/full_webview.xml`）承载 `WebView` 渲染核心
@@ -140,13 +140,14 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── StatsHero.kt             # 英雄卡（favicon 主色渐变+相伴天数+Launches CountUp）
 │   ├── StatsInsights.kt         # 洞察策略引擎（注册表开闭，一句话洞察点击轮换）
 │   ├── StatsPerformanceCard.kt  # 性能卡（五桶柱状+Vitals 瀑布+缓存省流量）
+│   ├── StatsTrafficCard.kt      # 流量卡（Resource Timing 累计字节+每次打开平均）
 │   ├── StatsHeatmapCard.kt      # 陪伴热力图（12 周×7 天格网，4 档色阶）
 │   ├── StatsAutomationCard.kt   # 自动化卡（通知累计大数字+规则明细）
 │   ├── StatsHabitsCard.kt       # 习惯卡（快捷键频次/分享/矩阵）
-│   ├── StatsAnim.kt             # 统计动效封装（CountUp/stagger，respect reduced-motion）
+│   ├── StatsAnim.kt             # 动效口径中枢（Expressive 弹簧规格/CountUp/stagger，respect reduced-motion）
 │   ├── StatsReviewScreen.kt     # 月度回顾页（Wrapped 式单页叙事）
 │   ├── StatsReviewData.kt       # 回顾数据聚合（纯函数；活跃<7 天不生成）
-│   ├── WebAppStatsErrors.kt     # 统计页错误日志区块（分组/详情/清空，状态自管）
+│   ├── WebAppStatsErrors.kt     # 统计页错误日志区块（分组/详情抽屉/清空，状态自管）
 │   ├── WebAppStatsMetrics.kt    # 统计页图表/格式化/分桶（纯函数可单测）
 │   ├── ShortcutRecreateDialog.kt# 重新创建快捷方式弹窗
 │   ├── ShortcutMenuOverlay.kt   # 快捷方式菜单浮层
@@ -185,6 +186,7 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── WebViewLauncher.kt       # 启动 WebViewActivity 的封装
 │   ├── WebViewSetup.kt          # WebView 创建配置纯函数（宿主/矩阵同源，禁双路径漂移）
 │   ├── WebShareBridge.kt        # navigator.share 桥（document-start 注入 + WebMessageListener → 系统分享面板）
+│   ├── WebThemeColorBridge.kt   # 站点主题色桥（meta[theme-color] → 系统栏，通用兼容）
 │   ├── StatsRecorder.kt         # 加载耗时/缓存等统计记录（单线程埋点队列）
 │   ├── WebBridgeKit.kt          # WebView 桥统一安装器（特性探测/document-start/listener）
 │   ├── WebShareBridge.kt        # navigator.share 桥（document-start 注入 + WebMessageListener → 系统分享面板）
@@ -209,9 +211,9 @@ app/src/main/kotlin/com/cylonid/nativealpha/
     ├── WebViewShortcutInjectHelper.kt  # 组合键注入（JS 合成 + KeyEvent 双路；comboString 大写归一可单测）
     ├── WebViewMenuHelper.kt          # 菜单浮层（缩放/会话标签/快捷键面板/缓存统计）
     ├── WebViewPermissionHelper.kt    # 运行时权限分流
-    ├── WebViewLifecycleDelegate.kt   # 装配与生命周期委托（intent→Cookie 恢复→装配链/生命周期体/返回键/后台分级回收/自动刷新）
+    ├── WebViewLifecycleDelegate.kt   # 装配与生命周期委托（intent→Cookie 恢复→装配链/生命周期体/返回键/后台分级回收）
     ├── WebViewDarkModeController.kt  # 深色模式与系统栏（按站强制深色 API33 前后两路/insets 避让）
-    └── WebViewPageChrome.kt          # 页面加载 UI（动物动画/白屏检测/错误页/HTTP auth/loadURL/下载监听/断线监视）
+    └── WebViewPageChrome.kt          # 页面加载 UI（动物动画/白屏检测/错误页/HTTP auth/loadURL/下载监听）
 ```
 
 资源目录 `app/src/main/res/` 仅保留必要的 XML 资源：启动主题、WebView 布局、图标、字符串双语、错误页 HTML/CSS、Baseline
@@ -249,7 +251,7 @@ Profile 等。
 
 ## 安全与隐私
 
-- **权限最小化**：仅声明 `INTERNET`、`ACCESS_NETWORK_STATE`（矩阵/宿主断线自动恢复的网络探测）、`POST_NOTIFICATIONS`（网页事件通知，保存首条 notify 规则时场景化申请）、位置、相机、录音、修改音频设置；均为按需向用户申请
+- **权限最小化**：仅声明 `INTERNET`、`ACCESS_NETWORK_STATE`（矩阵失败格自动恢复的网络探测）、`ACCESS_LOCAL_NETWORK`（Android 17 本地网络门禁，target 37 在 Android 17 默认拦私网流量——场景化申请：添加私网站点时/宿主错误页引导，见坑位 21）、`POST_NOTIFICATIONS`（网页事件通知，保存首条 notify 规则时场景化申请）、位置、相机、录音、修改音频设置；均为按需向用户申请
 - **WebView 默认加固**（全局 + 每站两级，默认开启）：
     - 禁用文件访问（`setAllowFileAccess(false)`）
     - 禁用内容提供器访问（`setAllowContentAccess(false)`）
@@ -301,6 +303,78 @@ Profile 等。
     推进=测试挂死（UncompletedCoroutinesError）——用 advanceTimeBy(N) 只推进首轮。
 15. **单测调 android.util.Log 会抛 not mocked**：协程内的 Log 调用会静默杀死协程
     （表现为断言 count=0 而非异常），插桩诊断用后必须删除。
+16. **系统栏取色三层口径**（2026-10-29 真机定谳，v2.4.6 定型）：
+    ① **站点 `meta[name=theme-color]` 优先**——`WebThemeColorBridge`
+    document-start 读该 meta（支持 #rgb/#rrggbb/rgb() 归一化），上报值经
+    `ThemeUtils.applySystemBarColors(activity, siteColor)` 接管系统栏。任何站点
+    声明即生效，**禁止逐站写适配**。实测 zcode.z.ai `#161616` 生效。
+    ② **站点色必须缓存重放**：`WebViewActivity.currentSiteColor` 在桥上报时写入、
+    换站时置 null；`onConfigurationChanged` 与 `onHostResume` 都要重放它，否则
+    页面脚本不重发 meta（值未变）时栏色回落主题色，与页面割裂（用户实机报障：
+    「进去正常，手动切换黑白没跟上，重启就好」）。
+    ③ **兜底走主题色**：深色判定读 Activity 实际配置
+    （`resources.configuration.uiMode`）而非全局 `themeId`（`localNightMode` 会
+    改写实际配置）；图标亮暗按**最终栏色亮度**判定（站点可给任意色）。
+    **targetSdk 35+ `statusBarColor` 赋值是 no-op**（强制 edge-to-edge，日志颜色
+    对但像素不变），必须同时
+    `window.setBackgroundDrawable(color.toDrawable())`（KTX，别用 ColorDrawable
+    构造）。声明 `uiMode` configChanges 的页面不重建，`onConfigurationChanged`
+    必须显式刷新。另需关闭 `isNavigationBarContrastEnforced`（三键导航灰罩）。
+    **已知限制**：站点若在切换自身深浅色时**不更新 theme-color meta**（只改 CSS），
+    桥无法感知，栏色会停留旧值——需站点侧更新 meta 才能跟随。
+    **v2.4.8 修正**：v2.4.6-2.4.7 的观察器挂载是坏的——document-start 时机
+    `document.head` 尚未建出，裸 `if(document.head)` 恒 false，MutationObserver
+    从未挂上（实机 8 会话仅 3 次上报站点色的根因）；此前「站点运行中切色不
+    跟随」的归因即源于此，观察器修好后（挂 `document.documentElement` + 200ms
+    重试兜底）该限制已实测解除——真机运行中切色实时跟随（2026-10-30/31 日志
+    实锤：浅色两跳/暗色单跳均正确）。挂载诊断探针 theme_bridge_diag 已随调查
+    结束移除，桥的健康度由 sysbar_apply 的 site= 字段间接观测。
+    **教训：document-start 脚本里挂 observer 用 `documentElement`（此时机已存在），
+    参照 `JsHookScript` 先例；元素级守卫必须带重试兜底。**
+17. **探针打点必须在「事件级」而非「回调级」**：v2.4.7 及之前 `page_load_start`
+    打在 `startLoadingAnimal()`（onProgressChanged 每次进度回调都进），单日导出
+    200 条配额被灌掉 68%、真错误被挤出 3 天保留窗口。探针洪泛三守则：
+    ① 一类事件一条日志（导航打 `page_nav`、完成打 `page_loaded`）；
+    ② 高频回调路径（onProgressChanged/onLoadResource）禁止直接打点，需对数级
+    限流或事件级去重（参照 `noteProgressWithoutNav` 的 5/25/100 打点——
+    首条即报会把正常加载的零星前置进度误报成 WARNING，窗口拉长才算异常；
+    `js_console_error` 同 msg+src+line 3s 冷却同理）；
+    ③ 日志仓库超上限**先丢最旧 INFO 再丢最旧**（`applyRetention`），探针可再生、
+    崩溃不可再生。
+18. **ErrorReporter 集合字段会整体绕过 URL 脱敏**：`contentToString()` 的 `[`
+    前缀使 `^` 锚定的 URL 正则不命中（FileChooser `extracted` 字段泄相册路径
+    实锤）——集合/数组直接作为 fields 值传入（sanitize 逐元素脱敏，字符串元素
+    加引号保留 `[""]` 与 `[]` 的区分），禁止调用点自行拼串。
+19. **ErrorReporter 在 Robolectric 单测沙箱不写库**：FINGERPRINT 以 robolectric
+    开头即跳过 DataStore 写（保留 logcat）——否则每个测试方法的
+    Application.onCreate 都会异步发 `app_start`，协程落在 `@Before` 重置之后
+    污染断言（时序相关、偶发，极难排查）。
+20. **空 accept 的 `<input type=file>` 语义是「任意文件」**：Chromium 对无
+    accept 输入传 `[""]` 而非 `[]`（渲染成 `[]` 会掩盖真实形态）；两形态同判
+    → LEGACY 文件管理器。按图片类收窄会让用户传不了非图片文件（实机实证
+    zcode 上传过 Downloads 文档）。
+21. **WebView 对私网段有 LNA 门禁（2026-11-01 官方定谳 + 权限链路已落地）**：
+    官方文档实锤——Android 16 时代本地网络保护仅 opt-in（坑位早期实测的
+    Pixel_9a 镜像拦截属 opt-in 镜像特殊状态，勿再当普适结论）；**Android 17
+    (API 37) 起 target ≥37 的应用私网/localhost 流量默认拦截**，WebView 流量
+    继承宿主 App 权限状态（`ACCESS_LOCAL_NETWORK`，NEARBY_DEVICES 组）。
+    WebNative 已 target 37 → **本应用已落地权限链路**（v2.4.10）：manifest
+    声明 + 场景化申请（`LocalNetworkAccessManager` 唯一入口，SDK_INT≥
+    `CINNAMON_BUN` 守卫）——添加向导检测私网 URL 先引导（说明框+运行时
+    请求）、宿主错误页 `webnative://lna-grant` 按钮授权后自动重载；矩阵格
+    经 `LoadFailureClassifier.Kind.PERMISSION` 排除断线重连（授权前重试必败）
+    且不弹框（多格并发请求系统对话框会互相顶掉），授权是应用级状态、宿主
+    授予后格内重试即通。私网判定 `UrlUtils.isPrivateNetworkHost`（纯字符串，
+    禁 DNS 解析）。**API 37 GA 镜像实测两定谳（2026-11-02）**：①拦截形态是
+    **连接静默挂起、无 onReceivedError 回调**（opt-in 镜像才有错误回调）——
+    白屏检测 timeout 是唯一出场路径，`handleBlankScreen` 已接
+    `forcePermissionReason` 按权限语义渲染错误页+授权按钮，授权重试目标兜底
+    `urlOnFirstPageload`（该形态 retryUrl 从未赋值）；②enforcement **跟随
+    AppOp 而非 permission 运行时层**（`pm revoke` 后 op 残留 allow 仍放行）
+    ——模拟撤销必须 `appops set <pkg> ACCESS_LOCAL_NETWORK deny`。模拟器
+    环境注意：37.1+ 镜像只发 ps16k 变体（本机起不来），测试用
+    `android-37.0/google_apis/x86_64` 标准镜像；emulator 后台启动禁接管道
+    （head 断流即退出），异常退出后要清 AVD 锁文件+查 qemu 残留进程。
 
 ---
 
@@ -320,4 +394,8 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-10-25（定期维护批次，版本 2.3.16）。*
+*最后更新：2026-11-02（v2.4.8/v2.4.9 已发版真机验证通过；dev 已落地
+Android 17 LNA 本地网络权限链路（fe8d303→ff7b853 四提交）——官方口径
+修正 + 场景化申请/错误页授权/静默挂起全覆盖 + 向导直达系统弹窗简约化，
+API 37 模拟器双路径闭环实证；AGP 升级 9.5.0（3a89ca5）+ 位图回退死资产
+清理，待随下版发版）。*

@@ -62,12 +62,14 @@
     <style name="AppTheme.WebView">
     </style>
 
-    <!-- 强制深色模式主题：固定深色色板（不依赖 values-night 自动解析） -->
+    <!-- 强制深色模式主题：固定深色色板（不依赖 values-night 自动解析）。
+         系统栏色同样用固定字面值——@color/md_theme_surface 会按系统夜间模式
+         解析，系统浅色时取到浅色值（运行期 applySystemBarColors 亦按 themeId 覆盖） -->
     <style name="AppThemeDark" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">@color/md_theme_surface</item>
+        <item name="android:statusBarColor">#131318</item>
         <item name="android:windowLightNavigationBar">false</item>
-        <item name="android:navigationBarColor">@color/md_theme_surface</item>
+        <item name="android:navigationBarColor">#131318</item>
         <item name="colorPrimary">#C1BFFF</item>
         <item name="colorOnPrimary">#1A1B80</item>
         <item name="colorPrimaryContainer">#3232AD</item>

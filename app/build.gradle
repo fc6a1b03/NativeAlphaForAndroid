@@ -31,8 +31,8 @@ android {
         applicationId "com.cylonid.nativealpha"
         minSdk libs.versions.minSdk.get().toInteger()
         targetSdk libs.versions.targetSdk.get().toInteger()
-        versionCode 2316
-        versionName "2.3.16"
+        versionCode 2410
+        versionName "2.4.10"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         testInstrumentationRunnerArguments clearPackageData: 'true'
@@ -123,6 +123,7 @@ dependencies {
     // Vico Compose 图表（统计页）
     // Markdown 渲染（更新内容 GitHub release notes 支持 md）
     implementation libs.markwon
+    implementation libs.lottie
 
     // 测试
     testImplementation libs.junit

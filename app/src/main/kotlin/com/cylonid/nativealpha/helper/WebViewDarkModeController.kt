@@ -11,6 +11,7 @@ import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.cylonid.nativealpha.WebViewActivity
 import com.cylonid.nativealpha.util.SystemBars
+import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.util.WebViewSetup
 
 /**
@@ -40,7 +41,10 @@ class WebViewDarkModeController(private val activity: WebViewActivity) {
             wv.setBackgroundColor(Color.BLACK)
             activity.delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_YES
         } else {
-            activity.delegate.localNightMode = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            // 尊重应用内主题：无条件 FOLLOW_SYSTEM 会覆盖 setTheme 选定的
+            // Light/Dark 主题——用户设「强制浅色」时，系统深色下页面与错误页
+            // 仍会变深，与按 themeId 着色的系统栏割裂
+            activity.delegate.localNightMode = ThemeUtils.appNightMode()
             // 加载页背景跟随应用主题（不固定白底）：深色主题下避免加载白屏闪瞎
             wv.setBackgroundColor(WebViewSetup.resolveThemeBackground(activity))
         }

@@ -17,11 +17,12 @@ import android.webkit.WebViewClient
 import androidx.core.net.toUri
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
-import com.cylonid.nativealpha.model.DataManager
 import com.cylonid.nativealpha.model.AppErrorEntry
+import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.model.ErrorType
 import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.LoadFailureClassifier
+import com.cylonid.nativealpha.util.LocalNetworkAccessManager
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.google.android.material.snackbar.Snackbar
 
@@ -44,6 +45,9 @@ internal abstract class SiteWebViewClient(
     // 注：onRenderProcessGone 已在下方 override 并实现崩溃恢复；lint 在此类定义处误报，
     // 因方法签名包含 API 26+ 的 RenderProcessGoneDetail，minSdk=31 已完全支持。
 
+    /** 桌面模式视口脚本是否已随当前文档注入（新导航在 onPageStarted 重置） */
+    private var viewportInjectedForCurrentDoc = false
+
     override fun onReceivedHttpAuthRequest(
         view: WebView,
         handler: HttpAuthHandler,
@@ -56,9 +60,13 @@ internal abstract class SiteWebViewClient(
     override fun onPageFinished(view: WebView, url: String) {
         // 加载完成：宿主收尾加载 UI（取消白屏检测/停加载动画）
         site.onPageLoadFinished()
-        // 统计埋点：主体加载耗时（started 到 finished）
-        if (site.pageLoadStartTime > 0) {
-            site.recordPageLoadDuration(System.currentTimeMillis() - site.pageLoadStartTime)
+        // 主帧耗时：统计与探针共用同一份，先取值再清零（先清零后取值会让
+        // page_loaded 探针永远拿不到时间戳——v2.4.7 及之前从未触发的死代码）
+        val durationMs = site.pageLoadStartTime.takeIf { it > 0 }
+            ?.let { System.currentTimeMillis() - it }
+        if (durationMs != null) {
+            // 统计埋点：主体加载耗时（started 到 finished）
+            site.recordPageLoadDuration(durationMs)
             site.pageLoadStartTime = 0
         }
         // 统计埋点：缓存占用（cacheDir + WebStorage，异步不阻塞）
@@ -67,6 +75,13 @@ internal abstract class SiteWebViewClient(
         // （file:///android_asset）与 about:blank 不算站点可达证据
         if (url.startsWith("http")) {
             com.cylonid.nativealpha.util.SiteHealthRegistry.markSuccess(site.webappId)
+            // 主帧耗时探针（>10s 标 slow）：页面越来越重的客观证据链
+            if (durationMs != null) {
+                ErrorReporter.probe(
+                    site.siteContext, "PageLoad", "page_loaded",
+                    fields = mapOf("ms" to durationMs, "slow" to (durationMs > 10_000))
+                )
+            }
         }
         if (url == "about:blank") {
             site.showCustomErrorPage("blank", "")
@@ -87,8 +102,10 @@ internal abstract class SiteWebViewClient(
                 + "busy=false;"
                 + "};"
                 + "clean();"
+                + "if(document.body){"
                 + "var mo=new MutationObserver(function(){clean();});"
                 + "mo.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['title','alt']});"
+                + "}"
                 + "})()",
             null
         )
@@ -98,8 +115,12 @@ internal abstract class SiteWebViewClient(
     }
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+        // 新文档：桌面视口脚本待重新注入（SPA 软路由不触发本回调，文档未换不重注）
+        viewportInjectedForCurrentDoc = false
         // 新页面加载：宿主重置加载 UI 状态（白屏检测/进度计时/动画起点）
         site.onPageLoadStarted()
+        // 导航时间线（刷新定谳：与 error_page/blank_screen 对齐判读）
+        ErrorReporter.probe(site.siteContext, "PageLoad", "page_nav", fields = mapOf("url" to url))
         // 统计埋点：记录加载开始时间
         site.pageLoadStartTime = System.currentTimeMillis()
         super.onPageStarted(view, url, favicon)
@@ -117,20 +138,30 @@ internal abstract class SiteWebViewClient(
             val desc = error?.description?.toString() ?: ""
             // 统计埋点：记录页面错误
             site.recordPageError(ErrorType.NETWORK.name, code, desc)
+            // LNA 拦截探针（事件级，Android 17 私网门禁实锤取证——坑位 21
+            // 模拟器单镜像观测升级为常驻结构化现场；url 由 ErrorReporter
+            // 统一去 query/fragment 脱敏，调用点不自行截断）
+            if (LoadFailureClassifier.classify(code, desc) ==
+                LoadFailureClassifier.Kind.PERMISSION
+            ) {
+                ErrorReporter.probe(
+                    site.siteContext, "PageLoad", "lna_blocked",
+                    fields = mapOf("url" to (request.url?.toString() ?: ""))
+                )
+            }
             // 记录重试目标 + 加载自定义错误页（不显示系统默认白屏）
             site.retryUrl = request.url?.toString() ?: site.urlOnFirstPageload
             site.showCustomErrorPage(code, desc)
-            // 断线自动恢复：分类驱动（借鉴 happier「终态/瞬态」三分法）——
-            // 仅瞬态失败（断网/DNS/超时）启动探测监视，站点可达后自动重载；
-            // 证书/URL 类终态重载必再败（探测成功只会白耗退避周期），不监视
-            val kind = LoadFailureClassifier.classify(code, desc)
-            if (LoadFailureClassifier.isRetryable(kind)) {
-                site.startReconnectWatch()
-            }
             // 站点健康登记（presence 语义）：主帧失败 → 失联
             com.cylonid.nativealpha.util.SiteHealthRegistry.markFailure(site.webappId)
+            // 后续动作站点自决（模板方法）：宿主无自动恢复（用户定调：自动
+            // 整页刷新会毁掉会话状态），矩阵格覆写以启动断线监视
+            onMainFrameLoadFailed(code, desc)
         }
     }
+
+    /** 主帧加载失败后的站点分歧动作（默认无；矩阵格覆写启动断线监视） */
+    protected open fun onMainFrameLoadFailed(code: String, desc: String) {}
 
     override fun onReceivedHttpError(
         view: WebView,
@@ -154,6 +185,11 @@ internal abstract class SiteWebViewClient(
     ): Boolean {
         // 渲染进程崩溃/OOM：统计埋点后交由子类清理（宿主 finish / 矩阵格错误态）
         site.recordPageError(ErrorType.RENDER.name, ErrorType.RENDER.code, "Render process gone")
+        ErrorReporter.probe(
+            site.siteContext, "PageLoad", "render_gone",
+            fields = mapOf("didCrash" to detail.didCrash()),
+            level = AppErrorEntry.LEVEL_WARNING
+        )
         // 观测门面接线（P6）：渲染进程崩溃属可恢复资源事件（矩阵已可单窗
         // 恢复/宿主提示重建）——WARNING 级留档，非应用致命缺陷
         FeatureMetrics.reportError(
@@ -253,24 +289,15 @@ internal abstract class SiteWebViewClient(
     override fun onLoadResource(view: WebView, url: String) {
         super.onLoadResource(view, url)
 
-        @Suppress("UNUSED_VARIABLE")
-        val webapp = DataManager.getInstance().getWebApp(site.webappId)
-        val siteConfig = site.webapp
-        if (siteConfig != null && siteConfig.isRequestDesktop) {
-            view.evaluateJavascript(
-                """
-                var needsForcedWidth = document.documentElement.clientWidth < 1200;
-                if(needsForcedWidth) {
-                  document.querySelector('meta[name="viewport"]').setAttribute('content', 'width=1200px, initial-scale=' + (document.documentElement.clientWidth / 1200));
-                }
-                """.trimIndent(),
-                null
-            )
+        // 桌面模式视口：每文档只注入一次（v2.4.8 修正：原实现每资源注入一次，
+        // 数百资源=数百次 JS 执行；且脚本无 null 守卫，meta 未解析时静默失败
+        // 靠下一资源重试）。脚本内置 MutationObserver 自等 meta 出现。
+        if (site.webapp?.isRequestDesktop == true && !viewportInjectedForCurrentDoc) {
+            viewportInjectedForCurrentDoc = true
+            view.evaluateJavascript(DESKTOP_VIEWPORT_JS, null)
         }
-        view.evaluateJavascript(
-            "document.addEventListener(    \"visibilitychange\"    , (event) => {         event.stopImmediatePropagation();    }  );",
-            null
-        )
+        // visibilitychange 拦截不在此注入：onPageFinished 已按文档一次性注册，
+        // 逐资源重复注入只会无限累积死监听器（v2.4.8 移除）
     }
 
     override fun shouldOverrideUrlLoading(
@@ -292,12 +319,21 @@ internal abstract class SiteWebViewClient(
         }
 
         // 错误页重试：重新加载失败时的原地址（恢复用户 textZoom）
-        if (url.startsWith("webnative://retry")) {
+        if (url.startsWith(RETRY_URL)) {
+            ErrorReporter.probe(site.siteContext, "PageLoad", "retry_clicked",
+                fields = mapOf("target" to site.retryUrl))
             if (site.retryUrl.isNotEmpty()) {
                 val webapp = site.webapp
                 if (webapp != null) view.settings.textZoom = webapp.textZoom
                 view.loadUrl(site.retryUrl)
             }
+            return true
+        }
+
+        // 错误页「授予本地网络权限」按钮（Android 17 LNA）：交宿主环境发起
+        // 运行时请求——授权是应用级状态，宿主授予后矩阵格重试即通
+        if (url == LocalNetworkAccessManager.GRANT_URL) {
+            site.onLocalNetworkGrantRequested()
             return true
         }
 
@@ -326,6 +362,38 @@ internal abstract class SiteWebViewClient(
         }
         site.loadSiteUrl(view, url)
         return true
+    }
+
+    companion object {
+        /** 错误页「重试一次」按钮的拦截地址（HTML retry() 发起，见 RETRY_URL 判定） */
+        const val RETRY_URL = "webnative://retry"
+
+        /**
+         * 桌面模式视口脚本（每文档注入一次）：meta 未解析时由 MutationObserver
+         * 等其出现再应用（原实现无守卫靠逐资源重试）；resize 重算覆盖旋转场景。
+         */
+        private val DESKTOP_VIEWPORT_JS = """
+            (function(){
+            var done=false;
+            function apply(){
+              if(done)return;
+              var m=document.querySelector('meta[name="viewport"]');
+              if(!m)return;
+              done=true;
+              if(document.documentElement.clientWidth<1200){
+                m.setAttribute('content','width=1200px, initial-scale='+(document.documentElement.clientWidth/1200));
+              }
+            }
+            apply();
+            if(!done){
+              try{
+                new MutationObserver(function(){apply();}).observe(
+                  document.documentElement,{childList:true,subtree:true,attributes:true});
+              }catch(e){}
+            }
+            window.addEventListener('resize',function(){done=false;apply();});
+            })()
+        """.trimIndent()
     }
 }
 

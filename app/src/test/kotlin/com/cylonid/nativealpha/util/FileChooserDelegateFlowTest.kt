@@ -52,10 +52,17 @@ class FileChooserDelegateFlowTest {
         }
     }
 
-    /** 空 accept（AI 站 <input type=file> 通用形态）params（抽象基类无公开构造，mockito 构造） */
+    /** 显式 image accept params（相册/照片选择器路径，抽象基类无公开构造，mockito 构造） */
+    private fun imageAcceptParams(): FileChooserParams = mock {
+        on(it.acceptTypes) doReturn arrayOf("image/*")
+        on(it.mode) doReturn FileChooserParams.MODE_OPEN
+    }
+
+    /** 空 accept（AI 站 <input type=file> 通用形态）：v2.4.8 起语义为任意文件 → LEGACY */
     private fun emptyAcceptParams(): FileChooserParams = mock {
         on(it.acceptTypes) doReturn arrayOf<String>()
         on(it.mode) doReturn FileChooserParams.MODE_OPEN
+        on(it.createIntent()) doReturn Intent(Intent.ACTION_GET_CONTENT)
     }
 
     private fun launchedHost(): Pair<ActivityController<HostActivity>, HostActivity> {
@@ -77,13 +84,13 @@ class FileChooserDelegateFlowTest {
         val (controller, activity) = launchedHost()
         val cb = RecordingCallback()
 
-        val accepted = activity.delegate.onShowFileChooser(activity, emptyAcceptParams(), cb)
+        val accepted = activity.delegate.onShowFileChooser(activity, imageAcceptParams(), cb)
         assertTrue("onShowFileChooser 必须接管（返回 true）", accepted)
 
         val launchedIntent = shadowOf(activity).nextStartedActivity
         assertNotNull("Photo Picker 必须真实 launch", launchedIntent)
         assertEquals(
-            "AI 站空 accept 在 picker 可用时走系统 Photo Picker",
+            "显式 image accept 在 picker 可用时走系统 Photo Picker",
             "android.provider.action.PICK_IMAGES",
             launchedIntent.action
         )
@@ -110,13 +117,33 @@ class FileChooserDelegateFlowTest {
         val cb1 = RecordingCallback()
         val cb2 = RecordingCallback()
 
-        val firstAccepted = activity.delegate.onShowFileChooser(activity, emptyAcceptParams(), cb1)
-        val secondAccepted = activity.delegate.onShowFileChooser(activity, emptyAcceptParams(), cb2)
+        val firstAccepted = activity.delegate.onShowFileChooser(activity, imageAcceptParams(), cb1)
+        val secondAccepted = activity.delegate.onShowFileChooser(activity, imageAcceptParams(), cb2)
 
         assertTrue("首次请求必须接管", firstAccepted)
         assertTrue("挂起期间第二次请求必须被拒（返回 false 走兜底）", secondAccepted.not())
         assertEquals("未完成的第一个回调不被触发", 0, cb1.calls)
         assertEquals("被拒请求的回调不被触发", 0, cb2.calls)
+        controller.destroy()
+    }
+
+    @Test
+    fun emptyAccept_meansAnyFile_launchesLegacyChooser() {
+        // v2.4.8 语义修正回归锚点：空 accept=任意文件（HTML 规范），Photo Picker
+        // ImageOnly 会拒收非图片——实机实证 zcode 无 accept 输入上传过 Downloads 文档
+        val (controller, activity) = launchedHost()
+        val cb = RecordingCallback()
+
+        val accepted = activity.delegate.onShowFileChooser(activity, emptyAcceptParams(), cb)
+        assertTrue("onShowFileChooser 必须接管（返回 true）", accepted)
+
+        val launchedIntent = shadowOf(activity).nextStartedActivity
+        assertNotNull("LEGACY 必须真实 launch", launchedIntent)
+        assertEquals(
+            "空 accept 走文件管理器（ACTION_GET_CONTENT），不收窄为仅图片",
+            Intent.ACTION_GET_CONTENT,
+            launchedIntent.action
+        )
         controller.destroy()
     }
 }

@@ -37,6 +37,8 @@
     <div class="detail" id="detail">正在寻找线索…</div>
 
     <button onclick="retry()" id="retryBtn">再试一次</button>
+    <!-- Android 17 本地网络权限：仅 reason=permission（LNA 拦截）时显示 -->
+    <button onclick="grantLna()" id="lnaBtn" style="display:none">授予本地网络权限</button>
 
     <p class="tip" id="tip"></p>
   </div>
@@ -48,6 +50,7 @@
       var code = params.get('code');
       var desc = params.get('desc');
       var reason = params.get('reason');
+      var kind = params.get('kind');
       var sub = document.getElementById('sub');
       if (reason && reason !== 'null' && sub) {
         sub.textContent = reason;
@@ -57,6 +60,12 @@
         detail.textContent = desc && desc !== 'null' ? code + ' · ' + desc : code;
       } else {
         detail.style.display = 'none';
+      }
+
+      // 本地网络权限拦截（Android 17）：显示授权按钮，授予后重试即通
+      if (kind === 'permission') {
+        var lna = document.getElementById('lnaBtn');
+        if (lna) { lna.style.display = 'inline-block'; }
       }
 
       // 随机趣味提示
@@ -75,6 +84,11 @@
     // 重试：通知 Android 重新加载原地址
     function retry() {
       location.href = 'webnative://retry';
+    }
+
+    // 授予本地网络权限：通知 Android 发起运行时请求，授权后自动重载
+    function grantLna() {
+      location.href = 'webnative://lna-grant';
     }
   </script>
 </body>

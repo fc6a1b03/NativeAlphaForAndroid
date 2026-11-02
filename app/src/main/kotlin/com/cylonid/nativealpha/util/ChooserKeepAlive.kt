@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import com.cylonid.nativealpha.R
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -48,12 +49,12 @@ class ChooserKeepAlive : Service() {
     private fun buildNotification(): Notification {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channel = NotificationChannel(
-            CHANNEL_ID, "文件选择", NotificationManager.IMPORTANCE_MIN
+            CHANNEL_ID, getString(R.string.chooser_channel_name), NotificationManager.IMPORTANCE_MIN
         ).apply { setShowBadge(false) }
         manager.createNotificationChannel(channel)
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_upload)
-            .setContentTitle("正在选择文件")
+            .setContentTitle(getString(R.string.chooser_notif_title))
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .build()

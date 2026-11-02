@@ -1,6 +1,10 @@
 <resources>
 
     <style name="AppTheme" parent="Theme.Material3.Dark.NoActionBar">
+        <!-- 系统栏初始帧（运行期由 ThemeUtils.applySystemBarColors 按 themeId
+             统一覆盖）——不声明会落到父主题默认黑，切换瞬间有色差 -->
+        <item name="android:statusBarColor">@color/md_theme_surface</item>
+        <item name="android:navigationBarColor">@color/md_theme_surface</item>
         <item name="colorPrimary">@color/md_theme_primary</item>
         <item name="colorOnPrimary">@color/md_theme_onPrimary</item>
         <item name="colorPrimaryContainer">@color/md_theme_primaryContainer</item>

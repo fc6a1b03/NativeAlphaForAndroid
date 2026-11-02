@@ -2,10 +2,9 @@
 package com.cylonid.nativealpha.helper
 
 import android.content.ComponentCallbacks2
+import com.cylonid.nativealpha.util.ErrorReporter
 import android.content.Intent
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -26,8 +25,10 @@ import com.cylonid.nativealpha.util.EntryPointUtils
 import com.cylonid.nativealpha.util.FeatureMetrics
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.StatsRecorder
+import com.cylonid.nativealpha.util.ThemeUtils
 import com.cylonid.nativealpha.util.UrlUtils
 import com.cylonid.nativealpha.util.WebPerfBridge
+import com.cylonid.nativealpha.util.WebThemeColorBridge
 import com.cylonid.nativealpha.util.WebShareBridge
 import com.cylonid.nativealpha.util.WebViewLauncher
 import com.cylonid.nativealpha.util.WebViewSetup
@@ -48,6 +49,8 @@ import com.google.android.material.snackbar.Snackbar
  */
 class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
 
+    private val TAG = "PageLoad"
+
     /** WebView 字段名（UA 尾巴清理用）：反射结果进程内缓存——类字段布局不变，
      * 每次打开 WebApp 都遍历 declaredFields 是纯浪费（启动热路径） */
     private val uaFieldName: String by lazy {
@@ -64,7 +67,6 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
     private var currentIntentToken = 0
 
     private var quitOnNextBackpress = false
-    private var reloadHandler: Handler? = null
 
     /** 后台回收标记：true=WebView 实例已被分级回收，onStart 需重建 */
     private var recycled = false
@@ -181,12 +183,15 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
 
         val url = app.baseUrl
 
-        activity.progressBar = activity.findViewById(R.id.progressBar)
         activity.loadingAnimal = activity.findViewById(R.id.loadingAnimal)
         activity.loadingBg = activity.findViewById(R.id.loadingBg)
 
         // 必须在 setContentView 之后 findViewById——视图未建立时返回 null（886b145 回归修复）
         val webview = activity.findViewById<WebView>(R.id.webview).also { activity.wv = it }
+        // 站点主题色状态重置：本页尚未上报前先回落应用主题色，避免沿用上一站
+        // 的 theme-color（同实例换站/新导航时旧色残留）
+        activity.currentSiteColor = null
+        ThemeUtils.applySystemBarColors(activity, null)
         // 网页事件桥注册（P5：仅配规则站；JS 侧经 hook 代理转发）
         WebeventRuntime.attachBridge(webview, activity.webappID)
 
@@ -194,6 +199,23 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         WebShareBridge.attach(webview, activity)
         // Web Vitals 采集桥：页面加载细分（DNS/TCP/TTFB/FCP/LCP）落统计页
         WebPerfBridge.attach(webview, activity.webappID, activity.applicationContext)
+        // 流量采集桥：Resource Timing 传输字节累计（页面隐藏时增量上报）
+        WebPerfBridge.attachTraffic(webview, activity.webappID, activity.applicationContext)
+        // 站点主题色桥：meta[name=theme-color] → 系统栏（页面深色而主题浅色时
+        // 不接会出现「页面黑、状态栏白」——zcode.z.ai 实测案例）
+        // 强制深色站点（算法变暗）不采用站点色：其 theme-color 是变暗前的值，
+        // 直接采用会与已变黑的页面不符——setup 时算一次，避免每次回调重算
+        val forcedDarkSite = WebViewSetup.needsForcedDarkMode(activity.webapp ?: app)
+        WebThemeColorBridge.attach(webview) { argb ->
+            activity.runOnUiThread {
+                // 回调排队期间 Activity 可能已销毁（页面仍在加载即退出）
+                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
+                val effective = if (forcedDarkSite) null else argb
+                // 缓存供后续重放（系统切深浅色/回前台时页面不会重发 meta）
+                activity.currentSiteColor = effective
+                ThemeUtils.applySystemBarColors(activity, effective)
+            }
+        }
 
         // 仅 debug 包开启 WebView 远程调试（chrome://inspect + CDP 自动化验证）；
         // release 永不开启——远程调试是安全敏感面，不得泄漏到生产
@@ -262,6 +284,9 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         activity.wv = null
         recycled = true
         FeatureMetrics.count(FeatureMetrics.MODULE_WEBVIEW, "background_recycled")
+        // 切回重载的实锤取证：用户报「卡顿+自动刷新」时区分回收重建与网页自刷
+        ErrorReporter.probe(activity, TAG, "background_recycled",
+            fields = mapOf("site" to (activity.webapp?.title ?: "")))
     }
 
     fun onHostResume() {
@@ -279,16 +304,17 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
             activity.wv!!.resumeTimers()
         }
         activity.darkMode.setDarkModeIfNeeded()
+        // 回前台重放站点主题色：后台期间系统可能切换了深浅色（页面脚本
+        // 不会重发 meta），不重放会回落应用主题色与页面割裂
+        ThemeUtils.applySystemBarColors(activity, activity.currentSiteColor)
 
-        val webapp = activity.webapp
-        if (webapp != null && webapp.isAutoreload) {
-            reloadHandler = Handler(Looper.getMainLooper())
-            reload()
-        }
     }
 
     fun onHostPause() {
         if (activity.wv != null) {
+            // 流量落账：页面脚本只在 hide/freeze 上报，App 切后台不产生这些
+            // 事件——主动发一发，避免会话中途流量挂到下次隐藏才计
+            WebPerfBridge.flushTraffic(activity.wv!!)
             activity.wv!!.evaluateJavascript(
                 "document.querySelectorAll('audio').forEach(x => x.pause());" +
                     "document.querySelectorAll('video').forEach(x => x.pause());", null
@@ -307,10 +333,6 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
             activity.wv!!.clearCache(true)
         }
 
-        if (reloadHandler != null) {
-            reloadHandler!!.removeCallbacksAndMessages(null)
-            Log.d("CLEANUP", "Stopped reload handler")
-        }
     }
 
     /**
@@ -339,14 +361,12 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         CookieSessionManager.saveSnapshot(activity, activity.webappID, activity.webappTabIndex)
         // 显式销毁 WebView，释放渲染进程与内存（低损耗目标）
         activity.pageChrome.cancelBlankScreenCheck()
-        activity.pageChrome.stopReconnectWatch()
         if (activity.wv != null) {
             (activity.wv!!.parent as? ViewGroup)?.removeView(activity.wv)
             activity.wv!!.removeAllViews()
             activity.wv!!.destroy()
             activity.wv = null
         }
-        reloadHandler?.removeCallbacksAndMessages(null)
     }
 
     // ===== 返回键语义（网页后退 → 重载首页 → 退任务） =====
@@ -369,17 +389,10 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
             return
         }
 
+        ErrorReporter.probe(activity, TAG, "back_home_reload",
+            fields = mapOf("site" to webapp.title))
         activity.pageChrome.loadURL(activity.wv!!, webapp.baseUrl)
         quitOnNextBackpress = true
     }
 
-    // ===== 自动刷新 =====
-
-    private fun reload() {
-        reloadHandler!!.postDelayed({
-            activity.currentlyReloading = true
-            activity.wv?.reload()
-            reload()
-        }, activity.webapp!!.timeAutoreload * 1000L)
-    }
 }
