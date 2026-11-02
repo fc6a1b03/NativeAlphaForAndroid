@@ -360,8 +360,9 @@ Profile 等。
     继承宿主 App 权限状态（`ACCESS_LOCAL_NETWORK`，NEARBY_DEVICES 组）。
     WebNative 已 target 37 → **本应用已落地权限链路**（v2.4.10）：manifest
     声明 + 场景化申请（`LocalNetworkAccessManager` 唯一入口，SDK_INT≥
-    `CINNAMON_BUN` 守卫）——添加向导检测私网 URL 先引导（说明框+运行时
-    请求）、宿主错误页 `webnative://lna-grant` 按钮授权后自动重载；矩阵格
+    `CINNAMON_BUN` 守卫）——添加向导检测私网 URL **直接弹系统权限框**
+    （v2.4.10 简约化定调：不插自定义说明层、不增加操作步骤）、宿主错误页
+    `webnative://lna-grant` 按钮授权后自动重载；矩阵格
     经 `LoadFailureClassifier.Kind.PERMISSION` 排除断线重连（授权前重试必败）
     且不弹框（多格并发请求系统对话框会互相顶掉），授权是应用级状态、宿主
     授予后格内重试即通。私网判定 `UrlUtils.isPrivateNetworkHost`（纯字符串，
@@ -375,6 +376,17 @@ Profile 等。
     环境注意：37.1+ 镜像只发 ps16k 变体（本机起不来），测试用
     `android-37.0/google_apis/x86_64` 标准镜像；emulator 后台启动禁接管道
     （head 断流即退出），异常退出后要清 AVD 锁文件+查 qemu 残留进程。
+22. **发版 tag 必须打在 dev 线版本提交（v2.4.10 区间污染实锤）**：CI 按
+    「上 tag..本 tag」区间自动生成 Release body（`ci.yml` PREV_TAG..VERSION
+    分类）——tag 打在 main 的 merge commit 上会把 main 链历史堆积全部吸入
+    区间（v2.4.10 实测 86 条污染 vs 真实 7 条，v2.1.x~v2.3.x 旧版主题混进
+    修复列表）。发版顺序固定：dev 全绿 → bump（dev chore 提交）→ **tag 打
+    dev 版本提交** → push dev+tag → 合并 main（发布镜像动作）。事后修正用
+    `gh release edit --notes-file` 就地改（不重发 tag/资产）。**Release
+    body 是需要验收的对外产物**：发布前必读一遍，旧版本号混入即拦。
+    **对外物料措辞纪律**：Release body/README 公开物料写决策内容本身
+    （如「保持简约交互」），禁止「用户定调」等内部对话黑话——项目对外
+    只有开发者与使用者；内部文档（AGENTS/提交信息）保留决策来源。
 
 ---
 
@@ -394,8 +406,7 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-11-02（v2.4.8/v2.4.9 已发版真机验证通过；dev 已落地
-Android 17 LNA 本地网络权限链路（fe8d303→ff7b853 四提交）——官方口径
-修正 + 场景化申请/错误页授权/静默挂起全覆盖 + 向导直达系统弹窗简约化，
-API 37 模拟器双路径闭环实证；AGP 升级 9.5.0（3a89ca5）+ 位图回退死资产
-清理，待随下版发版）。*
+*最后更新：2026-11-02（**v2.4.10 已发版**：Android 17 LNA 本地网络权限
+链路全量——向导直达系统弹窗/错误页授权/静默挂起全覆盖，API 37 模拟器
+双路径实证；AGP 9.5.0；坑位 21 全面改写 + 坑位 22 新增（发版 tag 落线
+纪律，Release body 区间污染实锤））。*
