@@ -376,17 +376,14 @@ Profile 等。
     环境注意：37.1+ 镜像只发 ps16k 变体（本机起不来），测试用
     `android-37.0/google_apis/x86_64` 标准镜像；emulator 后台启动禁接管道
     （head 断流即退出），异常退出后要清 AVD 锁文件+查 qemu 残留进程。
-22. **发版 tag 必须打在 dev 线版本提交（v2.4.10 区间污染实锤）**：CI 按
-    「上 tag..本 tag」区间自动生成 Release body（`ci.yml` PREV_TAG..VERSION
-    分类）——tag 打在 main 的 merge commit 上会把 main 链历史堆积全部吸入
-    区间（v2.4.10 实测 86 条污染 vs 真实 7 条，v2.1.x~v2.3.x 旧版主题混进
-    修复列表）。发版顺序固定：dev 全绿 → bump（dev chore 提交）→ **tag 打
-    dev 版本提交** → push dev+tag → 合并 main（发布镜像动作）。事后修正用
-    `gh release edit --notes-file` 就地改（不重发 tag/资产）。**Release
-    body 是需要验收的对外产物**：发布前必读一遍，旧版本号混入即拦。
-    **对外物料措辞纪律**：Release body/README 公开物料写决策内容本身
-    （如「保持简约交互」），禁止「用户定调」等内部对话黑话——项目对外
-    只有开发者与使用者；内部文档（AGENTS/提交信息）保留决策来源。
+22. **发版 tag 必须打在 dev 线版本提交（v2.4.10 区间污染实锤）**：tag 打在
+    main 的 merge commit 上，CI 的 Release body 区间吸入 main 链历史堆积
+    （86 条污染 vs 真实 7 条，旧版主题混进修复列表）——发布前必读一遍
+    Release body（它是需要验收的对外产物）；事后修正用
+    `gh release edit --notes-file` 就地改，不重发 tag/资产。
+    发版顺序、tag 落线约束与对外物料措辞纪律的完整条款见
+    `skills/GoogleCodingStandards.md` **R12**（引用关系：规范权威源在该
+    文件，本条仅存坑现场）。
 
 ---
 
