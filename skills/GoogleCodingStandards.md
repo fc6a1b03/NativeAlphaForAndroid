@@ -94,6 +94,7 @@
 - 开发提交一律进 `dev`；`main` 只接收 dev 验证后的合并（或发版 squash），**禁止直接向 main 提交功能代码**
 - 发版路径固定：dev 全绿 → bump 版本（dev 上 chore 提交）→ **tag 打在 dev 线版本提交** → push dev + tag 触发 CI Release → 合并 main（发布镜像动作）
 - **禁止 tag 打在 main 的 merge commit 上**（v2.4.10 实锤）：CI 按「上 tag..本 tag」区间生成 Release body，merge commit 会把 main 链历史堆积（旧版 merge 主题）全部混入区间——86 条污染 vs 真实 7 条；tag 在 dev 线则区间恒为纯线性开发提交
+- **三层防线**：①本条流程纪律（tag 落 dev 线）→ ②发布前必读 Release body（坑位 22）→ ③CI body 生成已内置过滤（`--no-merges` + 旧版「vN.N —」主题/bump 提交滤除 + 区间提交数 >40 告警行）——即使落点再失误，body 也自动去噪并醒目标注待人工核对
 - **对外物料措辞纪律**：Release body / README 等公开物料写决策内容本身（如「保持简约交互」），禁止出现「用户定调」「老板说」等内部对话黑话——项目对外只有开发者和使用者；内部文档（AGENTS.md/提交信息）记录决策来源可保留
 - 合并方向单一（dev → main）；发现 main 领先时先对齐 dev 再继续开发，不允许两侧并行漂移
 - push 前确认分支：`git branch --show-current`——在错误分支上发现的提交必须撤回重做，不带病合入
