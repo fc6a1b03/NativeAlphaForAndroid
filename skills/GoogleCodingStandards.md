@@ -155,7 +155,7 @@
 
 ### XR1. AndroidManifest
 
-- **manifest 禁止再写 `package=` 属性**（AGP 7.3 起废弃）：包名唯一来源是 `app/build.gradle` 的 `namespace`（R 类生成）与 `applicationId`（安装标识）；现存 `package="com.cylonid.nativealpha"` 属存量债，下次触碰 manifest 时顺手删除；debug 构建走 `applicationIdSuffix ".debug"`，两套环境可并存
+- **manifest 禁止再写 `package=` 属性**（AGP 7.3 起废弃）：包名唯一来源是 `app/build.gradle` 的 `namespace`（R 类生成）与 `applicationId`（安装标识）；`package=` 属性已于早期批次移除（2026-11-02 复盘核实全 manifest 零残留，勿再按旧文找债）；debug 构建走 `applicationIdSuffix ".debug"`，两套环境可并存
 - `uses-permission` 逐条声明并按「网络 → 位置 → 相机 → 音频」分组；**权限最小化**——新增权限必须在 AGENTS.md「安全与隐私」节同步登记依据
 - `uses-feature` 凡是站点授权的可选硬件（相机/麦克风/位置）一律 `android:required="false"`，避免无摄像头设备被商店过滤
 - 每个 `<activity>` 必须显式声明 `android:exported`（intent-filter 的写 true，纯内部跳转写 false）；`theme`/`parentActivityName`/`launchMode` 逐项给出，不依赖默认值
