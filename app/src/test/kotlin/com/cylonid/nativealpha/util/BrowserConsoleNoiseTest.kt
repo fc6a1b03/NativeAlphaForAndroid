@@ -44,8 +44,7 @@ class BrowserConsoleNoiseTest {
     fun `realdevice log batch of 14 warnings is all noise`() {
         val cspDirective = "Refused to connect to 'data:,' because it violates the following " +
             "Content Security Policy directive: \"connect-src 'self' " +
-            "https://hagen.challenges.cloudflare.com https://brunhild.challenges.cloudflare.com\".
-"
+            "https://hagen.challenges.cloudflare.com https://brunhild.challenges.cloudflare.com\"."
         val cspDocument = "Refused to connect to 'data:,' because it violates the document's " +
             "Content Security Policy."
         val styleNaN = "%c%d font-size:0;color:transparent NaN"
