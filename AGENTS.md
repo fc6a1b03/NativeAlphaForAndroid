@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.4.9`（`versionCode 2409`）
+- **当前版本**：`2.4.12`（`versionCode 2412`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -329,6 +329,17 @@ Profile 等。
     重试兜底）该限制已实测解除——真机运行中切色实时跟随（2026-10-30/31 日志
     实锤：浅色两跳/暗色单跳均正确）。挂载诊断探针 theme_bridge_diag 已随调查
     结束移除，桥的健康度由 sysbar_apply 的 site= 字段间接观测。
+    **2026-11-04 修正（多 meta + media 限定）**：linux.do 报障「深色页面栏白」
+    定谳——Discourse 站点在 head 放**两条带 media 限定的 theme-color**
+    （`(prefers-color-scheme: light)`=#fff / `dark)`=#111111，浏览器取
+    matchMedia 命中那条），桥旧实现 `querySelector` 单条首命中永远拿到
+    light=#fff。修复：`querySelectorAll` 全量扫描，「media 匹配的最后一条」
+    优先、全不匹配回落无 media 的 meta，另挂
+    `matchMedia('(prefers-color-scheme: dark)')` change 监听覆盖 uiMode
+    运行期切换（meta 文本不变但命中分支翻转）。API 37 模拟器实证：
+    linux.do 深/浅切换 site=ff111111/ffffffff，单条无 media meta 站点回归
+    site=ff161616 不破。教训：theme-color 的浏览器语义是「media 匹配的
+    **最后一条**」而非「第一条」，采集脚本必须按规范全量求值。
     **教训：document-start 脚本里挂 observer 用 `documentElement`（此时机已存在），
     参照 `JsHookScript` 先例；元素级守卫必须带重试兜底。**
 17. **探针打点必须在「事件级」而非「回调级」**：v2.4.7 及之前 `page_load_start`
@@ -403,7 +414,8 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-11-02（**v2.4.10 已发版**：Android 17 LNA 本地网络权限
-链路全量——向导直达系统弹窗/错误页授权/静默挂起全覆盖，API 37 模拟器
-双路径实证；AGP 9.5.0；坑位 21 全面改写 + 坑位 22 新增（发版 tag 落线
-纪律，Release body 区间污染实锤））。*
+*最后更新：2026-11-04（**v2.4.11 已发版**：控制台噪音白名单修正
++三类验证码噪音过滤——实机 14 条 WARNING 清零口径，待实机导日志验证；
+R12 新发版流程首版实战通过，三层防线 Release body 首秀干净；坑位 22/
+R12/缓存幻影坑均已入库；坑位 16 补 2026-11-03 多 meta media 限定修正——
+theme-color 桥按规范语义通用支持双条带 media 形态，无逐站适配）。

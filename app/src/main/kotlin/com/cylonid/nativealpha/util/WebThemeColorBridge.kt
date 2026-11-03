@@ -25,10 +25,18 @@ internal object WebThemeColorBridge {
 
     /**
      * 采集脚本。契约：{color:"#rrggbb"}，仅在值真变化时 postMessage。
-     * 兼容 3/6 位十六进制与 rgb()；取第一个匹配的 meta（与浏览器行为一致）。
+     * 兼容 3/6 位十六进制与 rgb()。
+     *
+     * 多 meta 选择（2026-11-03 linux.do 报障定谳）：Discourse 等站点在 head
+     * 放两条带 media 限定的 theme-color（light=#fff / dark=#111111），Chrome
+     * 同样支持该形态——取「media 匹配当前 prefers-color-scheme 的最后一条」，
+     * 全不匹配时回落无 media 的 meta（首条）。旧实现 querySelector 只命中
+     * 首条（light），深色页面栏色被报成白色。
+     *
      * 观察器挂 `documentElement`（document-start 时机 head 尚未建出，参照
      * JsHookScript 先例）+ 200ms 重试兜底——v2.4.6/2.4.7 裸 if(document.head)
-     * 恒 false 致观察器从未挂上的教训。
+     * 恒 false 致观察器从未挂上的教训；matchMedia 变化监听覆盖 uiMode 运行期
+     * 切换（meta 文本不变但命中分支翻转）。
      */
     internal val THEME_JS = """
         (function(){
@@ -52,8 +60,16 @@ internal object WebThemeColorBridge {
         }
         function read(){
           try{
-            var el=document.querySelector('meta[name="theme-color"]');
-            var c=el?normalize(el.getAttribute('content')):null;
+            var els=document.querySelectorAll('meta[name="theme-color"]');
+            var mediaHit=null,fallback=null;
+            for(var i=0;i<els.length;i++){
+              var c=normalize(els[i].getAttribute('content'));
+              if(!c)continue;
+              var md=els[i].getAttribute('media');
+              if(!md){if(!fallback)fallback=c;}
+              else{try{if(window.matchMedia(md).matches)mediaHit=c;}catch(e){}}
+            }
+            var c=mediaHit||fallback;
             if(c===last)return;
             last=c;
             webnativeTheme.postMessage(JSON.stringify({color:c||''}));
@@ -62,6 +78,11 @@ internal object WebThemeColorBridge {
         if(document.readyState==='loading'){
           document.addEventListener('DOMContentLoaded',read);
         }else{read();}
+        try{
+          var mq=window.matchMedia('(prefers-color-scheme: dark)');
+          if(mq.addEventListener){mq.addEventListener('change',read);}
+          else if(mq.addListener){mq.addListener(read);}
+        }catch(e){}
         try{
           var ob=new MutationObserver(function(){read();});
           var retries=0;
