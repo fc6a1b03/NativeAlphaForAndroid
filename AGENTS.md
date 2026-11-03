@@ -329,6 +329,17 @@ Profile 等。
     重试兜底）该限制已实测解除——真机运行中切色实时跟随（2026-10-30/31 日志
     实锤：浅色两跳/暗色单跳均正确）。挂载诊断探针 theme_bridge_diag 已随调查
     结束移除，桥的健康度由 sysbar_apply 的 site= 字段间接观测。
+    **2026-11-04 修正（多 meta + media 限定）**：linux.do 报障「深色页面栏白」
+    定谳——Discourse 站点在 head 放**两条带 media 限定的 theme-color**
+    （`(prefers-color-scheme: light)`=#fff / `dark)`=#111111，浏览器取
+    matchMedia 命中那条），桥旧实现 `querySelector` 单条首命中永远拿到
+    light=#fff。修复：`querySelectorAll` 全量扫描，「media 匹配的最后一条」
+    优先、全不匹配回落无 media 的 meta，另挂
+    `matchMedia('(prefers-color-scheme: dark)')` change 监听覆盖 uiMode
+    运行期切换（meta 文本不变但命中分支翻转）。API 37 模拟器实证：
+    linux.do 深/浅切换 site=ff111111/ffffffff，单条无 media meta 站点回归
+    site=ff161616 不破。教训：theme-color 的浏览器语义是「media 匹配的
+    **最后一条**」而非「第一条」，采集脚本必须按规范全量求值。
     **教训：document-start 脚本里挂 observer 用 `documentElement`（此时机已存在），
     参照 `JsHookScript` 先例；元素级守卫必须带重试兜底。**
 17. **探针打点必须在「事件级」而非「回调级」**：v2.4.7 及之前 `page_load_start`

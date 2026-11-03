@@ -79,4 +79,22 @@ class WebThemeColorBridgeTest {
         assertEquals(true, WebThemeColorBridge.shouldApply(0xFF161616.toInt()))
         assertEquals(false, WebThemeColorBridge.shouldApply(null))
     }
+
+    /**
+     * linux.do 报障回归钉（2026-11-03）：Discourse 双 meta（media 限定
+     * light/dark）形态下，脚本必须全量扫描并按 matchMedia 命中取值，而非
+     * querySelector 单条首命中的选择逻辑在 JVM 层无法执行，此处钉脚本契约
+     * ——选段逻辑若被改回单条命中，该测试先行报警。
+     */
+    @Test
+    fun themeJsScansAllMetasWithMediaMatching() {
+        val js = WebThemeColorBridge.THEME_JS
+        // 全量扫描（querySelector 单条命中是报障根因，禁止回归）
+        assertEquals(true, js.contains("querySelectorAll('meta[name=\"theme-color\"]')"))
+        assertEquals(false, js.contains("querySelector('meta[name=\"theme-color\"]')"))
+        // media 命中判定 + 无 media 回落 + 深浅切换时重算
+        assertEquals(true, js.contains("matchMedia(md).matches"))
+        assertEquals(true, js.contains("fallback"))
+        assertEquals(true, js.contains("prefers-color-scheme"))
+    }
 }
