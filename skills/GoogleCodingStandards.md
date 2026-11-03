@@ -92,7 +92,10 @@
 ### R12. 分支流纪律——dev 开发，main 只进发布
 
 - 开发提交一律进 `dev`；`main` 只接收 dev 验证后的合并（或发版 squash），**禁止直接向 main 提交功能代码**
-- 发版路径固定：dev 全绿 → 合并 main → bump 版本 → tag `v*` → push 触发 CI Release
+- 发版路径固定：dev 全绿 → bump 版本（dev 上 chore 提交）→ **tag 打在 dev 线版本提交** → push dev + tag 触发 CI Release → 合并 main（发布镜像动作）
+- **禁止 tag 打在 main 的 merge commit 上**（v2.4.10 实锤）：CI 按「上 tag..本 tag」区间生成 Release body，merge commit 会把 main 链历史堆积（旧版 merge 主题）全部混入区间——86 条污染 vs 真实 7 条；tag 在 dev 线则区间恒为纯线性开发提交
+- **三层防线**：①本条流程纪律（tag 落 dev 线）→ ②发布前必读 Release body（坑位 22）→ ③CI body 生成已内置过滤（`--no-merges` + 旧版「vN.N —」主题/bump 提交滤除 + 区间提交数 >40 告警行）——即使落点再失误，body 也自动去噪并醒目标注待人工核对
+- **对外物料措辞纪律**：Release body / README 等公开物料写决策内容本身（如「保持简约交互」），禁止出现「用户定调」「老板说」等内部对话黑话——项目对外只有开发者和使用者；内部文档（AGENTS.md/提交信息）记录决策来源可保留
 - 合并方向单一（dev → main）；发现 main 领先时先对齐 dev 再继续开发，不允许两侧并行漂移
 - push 前确认分支：`git branch --show-current`——在错误分支上发现的提交必须撤回重做，不带病合入
 
@@ -152,7 +155,7 @@
 
 ### XR1. AndroidManifest
 
-- **manifest 禁止再写 `package=` 属性**（AGP 7.3 起废弃）：包名唯一来源是 `app/build.gradle` 的 `namespace`（R 类生成）与 `applicationId`（安装标识）；现存 `package="com.cylonid.nativealpha"` 属存量债，下次触碰 manifest 时顺手删除；debug 构建走 `applicationIdSuffix ".debug"`，两套环境可并存
+- **manifest 禁止再写 `package=` 属性**（AGP 7.3 起废弃）：包名唯一来源是 `app/build.gradle` 的 `namespace`（R 类生成）与 `applicationId`（安装标识）；`package=` 属性已于早期批次移除（2026-11-02 复盘核实全 manifest 零残留，勿再按旧文找债）；debug 构建走 `applicationIdSuffix ".debug"`，两套环境可并存
 - `uses-permission` 逐条声明并按「网络 → 位置 → 相机 → 音频」分组；**权限最小化**——新增权限必须在 AGENTS.md「安全与隐私」节同步登记依据
 - `uses-feature` 凡是站点授权的可选硬件（相机/麦克风/位置）一律 `android:required="false"`，避免无摄像头设备被商店过滤
 - 每个 `<activity>` 必须显式声明 `android:exported`（intent-filter 的写 true，纯内部跳转写 false）；`theme`/`parentActivityName`/`launchMode` 逐项给出，不依赖默认值
@@ -232,6 +235,8 @@
 
 ## 7. 已验证的坑（项目实践沉淀）
 
+- **本地单测绿 ≠ 真编译（缓存幻影，2026-11-03 CI 实抓）**：Python 转义层往测试文件写入真换行截断字符串字面量（Kotlin 编译必炸），本地 `testDebugUnitTest` 却 BUILD SUCCESSFUL——compileDebugUnitTestKotlin 命中过期缓存、坏文件未真编译且新用例未执行（337 旧数）。**嵌入转义串（"/
+）的测试改动必须 `compileDebugUnitTestKotlin --rerun-tasks` 强制重编或以 CI 为准**，单测总数对不上预期（如 +1 用例后仍 337）即幻影信号
 - coroutines-test 1.10.x 的 `Dispatchers.setMain/resetMain` 是 **test 模块的扩展函数**（kotlinx-coroutines-core 已无此 API），必须显式 `import kotlinx.coroutines.test.setMain/resetMain`，否则 Unresolved reference 且报错点会误导排查方向（实测 jar 反编译确认）
 - coroutines-test 1.10.x 的 **`TestScope.backgroundScope` 协程在首个挂起点后不再被 `advanceUntilIdle` 恢复**（无挂起点则正常执行，实测矩阵确认）——挂起型消费循环必须用 `runTest` 的 TestScope 直接子协程 + 收尾显式 `cancel()`，勿用 backgroundScope
 - **Robolectric 每个测试方法新建沙盒 Application，而 JVM 静态单例跨方法存活**——单例持有的 SP/Context 字段指向旧沙盒死对象，读不到当前沙盒写入；需要拾取外部写入的入口（如 DataManager.invalidate）必须重取实例，勿信任「SP 进程内缓存同一实例」假设
