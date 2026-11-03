@@ -153,6 +153,15 @@ internal object WebViewSetup {
             webview.settings.builtInZoomControls = true
         }
 
+        // ===== Favicon 自动下载：全局关闭 =====
+        // WebNative 图标走自管 WebAppIconManager（添加向导拉取一次持久化），
+        // WebView 每次导航自动下载 favicon 对本应用纯耗内存与带宽（1.17 新
+        // API）。特性探测防旧内核缺 API 抛 UnsupportedOperationException，
+        // 不支持时回落内核默认行为（自动下载），与 Passkey 段同款守卫。
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOWNLOAD_FAVICONS_ENABLED)) {
+            WebSettingsCompat.setDownloadFaviconsEnabled(webview.settings, false)
+        }
+
         // ===== Passkey（WebAuthn）：WebView 桥接系统 Credential Manager =====
         // 官方接法仅此一处开关（凭据协商全程在内核与系统凭据提供方之间，
         // app 侧无需 credentials 依赖，零体积增量）。FOR_APP 档：仅对经
