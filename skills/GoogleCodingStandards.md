@@ -235,6 +235,8 @@
 
 ## 7. 已验证的坑（项目实践沉淀）
 
+- **本地单测绿 ≠ 真编译（缓存幻影，2026-11-03 CI 实抓）**：Python 转义层往测试文件写入真换行截断字符串字面量（Kotlin 编译必炸），本地 `testDebugUnitTest` 却 BUILD SUCCESSFUL——compileDebugUnitTestKotlin 命中过期缓存、坏文件未真编译且新用例未执行（337 旧数）。**嵌入转义串（"/
+）的测试改动必须 `compileDebugUnitTestKotlin --rerun-tasks` 强制重编或以 CI 为准**，单测总数对不上预期（如 +1 用例后仍 337）即幻影信号
 - coroutines-test 1.10.x 的 `Dispatchers.setMain/resetMain` 是 **test 模块的扩展函数**（kotlinx-coroutines-core 已无此 API），必须显式 `import kotlinx.coroutines.test.setMain/resetMain`，否则 Unresolved reference 且报错点会误导排查方向（实测 jar 反编译确认）
 - coroutines-test 1.10.x 的 **`TestScope.backgroundScope` 协程在首个挂起点后不再被 `advanceUntilIdle` 恢复**（无挂起点则正常执行，实测矩阵确认）——挂起型消费循环必须用 `runTest` 的 TestScope 直接子协程 + 收尾显式 `cancel()`，勿用 backgroundScope
 - **Robolectric 每个测试方法新建沙盒 Application，而 JVM 静态单例跨方法存活**——单例持有的 SP/Context 字段指向旧沙盒死对象，读不到当前沙盒写入；需要拾取外部写入的入口（如 DataManager.invalidate）必须重取实例，勿信任「SP 进程内缓存同一实例」假设
