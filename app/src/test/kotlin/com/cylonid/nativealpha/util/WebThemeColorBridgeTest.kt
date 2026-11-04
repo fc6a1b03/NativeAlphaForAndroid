@@ -82,7 +82,7 @@ class WebThemeColorBridgeTest {
 
     /**
      * linux.do 报障回归钉（2026-11-03）：Discourse 双 meta（media 限定
-     * light/dark）形态下，脚本必须全量扫描并按 matchMedia 命中取值，而非
+     * light/dark）形态下，脚本必须全量扫描并按 media 命中取值，而非
      * querySelector 单条首命中的选择逻辑在 JVM 层无法执行，此处钉脚本契约
      * ——选段逻辑若被改回单条命中，该测试先行报警。
      */
@@ -96,5 +96,55 @@ class WebThemeColorBridgeTest {
         assertEquals(true, js.contains("matchMedia(md).matches"))
         assertEquals(true, js.contains("fallback"))
         assertEquals(true, js.contains("prefers-color-scheme"))
+    }
+
+    /**
+     * linux.do 二次报障回归钉（2026-11-04，v2.4.12 修复无效的根因）：
+     * Discourse 的深浅由**站点账号主题设置**决定，与系统 prefers-color-scheme
+     * 无关——实测系统 light + htmlBg rgb(34,34,34)，两条 meta 按系统值求值
+     * 命中 light=#fff，页面却是深色，仍是白栏。
+     *
+     * 修法：用页面实际渲染的 `getComputedStyle(documentElement).colorScheme`
+     * 作为判定源，明确 dark/light 时优先于系统 matchMedia。**若有人把
+     * actualScheme 判定删掉退回纯 matchMedia，该测试先行报警。**
+     */
+    @Test
+    fun themeJsPrefersPageColorSchemeOverSystemPreference() {
+        val js = WebThemeColorBridge.THEME_JS
+        // 页面实际配色方案读取（修复核心判据）
+        assertEquals(true, js.contains("getComputedStyle"))
+        assertEquals(true, js.contains("colorScheme"))
+        assertEquals(true, js.contains("actualScheme"))
+        // 判定源优先级：先页面声明，未声明才回落系统 matchMedia
+        assertEquals(true, js.contains("mediaMatches(md,scheme)"))
+        assertEquals(true, js.contains("scheme==='dark'"))
+        assertEquals(true, js.contains("scheme==='light'"))
+        // 二义（"light dark"）或未声明必须回落系统，不能误判成深色
+        assertEquals(true, js.contains("hasDark&&!hasLight"))
+        assertEquals(true, js.contains("hasLight&&!hasDark"))
+    }
+
+    /**
+     * 运行期主题切换回归钉：站点改 `<html class>` / 内联 style 切深色时
+     * meta 文本不变，观察器必须能感知——attributeFilter 漏掉 class/style
+     * 会让栏色滞留旧值（旧实现只监听 content）。
+     */
+    @Test
+    fun themeJsObservesClassAndStyleChanges() {
+        val js = WebThemeColorBridge.THEME_JS
+        assertEquals(true, js.contains("attributeFilter"))
+        assertEquals(true, js.contains("'class'"))
+        assertEquals(true, js.contains("'style'"))
+    }
+
+    /**
+     * 观察器防抖钉：SPA 的 class 变更极频繁，裸 read() 每次都会
+     * getComputedStyle 强制样式重算——必须合并到单次读取。
+     */
+    @Test
+    fun themeJsDebouncesObserverReads() {
+        val js = WebThemeColorBridge.THEME_JS
+        assertEquals(true, js.contains("pending"))
+        assertEquals(true, js.contains("setTimeout"))
     }
 }

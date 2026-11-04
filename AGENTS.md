@@ -342,6 +342,26 @@ Profile 等。
     **最后一条**」而非「第一条」，采集脚本必须按规范全量求值。
     **教训：document-start 脚本里挂 observer 用 `documentElement`（此时机已存在），
     参照 `JsHookScript` 先例；元素级守卫必须带重试兜底。**
+    **2026-11-04 二次定诊（media 求值前提错误——v2.4.12 首版修复无效的根因）**：
+    上一段修复用系统 `matchMedia` 求值 media 属性，**前提是错的**——Discourse
+    的深浅由**站点账号主题设置**决定，与系统 prefers-color-scheme 无关。CDP
+    实测 linux.do：系统 `matchLight=true` + 页面 `getComputedStyle(html)
+    .colorScheme=dark` + `htmlBg=rgb(34,34,34)`——两条 meta 按系统值求值命中
+    light=#fff，页面却渲染深色，栏仍是白 → 首版修复对用户场景零效果。**正确
+    判据是页面实际渲染的配色方案**（`documentElement` 的 computed
+    `color-scheme`，站点诚实声明实际态；zcode 的 `color-scheme:dark` 同源），
+    明确 dark/light 时用它替代系统值参与 media 求值，未声明（normal / 二义
+    `light dark`）才回落 `matchMedia` 系统判定——旧行为保底不破。另：站点
+    运行期切主题常改 `<html class>` / 内联 style 而不动 meta，observer 的
+    `attributeFilter` 必须含 `class`/`style`（旧实现只监听 `content`，栏色会
+    滞留旧值），且 class 变更在 SPA 上极频繁，读取需 80ms 防抖合并
+    （`getComputedStyle` 会强制样式重算）。
+    **验证矩阵（6 组合全过）**：网页明暗 × 系统明暗两两组合——页面固定深色+
+    系统浅色→#111111、页面固定浅色+系统深色→#ffffff（站点设置优先于系统）、
+    页面 `light dark` 跟随系统→随系统切换。**判据必须用状态栏像素 +
+    `colorScheme`/`matchDark` 联合读值，不能只看 `sysbar_apply` 探针**——探针
+    只证明「桥上报并应用了什么值」，不证明像素真的变了（targetSdk 35+ 栏色
+    赋值 no-op、SelfManagedInsets 下页面透出与栏色像素不可分）。
 17. **探针打点必须在「事件级」而非「回调级」**：v2.4.7 及之前 `page_load_start`
     打在 `startLoadingAnimal()`（onProgressChanged 每次进度回调都进），单日导出
     200 条配额被灌掉 68%、真错误被挤出 3 天保留窗口。探针洪泛三守则：
@@ -414,7 +434,8 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-11-04（**v2.4.12 已发版**：theme-color 桥多 meta
-media 限定修复——Discourse 类双声明站点栏色跟随 + WebView favicon
-自动下载关闭（图标自管省内存带宽）；v2.4.11 噪音白名单清零口径仍待
-实机导日志验证；坑位 16 补多 meta 修正条目）。
+*最后更新：2026-11-04（**v2.4.12 已发版**：theme-color 桥修复——
+判据改用页面实际 `color-scheme` 而非系统深浅（Discourse 站点账号主题
+与系统无关），网页/系统明暗 6 组合全过；另关闭 WebView favicon 自动
+下载。坑位 16 已补「二次定诊：media 求值前提错误」段 + 像素级验证
+口径。v2.4.11 噪音 WARNING 清零口径仍待实机导日志验证）。

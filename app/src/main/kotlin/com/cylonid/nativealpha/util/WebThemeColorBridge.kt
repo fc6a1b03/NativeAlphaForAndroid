@@ -28,15 +28,23 @@ internal object WebThemeColorBridge {
      * 兼容 3/6 位十六进制与 rgb()。
      *
      * 多 meta 选择（2026-11-03 linux.do 报障定谳）：Discourse 等站点在 head
-     * 放两条带 media 限定的 theme-color（light=#fff / dark=#111111），Chrome
-     * 同样支持该形态——取「media 匹配当前 prefers-color-scheme 的最后一条」，
-     * 全不匹配时回落无 media 的 meta（首条）。旧实现 querySelector 只命中
-     * 首条（light），深色页面栏色被报成白色。
+     * 放两条带 media 限定的 theme-color（light=#fff / dark=#111111）。旧实现
+     * querySelector 只命中首条（light），深色页面栏色被报成白色。
+     *
+     * **2026-11-04 二次定谳（v2.4.12 修复无效的根因）**：单靠 media 求值不够
+     * ——Discourse 的深浅由**站点账号主题设置**决定，与系统 prefers-color-scheme
+     * 无关。实测 linux.do 系统=light 且 htmlBg=rgb(34,34,34)：两条 meta 的
+     * media 按系统值求值命中 light=#fff，页面却是深色 → 仍是白栏。
+     * 正确判据是**页面实际渲染的配色方案**：读 `getComputedStyle(documentElement)
+     * .colorScheme`（站点诚实声明实际态，zcode 的 color-scheme:dark 同源），
+     * 明确为 dark/light 时用它替代系统值参与 media 求值；未声明（normal /
+     * light dark 二义）才回落 matchMedia 系统判定——旧行为保底不破。
      *
      * 观察器挂 `documentElement`（document-start 时机 head 尚未建出，参照
      * JsHookScript 先例）+ 200ms 重试兜底——v2.4.6/2.4.7 裸 if(document.head)
-     * 恒 false 致观察器从未挂上的教训；matchMedia 变化监听覆盖 uiMode 运行期
-     * 切换（meta 文本不变但命中分支翻转）。
+     * 恒 false 致观察器从未挂上的教训；attributeFilter 含 class/style 以覆盖
+     * 站点运行中切主题（改 html class 或 color-scheme 内联样式，meta 文本
+     * 不变的情形），matchMedia change 监听覆盖系统深浅切换。
      */
     internal val THEME_JS = """
         (function(){
@@ -58,16 +66,38 @@ internal object WebThemeColorBridge {
           }
           return null;
         }
+        function actualScheme(){
+          try{
+            var de=document.documentElement;
+            if(!de)return null;
+            var cs=getComputedStyle(de).colorScheme||'';
+            var hasDark=/(^|[^a-z-])dark([^a-z-]|${'$'})/i.test(cs);
+            var hasLight=/(^|[^a-z-])light([^a-z-]|${'$'})/i.test(cs);
+            if(hasDark&&!hasLight)return 'dark';
+            if(hasLight&&!hasDark)return 'light';
+          }catch(e){}
+          return null;
+        }
+        function mediaMatches(md,scheme){
+          if(scheme){
+            var hasDark=/prefers-color-scheme\s*:\s*dark/i.test(md);
+            var hasLight=/prefers-color-scheme\s*:\s*light/i.test(md);
+            if(hasDark&&!hasLight)return scheme==='dark';
+            if(hasLight&&!hasDark)return scheme==='light';
+          }
+          try{return window.matchMedia(md).matches;}catch(e){return false;}
+        }
         function read(){
           try{
             var els=document.querySelectorAll('meta[name="theme-color"]');
+            var scheme=actualScheme();
             var mediaHit=null,fallback=null;
             for(var i=0;i<els.length;i++){
               var c=normalize(els[i].getAttribute('content'));
               if(!c)continue;
               var md=els[i].getAttribute('media');
               if(!md){if(!fallback)fallback=c;}
-              else{try{if(window.matchMedia(md).matches)mediaHit=c;}catch(e){}}
+              else{if(mediaMatches(md,scheme))mediaHit=c;}
             }
             var c=mediaHit||fallback;
             if(c===last)return;
@@ -84,11 +114,18 @@ internal object WebThemeColorBridge {
           else if(mq.addListener){mq.addListener(read);}
         }catch(e){}
         try{
-          var ob=new MutationObserver(function(){read();});
+          var pending=false;
+          function schedule(){
+            if(pending)return;
+            pending=true;
+            setTimeout(function(){pending=false;read();},80);
+          }
+          var ob=new MutationObserver(schedule);
           var retries=0;
           function startObserver(){
             try{
-              ob.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['content']});
+              ob.observe(document.documentElement,{childList:true,subtree:true,attributes:true,
+                attributeFilter:['content','class','style']});
               return;
             }catch(e){}
             if(++retries<50)setTimeout(startObserver,200);
