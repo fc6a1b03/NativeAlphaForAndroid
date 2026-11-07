@@ -448,11 +448,10 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-11-07（**v2.4.14 已发版**：theme-color 桥三级判据
-（S1 colorScheme→S2 背景亮度→S3 不干预，系统 matchMedia 退出选条）+
-事件驱动触发层重构（WebView 131 上 observer callback 内 setTimeout
-永不执行的内核怪癖定谳——同步直读+宿主 evaluateJavascript 踢兜底）+
-body 属性观察点（站点内切主题跟随）+ theme_signal 探针；验证套件
-doc/theme-color-test-pages/ 入库，坑位 16 已补三次定诊。真机 WebView
-131 四路像素级全过。待实机回传：v2.4.11 噪音 WARNING 清零口径 +
-v2.4.14 linux.do/多站点栏色实测）。
+*最后更新：2026-11-07（**v2.4.15 已发版**：theme-color 桥全量重构——
+判定下沉 WebPageColorPolicy（Kotlin 纯函数可穷举）+ 三级判据终版
+（S1 声明匹配→S2 背景链深层容器 deepBg→body→html→S3 不干预，系统
+matchMedia 退出选条）+ Chromium first-match/词边界对齐 + 切配色样式表
+load 窗口期补口 + theme_signal 探针增强（color=none 附信号原文）。
+真机 131 多路像素级验证。待实机回传：linux.do 登录深色页最终效果 +
+v2.4.11 噪音 WARNING 清零口径）。
