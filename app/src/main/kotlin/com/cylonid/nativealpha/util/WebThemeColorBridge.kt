@@ -133,6 +133,14 @@ internal object WebThemeColorBridge {
         val metasRaw: List<Pair<String?, String?>>
     )
 
+    /** 最近一次采样的信号快照（诊断探针 color=none 时引用——页面形态一次定谳） */
+    @Volatile
+    internal var lastSampledSignals: SampledSignals = SampledSignals(
+        policy = WebPageColorPolicy.ColorSignals(emptyList(), null, null, null),
+        metasRaw = emptyList()
+    )
+        private set
+
     /** 挂接桥（每 WebView 一次；与其它桥同一安装通道）。 */
     fun attach(
         webView: WebView,
@@ -145,6 +153,7 @@ internal object WebThemeColorBridge {
             onMessage = { _, payload ->
                 val src = payloadSrc(payload)
                 val sampled = parseSignals(payload)
+                lastSampledSignals = sampled
                 onColor(WebPageColorPolicy.resolve(sampled.policy), src)
             }
         )

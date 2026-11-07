@@ -222,12 +222,22 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
                 // 通道死，实机定谳关键）；其余触发器仅值变化时记。site 脱敏
                 // 走 ErrorReporter 统一收口
                 if (src == "t7" || prev != effective) {
+                    // color=none（判定不干预）时附信号原文：无声明/背景透明等
+                    // 页面形态一次定谳，避免「白栏」类报障的多轮盲查
+                    val nullReason = if (effective == null) {
+                        val sampled = WebThemeColorBridge.lastSampledSignals
+                        " n=" + sampled.policy.metas.size +
+                            " cs=" + (sampled.policy.colorScheme ?: "-") +
+                            " bg=" + (sampled.policy.htmlBg ?: "-") +
+                            " bg2=" + (sampled.policy.bodyBg ?: "-")
+                    } else ""
                     ErrorReporter.probe(
                         activity, "SysBar", "theme_signal",
                         fields = mapOf(
                             "site" to (activity.webapp?.baseUrl ?: ""),
                             "color" to (effective?.let { "#" + it.toString(16).padStart(6, '0').uppercase() } ?: "none"),
-                            "src" to src
+                            "src" to src,
+                            "detail" to nullReason
                         )
                     )
                 }
