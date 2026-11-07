@@ -98,6 +98,8 @@
     <string name="no_filemanager">Please install a file manager.</string>
     <string name="export_settings_web_apps"><![CDATA[Export settings & Web Apps]]></string>
     <string name="import_settings_web_apps"><![CDATA[Import settings & Web Apps]]></string>
+    <string name="import_risk_title">Import overwrites current data</string>
+    <string name="import_risk_desc">Importing replaces all sites and settings with the backup file, and clears all cookies (sign-in states on every site). This cannot be undone.</string>
     <string name="global_settings_multitouch_reload">Use two-finger swipes ↓ to reload page</string>
     <string name="allow_location_access">Allow location access</string>
     <string name="allow_drm_content">Allow DRM content</string>

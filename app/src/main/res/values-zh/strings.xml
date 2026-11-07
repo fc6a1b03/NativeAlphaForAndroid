@@ -98,6 +98,8 @@
     <string name="no_filemanager">请安装文件管理器。</string>
     <string name="export_settings_web_apps">导出设置与 Web App</string>
     <string name="import_settings_web_apps">导入设置与 Web App</string>
+    <string name="import_risk_title">导入将覆盖现有数据</string>
+    <string name="import_risk_desc">导入会用备份文件替换全部站点与设置，并清除所有 Cookie（包括各站点的登录状态）。此操作无法撤销。</string>
     <string name="global_settings_multitouch_reload">使用双指下滑刷新页面</string>
     <string name="allow_location_access">允许位置访问</string>
     <string name="allow_drm_content">允许 DRM 内容</string>
