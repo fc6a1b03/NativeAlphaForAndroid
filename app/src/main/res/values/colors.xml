@@ -1,4 +1,14 @@
 <resources>
+    <!--
+        对比度口径总注（2026-11-07 实勘）：
+        1) md_theme_* 为 Material Theme Builder 生成的标准 M3 色板——on* 槽位
+           对比度由 M3 规范保证，抽验 primary #4A47D6 vs onPrimary #FFFFFF
+           = 6.64（超 AA 4.5），逐条不另标。
+        2) webnative_splash_bg #4F46E5 vs 白 = 6.29（超 AA）。
+        3) scan_bracket/scan_hint_text 叠在动态相机画面上，底色不可固定——
+           设计为高亮描边/提示样式，不依赖固定底色对比度。
+        增补色值时按 WCAG 相对亮度比值口径实勘后标注（勿凭感觉选色）。
+    -->
     <color name="md_theme_primary">#4A47D6</color>
     <color name="md_theme_onPrimary">#FFFFFF</color>
     <color name="md_theme_primaryContainer">#E0DFFF</color>

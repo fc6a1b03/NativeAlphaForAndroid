@@ -1,4 +1,9 @@
-/* WebNative 错误页 — M3 靛蓝统一风格（明暗自适应） */
+/* WebNative 错误页 — M3 靛蓝统一风格（明暗自适应）
+   对比度实勘（2026-11-07，WCAG 相对亮度比值，全部超 AA 4.5）：
+   正文 text-light #1C1B1F on bg-light 16.03 / text-dark #E6E0E9 on bg-dark 14.35；
+   辅助 muted-light 4.52（贴 AA 线，仅承载次要信息）/ muted-dark 6.28；
+   暗色强调 primary-dark #C1BFFF on bg-dark 10.77。
+   改色前按此口径重算，勿只看观感。 */
 :root {
   --primary: #4F46E5;
   --primary-dark: #C1BFFF;

@@ -20,33 +20,41 @@ import kotlinx.coroutines.delay
  * 统计页动效封装（A6）：CountUp 数字滚动 / 卡片 stagger 进入。
  * 统一动效口径——时长与缓动只在本文件定义，各卡片零动效参数。
  *
+ * 三档分类（准入框架）：新增动效先归档再选参数，禁止调用点自定参数。
+ *  - 反馈档（体感 ≤160ms）：按压/图标切换等即时交互，快到「感觉不到在等」
+ *    ——EXPRESSIVE_PRESS_SPRING（spring 时长由物理参数决定，体感属反馈档）。
+ *  - 结构档（240-400ms）：折叠/圆角变形/计数/stagger 进入，慢到「看得出
+ *    从哪来」——COUNT_UP_MS、EXPRESSIVE_SETTLE_SPRING(_DP)、STAGGER_STEP_MS。
+ *  - 环境档（慢周期循环）：呼吸光晕/加载态，慢到「不打扰」——本文件无循环
+ *    常量（循环装饰动画禁止，循环仅限 loading Lottie，见下方无障碍契约）。
+ *
  * 无障碍契约：系统动画缩放为 0（开发者选项关动画/减少动效）时全部动效
  * 直接落终值，不产中间帧；循环装饰动画禁止（循环仅限 loading，UX 规范）。
  */
 
-/** 数字滚动时长（ms）——视觉语言统一常量，仅此一处定义（internal 供同包图表复用） */
+/** 数字滚动时长（ms）〔结构档〕——视觉语言统一常量，仅此一处定义（internal 供同包图表复用） */
 internal const val COUNT_UP_MS = 400
 
-/** 卡片进入 stagger 步长（ms）——仅此一处 */
+/** 卡片进入 stagger 步长（ms）〔结构档，编排步长非动画时长〕——仅此一处 */
 private const val STAGGER_STEP_MS = 30L
 
 /*
  * Expressive 弹簧规格（交互反馈统一口径，仅此一处定义，主列表/统计页
  * 共用——动效参数不散落调用点，与「时长缓动只在本文件定义」同纪律）。
  */
-/** 按压/出现：中弹跳——形状与缩放反馈带轻微过冲的 Q 弹手感 */
+/** 按压/出现〔反馈档〕：中弹跳——形状与缩放反馈带轻微过冲的 Q 弹手感 */
 internal val EXPRESSIVE_PRESS_SPRING = spring<Float>(
     dampingRatio = Spring.DampingRatioMediumBouncy,
     stiffness = Spring.StiffnessMediumLow
 )
 
-/** 形状/数值收敛：无弹跳——圆角与计数不允许过冲出中间错值 */
+/** 形状/数值收敛〔结构档〕：无弹跳——圆角与计数不允许过冲出中间错值 */
 internal val EXPRESSIVE_SETTLE_SPRING = spring<Float>(
     dampingRatio = Spring.DampingRatioNoBouncy,
     stiffness = Spring.StiffnessMediumLow
 )
 
-/** 形状/数值收敛（Dp 维度）：圆角变形用 */
+/** 形状/数值收敛（Dp 维度）〔结构档〕：圆角变形用 */
 internal val EXPRESSIVE_SETTLE_SPRING_DP = spring<Dp>(
     dampingRatio = Spring.DampingRatioNoBouncy,
     stiffness = Spring.StiffnessMediumLow

@@ -20,7 +20,17 @@ import android.util.LruCache
  */
 object IconGenerator {
 
-    /** 渐变池：现代 Material 风格双色渐变 */
+    /**
+     * 渐变池：现代 Material 风格双色渐变。
+     *
+     * 对比度实勘（2026-11-07，WCAG 相对亮度比值）：字母为白色大号粗体
+     * （textSize=sizePx*0.5, BOLD），适用大文本 AA 阈值 3.0；字母居中，实际
+     * 底色是渐变中点的两端混合色，下表为「中点色 vs 白」的真实值：
+     * indigo-purple 6.06 / violet 5.54 / red 4.29 / pink 4.06 / sky-blue 3.80 /
+     * emerald 3.09 / teal 3.03 / **amber-orange 2.80（不达大文本 AA，仅记录
+     * 不改色——修复需评估整组渐变的色感一致性，另立批次）**。两端极值口径
+     * （亮端最低 2.15）比中点口径更悲观，中点才是字母实际底色。
+     */
     private val GRADIENTS = arrayOf(
         intArrayOf(0xFF4F46E5.toInt(), 0xFF7C3AED.toInt()), // indigo → purple
         intArrayOf(0xFF0EA5E9.toInt(), 0xFF2563EB.toInt()), // sky → blue

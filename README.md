@@ -102,7 +102,8 @@ A: Android 12（API 31）及以上。
 * [JSoup](https://jsoup.org/) — favicon/标题抓取
 * [Markwon](https://github.com/noties/Markwon) — Markdown 渲染（更新日志）
 
-完整开源库依赖声明见 `app/build.gradle` 与 [gradle/libs.versions.toml](gradle/libs.versions.toml)。
+完整开源库依赖声明见 `app/build.gradle` 与 [gradle/libs.versions.toml](gradle/libs.versions.toml)；
+第三方素材与许可明细见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## Screenshots
 

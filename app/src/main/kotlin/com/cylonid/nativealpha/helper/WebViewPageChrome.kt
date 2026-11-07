@@ -176,8 +176,8 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
 
     /**
      * 启动加载页动物走路动画（LottieAnimationView）+ 主题背景。
-     * 素材 lottie_dog_walk.json：LottieFiles「Dog walking」（Syed Asim Ali
-     * Shah，LottieFiles Free License，已去地面横线 layer）。
+     * 素材授权（LottieFiles Free License）与修改说明集中维护在
+     * THIRD_PARTY_NOTICES.md 第 1 节（此处不再重复）。
      */
     fun startLoadingAnimal() {
         try {
