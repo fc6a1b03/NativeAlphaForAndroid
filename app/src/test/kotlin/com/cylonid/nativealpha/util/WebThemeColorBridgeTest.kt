@@ -82,9 +82,8 @@ class WebThemeColorBridgeTest {
 
     /**
      * linux.do 报障回归钉（2026-11-03）：Discourse 双 meta（media 限定
-     * light/dark）形态下，脚本必须全量扫描并按 media 命中取值，而非
-     * querySelector 单条首命中的选择逻辑在 JVM 层无法执行，此处钉脚本契约
-     * ——选段逻辑若被改回单条命中，该测试先行报警。
+     * light/dark）形态下，脚本必须全量扫描，禁止 querySelector 单条首命中
+     * 的选择逻辑回归。
      */
     @Test
     fun themeJsScansAllMetasWithMediaMatching() {
@@ -92,10 +91,26 @@ class WebThemeColorBridgeTest {
         // 全量扫描（querySelector 单条命中是报障根因，禁止回归）
         assertEquals(true, js.contains("querySelectorAll('meta[name=\"theme-color\"]')"))
         assertEquals(false, js.contains("querySelector('meta[name=\"theme-color\"]')"))
-        // media 命中判定 + 无 media 回落 + 深浅切换时重算
-        assertEquals(true, js.contains("matchMedia(md).matches"))
-        assertEquals(true, js.contains("fallback"))
+        // 系统深浅切换重算监听（T3）
         assertEquals(true, js.contains("prefers-color-scheme"))
+    }
+
+    /**
+     * 判据层级钉（2026-11-07 终版设计）：**系统 matchMedia 不得参与 meta
+     * 选条**——Discourse 深浅与系统无关（v2.4.12/2.4.13 两轮白栏根因），
+     * S1 明确按声明匹配、S1 无信号走 S2 背景亮度选条。
+     */
+    @Test
+    fun themeJsNeverUsesSystemMatchMediaForMetaSelection() {
+        val js = WebThemeColorBridge.THEME_JS
+        // 系统求值已彻底移除（唯一保留的 matchMedia 是 T3 的 dark 监听）
+        assertEquals(false, js.contains("matchMedia(md)"))
+        assertEquals(false, js.contains("mediaMatches"))
+        // S1 声明匹配 + S2 亮度选条两级都在
+        assertEquals(true, js.contains("scheme==='dark'&&hasDark&&!hasLight"))
+        assertEquals(true, js.contains("scheme==='light'&&hasLight&&!hasDark"))
+        assertEquals(true, js.contains("lum<0.45&&darkVal!==null"))
+        assertEquals(true, js.contains("lum>=0.55&&lightVal!==null"))
     }
 
     /**
@@ -105,8 +120,8 @@ class WebThemeColorBridgeTest {
      * 命中 light=#fff，页面却是深色，仍是白栏。
      *
      * 修法：用页面实际渲染的 `getComputedStyle(documentElement).colorScheme`
-     * 作为判定源，明确 dark/light 时优先于系统 matchMedia。**若有人把
-     * actualScheme 判定删掉退回纯 matchMedia，该测试先行报警。**
+     * 作为判定源（S1），明确 dark/light 时优先按声明匹配。**若有人把
+     * actualScheme 判定删掉退回纯系统求值，该测试先行报警。**
      */
     @Test
     fun themeJsPrefersPageColorSchemeOverSystemPreference() {
@@ -115,11 +130,7 @@ class WebThemeColorBridgeTest {
         assertEquals(true, js.contains("getComputedStyle"))
         assertEquals(true, js.contains("colorScheme"))
         assertEquals(true, js.contains("actualScheme"))
-        // 判定源优先级：先页面声明，未声明才回落系统 matchMedia
-        assertEquals(true, js.contains("mediaMatches(md,scheme)"))
-        assertEquals(true, js.contains("scheme==='dark'"))
-        assertEquals(true, js.contains("scheme==='light'"))
-        // 二义（"light dark"）或未声明必须回落系统，不能误判成深色
+        // 二义（"light dark"）或未声明不算信号，不能误判成深/浅
         assertEquals(true, js.contains("hasDark&&!hasLight"))
         assertEquals(true, js.contains("hasLight&&!hasDark"))
     }
@@ -138,13 +149,79 @@ class WebThemeColorBridgeTest {
     }
 
     /**
-     * 观察器防抖钉：SPA 的 class 变更极频繁，裸 read() 每次都会
-     * getComputedStyle 强制样式重算——必须合并到单次读取。
+     * observer 直读钉（2026-11-07 真机定谳）：WebView 131 上 observer
+     * callback 内注册的 setTimeout 永不执行（CDP 实证 cb:1/inner:0）——
+     * v2.4.13 的 80ms 防抖 setTimeout 恰是 t2 死因。callback 必须同步直读。
+     * **禁止重新引入 callback 内 setTimeout 形态的防抖。**
      */
     @Test
-    fun themeJsDebouncesObserverReads() {
+    fun themeJsObserverReadsSynchronously() {
         val js = WebThemeColorBridge.THEME_JS
-        assertEquals(true, js.contains("pending"))
-        assertEquals(true, js.contains("setTimeout"))
+        assertEquals(true, js.contains("new MutationObserver(function(){read('t2');})"))
+        // 防抖形态禁止回归
+        assertEquals(false, js.contains("function schedule()"))
+        // 挂载重试（startObserver 的 200ms setTimeout）保留——它在启动期执行，
+        // 不在 observer callback 内，不受该内核怪癖影响
+        assertEquals(true, js.contains("setTimeout(startObserver,200)"))
+    }
+
+    /**
+     * 渲染性能钉（2026-11-07 方案评审红线）：observer 必须收窄到 html 自身
+     * 属性 + head 子树两点——subtree 全页 childList/class 监听会让 SPA 每帧
+     * DOM 变更都进回调（渲染管线常驻税）。禁止回归成全页监听。
+     */
+    @Test
+    fun themeJsObserversAreNarrowedToHtmlAndHead() {
+        val js = WebThemeColorBridge.THEME_JS
+        // html 自身属性：subtree 必须为 false
+        assertEquals(true, js.contains("obHtml.observe(document.documentElement,{attributes:true,subtree:false"))
+        // head 子树监听存在
+        assertEquals(true, js.contains("obHead.observe(document.head"))
+        // 全页监听禁止回归：不允许 html 上挂 subtree:true
+        assertEquals(false, js.contains("obHtml.observe(document.documentElement,{childList:true,subtree:true"))
+    }
+
+    /**
+     * 触发器完备钉：t5 load 补读（SPA 晚挂 meta）/ t6 回前台单次重算 /
+     * t7 宿主 evaluateJavascript 踢入口（__wnThemeReread——WebView 131 动态
+     * 路径失效的宿主侧兜底）。
+     */
+    @Test
+    fun themeJsHasAllTriggerSources() {
+        val js = WebThemeColorBridge.THEME_JS
+        assertEquals(true, js.contains("__wnThemeReread"))
+        assertEquals(true, js.contains("addEventListener('load'"))
+        assertEquals(true, js.contains("visibilitychange"))
+        // t7 强制上报（绕过去重）：宿主踢必有回音，活性可确认
+        assertEquals(true, js.contains("src==='t7'||c!==last"))
+        // 上报载荷带触发器来源标记（探针判路用）
+        assertEquals(true, js.contains("src:src||'t1'"))
+    }
+
+    /**
+     * S2 背景色兜底契约钉：仅在「有 meta 但全部未命中」时按亮度在
+     * dark/light 条目间补选；无 meta 站点不干预（坑位 16 口径）；透明背景
+     * 与 0.45~0.55 中间带不采用。
+     */
+    @Test
+    fun themeJsHasBackgroundLuminanceFallback() {
+        val js = WebThemeColorBridge.THEME_JS
+        assertEquals(true, js.contains("darkVal"))
+        assertEquals(true, js.contains("lightVal"))
+        assertEquals(true, js.contains("lum<0.45&&darkVal!==null"))
+        assertEquals(true, js.contains("lum>=0.55&&lightVal!==null"))
+        assertEquals(true, js.contains("a>=0.99"))
+        // S2 门控：仅存在 media 条目（hasMedia）才走兜底；无 meta 站点恒不干预
+        assertEquals(true, js.contains("if(!c&&hasMedia)"))
+    }
+
+    /** 载荷 src 字段解析：正常/缺省/空串/非法载荷 */
+    @Test
+    fun payloadSrcExtractedWithFallback() {
+        assertEquals("t7", WebThemeColorBridge.payloadSrc("""{"color":"#161616","src":"t7"}"""))
+        assertEquals("t1", WebThemeColorBridge.payloadSrc("""{"color":"#161616"}"""))
+        assertEquals("t1", WebThemeColorBridge.payloadSrc("""{"color":"#161616","src":""}"""))
+        assertEquals("t1", WebThemeColorBridge.payloadSrc("not json"))
+        assertEquals("t1", WebThemeColorBridge.payloadSrc(null))
     }
 }
