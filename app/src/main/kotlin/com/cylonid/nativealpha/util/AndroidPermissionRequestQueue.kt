@@ -46,11 +46,6 @@ internal object AndroidPermissionRequestQueue {
         val onResult: (Boolean) -> Unit
     )
 
-    @Volatile
-    private var inFlight: ActiveRequest? = null
-
-    private val queued = ArrayDeque<PendingRequest>()
-
     /**
      * 孤儿自愈窗口：在途请求超过此时长仍无结果回调 = 发起通道已死（Activity
      * 销毁后旧 launcher 的回调永不再来）——下一个入队者将其按拒绝结算并
@@ -58,6 +53,11 @@ internal object AndroidPermissionRequestQueue {
      * 此值，正常路径永不触发。
      */
     internal const val ORPHAN_TIMEOUT_MS = 60_000L
+    @Volatile
+    private var inFlight: ActiveRequest? = null
+
+    private val queued = ArrayDeque<PendingRequest>()
+
 
     /**
      * 入队：同组（与在途请求存在权限交集）join 共享结果；否则排队等待在途
