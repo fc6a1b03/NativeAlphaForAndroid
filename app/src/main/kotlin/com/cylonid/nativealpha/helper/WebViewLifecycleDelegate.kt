@@ -206,14 +206,31 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         // 强制深色站点（算法变暗）不采用站点色：其 theme-color 是变暗前的值，
         // 直接采用会与已变黑的页面不符——setup 时算一次，避免每次回调重算
         val forcedDarkSite = WebViewSetup.needsForcedDarkMode(activity.webapp ?: app)
-        WebThemeColorBridge.attach(webview) { argb ->
+        WebThemeColorBridge.attach(webview) { argb, src ->
             activity.runOnUiThread {
                 // 回调排队期间 Activity 可能已销毁（页面仍在加载即退出）
                 if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                 val effective = if (forcedDarkSite) null else argb
+                // 系统深浅切换的 800ms 重放兜底：JS 有回音即取消（含值未变的
+                // t7 强制上报——那是宿主 evaluateJavascript 的活性确认）
+                activity.cancelSiteColorReplay()
+                val prev = activity.currentSiteColor
                 // 缓存供后续重放（系统切深浅色/回前台时页面不会重发 meta）
                 activity.currentSiteColor = effective
                 ThemeUtils.applySystemBarColors(activity, effective)
+                // 诊断探针（事件级）：t7 必记（JS 活性确认——踢了没回音=页面
+                // 通道死，实机定谳关键）；其余触发器仅值变化时记。site 脱敏
+                // 走 ErrorReporter 统一收口
+                if (src == "t7" || prev != effective) {
+                    ErrorReporter.probe(
+                        activity, "SysBar", "theme_signal",
+                        fields = mapOf(
+                            "site" to (activity.webapp?.baseUrl ?: ""),
+                            "color" to (effective?.let { "#" + it.toString(16).padStart(6, '0').uppercase() } ?: "none"),
+                            "src" to src
+                        )
+                    )
+                }
             }
         }
 
@@ -304,9 +321,11 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
             activity.wv!!.resumeTimers()
         }
         activity.darkMode.setDarkModeIfNeeded()
-        // 回前台重放站点主题色：后台期间系统可能切换了深浅色（页面脚本
-        // 不会重发 meta），不重放会回落应用主题色与页面割裂
-        ThemeUtils.applySystemBarColors(activity, activity.currentSiteColor)
+        // 回前台：后台期间系统可能切了深浅色 / 站点自身可能换了主题（页面
+        // 脚本都不会重发 meta）——先踢页面重算（visibilitychange 的宿主侧
+        // 双保险），800ms 无新上报才重放缓存色（与 onConfigurationChanged
+        // 同一套时序，避免旧色覆盖新判定）
+        activity.kickSiteColorReread()
 
     }
 

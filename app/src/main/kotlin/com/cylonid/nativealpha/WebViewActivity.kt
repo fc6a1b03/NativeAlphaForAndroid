@@ -45,6 +45,9 @@ import com.cylonid.nativealpha.util.WebViewLauncher
 class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.SelfManagedInsets {
 
     companion object {
+        /** evaluateJavascript 踢命令（常量避免每次调用重新分配） */
+        private const val REREAD_CMD = "window.__wnThemeReread&&window.__wnThemeReread();"
+
         /** 组合键解析结果 */
         data class ShortcutParseResult(
             val ctrl: Boolean,
@@ -108,6 +111,32 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
      * 换站/新导航时置 null（回到主题色兜底）。
      */
     internal var currentSiteColor: Int? = null
+
+    // 系统深浅切换时的站点色重算时序（2026-11-07 实机定谳的补充）：
+    // 切换瞬间先踢页面重算（__wnThemeReread），800ms 无新上报才重放缓存色。
+    // 旧顺序（切换即重放）会用旧色覆盖 JS 的新判定——实机 WebView 131 上
+    // matchMedia/observer 的 change 不触发，缓存重放成了唯一路径，白栏残留。
+    private val siteColorReplayHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var siteColorReplayPending = false
+
+    /** evaluateJavascript 踢命令（常量避免每次调用重新分配） */
+    internal fun kickSiteColorReread() {
+        // evaluateJavascript 不走注入/桥/媒体查询任何一条可能失效的通道，
+        // 全 WebView 版本可用——WebView 131 动态路径失效的宿主侧兜底
+        wv?.evaluateJavascript(REREAD_CMD, null)
+        siteColorReplayPending = true
+        siteColorReplayHandler.postDelayed({
+            if (siteColorReplayPending) {
+                siteColorReplayPending = false
+                ThemeUtils.applySystemBarColors(this, currentSiteColor)
+            }
+        }, 800)
+    }
+
+    /** JS 上报到达时取消待执行的重放（含上报值与缓存相同的情形） */
+    internal fun cancelSiteColorReplay() {
+        siteColorReplayPending = false
+    }
 
     override var webapp: WebApp? = null
 
@@ -296,12 +325,18 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
         darkMode.setDarkModeIfNeeded()
         // manifest 声明了 uiMode（不重建）：系统深色切换时 WebView/错误页会按
         // prefers-color-scheme 自动换色，系统栏必须同步刷新。
-        // 必须重放缓存的站点色——页面脚本此时不会重发 meta（值没变），
-        // 传 null 会回落应用主题色，与仍是站点深色的页面割裂（实机报障）
-        ThemeUtils.applySystemBarColors(this, currentSiteColor)
+        // 先踢页面重算（T7：evaluateJavascript 调 __wnThemeReread——部分内核
+        // 的 matchMedia/observer change 不触发，宿主主动踢是唯一可靠通道），
+        // 800ms 无新上报才重放缓存站点色兜底。注意不能立即重放：那会用旧色
+        // 覆盖 JS 随后的新判定（实机白栏残留根因之一）。无声明站点缓存为
+        // null，超时重放 null → 主题色随 uiMode 自动正确，不依赖 JS。
+        kickSiteColorReread()
     }
 
     override fun onDestroy() {
+        // 取消待执行的重放：Runnable 持 Activity 引用，销毁后 800ms 内不释放
+        // 属内存泄漏窗口（同类先例：坑位 12 的 timer 配对纪律）
+        siteColorReplayHandler.removeCallbacksAndMessages(null)
         lifecycleDelegate.onHostDestroy()
         super.onDestroy()
     }

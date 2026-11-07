@@ -24,27 +24,25 @@ internal object WebThemeColorBridge {
     private const val BRIDGE_NAME = "webnativeTheme"
 
     /**
-     * 采集脚本。契约：{color:"#rrggbb"}，仅在值真变化时 postMessage。
-     * 兼容 3/6 位十六进制与 rgb()。
+     * 采集脚本。契约：{color:"#rrggbb",src:"tN"}，值变化时 postMessage
+     * （t7 宿主踢除外——强制上报作活性确认）。兼容 3/6 位十六进制与 rgb()。
      *
-     * 多 meta 选择（2026-11-03 linux.do 报障定谳）：Discourse 等站点在 head
-     * 放两条带 media 限定的 theme-color（light=#fff / dark=#111111）。旧实现
-     * querySelector 只命中首条（light），深色页面栏色被报成白色。
-     *
-     * **2026-11-04 二次定谳（v2.4.12 修复无效的根因）**：单靠 media 求值不够
-     * ——Discourse 的深浅由**站点账号主题设置**决定，与系统 prefers-color-scheme
-     * 无关。实测 linux.do 系统=light 且 htmlBg=rgb(34,34,34)：两条 meta 的
-     * media 按系统值求值命中 light=#fff，页面却是深色 → 仍是白栏。
-     * 正确判据是**页面实际渲染的配色方案**：读 `getComputedStyle(documentElement)
-     * .colorScheme`（站点诚实声明实际态，zcode 的 color-scheme:dark 同源），
-     * 明确为 dark/light 时用它替代系统值参与 media 求值；未声明（normal /
-     * light dark 二义）才回落 matchMedia 系统判定——旧行为保底不破。
-     *
-     * 观察器挂 `documentElement`（document-start 时机 head 尚未建出，参照
-     * JsHookScript 先例）+ 200ms 重试兜底——v2.4.6/2.4.7 裸 if(document.head)
-     * 恒 false 致观察器从未挂上的教训；attributeFilter 含 class/style 以覆盖
-     * 站点运行中切主题（改 html class 或 color-scheme 内联样式，meta 文本
-     * 不变的情形），matchMedia change 监听覆盖系统深浅切换。
+     * 判据演进（linux.do 白栏三轮定谳）：
+     * - v2.4.12：media 按系统 matchMedia 求值——**前提错误**，Discourse 深浅
+     *   由站点账号主题决定、与系统无关（系统浅+页面深实测依旧），命中错误
+     *   分支白栏。
+     * - v2.4.13：S1=`getComputedStyle(html).colorScheme` 明确时按声明匹配，
+     *   未声明回落系统求值——模拟器 6 组合全过，**但实机 WebView 131 的
+     *   matchMedia/observer change 不触发且系统求值路径本身语义错误**，仍白栏。
+     * - 本版（2026-11-07）：三级判定——**S1** colorScheme 明确 → 按声明匹配
+     *   对应分支；**S2** S1 无信号 → 按页面背景亮度（0.299/0.587/0.114，与
+     *   宿主同口径）在 dark/light 条目间选条（系统求值彻底移除——其语义
+     *   与页面实际态无关）；**S3** 透明背景/亮度中间带 → 不干预回落主题色。
+     *   无 meta 站点恒不干预（坑位 16 口径不变）。触发层全部事件驱动零轮询：
+     *   t1 首读/t2 收窄双观察点（html 自身属性+head 子树，body 渲染树零监听）/
+     *   t3 matchMedia change/t5 load 补读/t6 回前台/t7 宿主 evaluateJavascript
+     *   踢（不走注入/桥/媒体查询任何可能失效的通道，WebView 131 死亡路径的
+     *   宿主侧兜底）。
      */
     internal val THEME_JS = """
         (function(){
@@ -78,74 +76,137 @@ internal object WebThemeColorBridge {
           }catch(e){}
           return null;
         }
-        function mediaMatches(md,scheme){
-          if(scheme){
-            var hasDark=/prefers-color-scheme\s*:\s*dark/i.test(md);
-            var hasLight=/prefers-color-scheme\s*:\s*light/i.test(md);
-            if(hasDark&&!hasLight)return scheme==='dark';
-            if(hasLight&&!hasDark)return scheme==='light';
-          }
-          try{return window.matchMedia(md).matches;}catch(e){return false;}
-        }
-        function read(){
+        function read(src){
           try{
             var els=document.querySelectorAll('meta[name="theme-color"]');
             var scheme=actualScheme();
-            var mediaHit=null,fallback=null;
+            var mediaHit=null,fallback=null,darkVal=null,lightVal=null,hasMedia=false;
             for(var i=0;i<els.length;i++){
-              var c=normalize(els[i].getAttribute('content'));
-              if(!c)continue;
+              var cc=normalize(els[i].getAttribute('content'));
+              if(!cc)continue;
               var md=els[i].getAttribute('media');
-              if(!md){if(!fallback)fallback=c;}
-              else{if(mediaMatches(md,scheme))mediaHit=c;}
+              var hasDark=/prefers-color-scheme\s*:\s*dark/i.test(md||'');
+              var hasLight=/prefers-color-scheme\s*:\s*light/i.test(md||'');
+              if(hasDark&&darkVal===null)darkVal=cc;
+              if(hasLight&&lightVal===null)lightVal=cc;
+              if(!md){if(!fallback)fallback=cc;}
+              else{
+                hasMedia=true;
+                // 判据（2026-11-07 二次定谳）：仅 S1 明确时按声明匹配；
+                // scheme=null 时不按系统 matchMedia 求值——Discourse 类站点
+                // 深浅由站点账号主题决定、与系统无关（系统浅+页面深实测
+                // 依旧存在），系统求值会命中错误分支（v2.4.12 白栏根因）
+                if(scheme==='dark'&&hasDark&&!hasLight)mediaHit=cc;
+                else if(scheme==='light'&&hasLight&&!hasDark)mediaHit=cc;
+              }
             }
             var c=mediaHit||fallback;
-            if(c===last)return;
-            last=c;
-            webnativeTheme.postMessage(JSON.stringify({color:c||''}));
+            // S2 背景色兜底：S1 无信号且有 media 条目时，按页面背景亮度
+            // （0.299/0.587/0.114 加权，与宿主同口径）在 dark/light 条目间
+            // 选条。跟随系统类站点（背景随系统切换）经 T3/T7 触发重算自然
+            // 跟随。只影响声明形态的条目选择——无 meta 站点仍不干预（坑位
+            // 16「未声明不干预」口径不变）；透明背景/亮度中间带(0.45~0.55)
+            // 不采用，防边界抖动与误判。
+            if(!c&&hasMedia){
+              try{
+                var de=document.documentElement;
+                var col=getComputedStyle(de).backgroundColor;
+                if(!col||col==='rgba(0, 0, 0, 0)'||col==='transparent'){
+                  if(document.body)col=getComputedStyle(document.body).backgroundColor;
+                }
+                var m=/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/i.exec(col||'');
+                if(m){
+                  var a=m[4]===undefined?1:parseFloat(m[4]);
+                  if(a>=0.99){
+                    var lum=(0.299*parseInt(m[1],10)+0.587*parseInt(m[2],10)+0.114*parseInt(m[3],10))/255;
+                    if(lum<0.45&&darkVal!==null)c=darkVal;
+                    else if(lum>=0.55&&lightVal!==null)c=lightVal;
+                  }
+                }
+              }catch(e){}
+            }
+            if(src==='t7'||c!==last){
+              last=c;
+              webnativeTheme.postMessage(JSON.stringify({color:c||'',src:src||'t1'}));
+            }
           }catch(e){}
         }
+        window.__wnThemeReread=function(){read('t7');};
         if(document.readyState==='loading'){
-          document.addEventListener('DOMContentLoaded',read);
-        }else{read();}
+          document.addEventListener('DOMContentLoaded',function(){read('t1');});
+        }else{read('t1');}
+        window.addEventListener('load',function(){read('t5');});
         try{
           var mq=window.matchMedia('(prefers-color-scheme: dark)');
-          if(mq.addEventListener){mq.addEventListener('change',read);}
-          else if(mq.addListener){mq.addListener(read);}
+          if(mq.addEventListener){mq.addEventListener('change',function(){read('t3');});}
+          else if(mq.addListener){mq.addListener(function(){read('t3');});}
         }catch(e){}
         try{
-          var pending=false;
-          function schedule(){
-            if(pending)return;
-            pending=true;
-            setTimeout(function(){pending=false;read();},80);
-          }
-          var ob=new MutationObserver(schedule);
+          document.addEventListener('visibilitychange',function(){
+            if(!document.hidden)read('t6');
+          });
+        }catch(e){}
+        try{
+          // 直读、无防抖（2026-11-07 真机定谳）：WebView 131 上 observer
+          // callback 内注册的 setTimeout 永不执行（CDP 实证 cb:1/inner:0），
+          // v2.4.13 的 80ms 防抖恰好是 t2 死因。观察点收窄为三个属性级低频面：
+          // html/body 自身 class+style（主题级信号——Discourse 等站点切深浅
+          // 改 body class，漏看会导致站点内切主题时栏色滞留）+ head 子树
+          // （meta 增删改）。body 内元素仍零监听，滚动/动画/流式输出零触发，
+          // callback 内同步 read 的 getComputedStyle 开销可接受
+          // （v2.4.8~v2.4.11 同形态工作先例）。
+          var obHtml=new MutationObserver(function(){read('t2');});
+          var obBody=new MutationObserver(function(){read('t2');});
+          var obHead=new MutationObserver(function(){read('t2');});
           var retries=0;
           function startObserver(){
+            var ok=true;
             try{
-              ob.observe(document.documentElement,{childList:true,subtree:true,attributes:true,
-                attributeFilter:['content','class','style']});
-              return;
-            }catch(e){}
-            if(++retries<50)setTimeout(startObserver,200);
+              obHtml.observe(document.documentElement,{attributes:true,subtree:false,
+                attributeFilter:['class','style']});
+            }catch(e){ok=false;}
+            try{
+              if(document.body)obBody.observe(document.body,{attributes:true,subtree:false,
+                attributeFilter:['class','style']});
+              else ok=false;
+            }catch(e){ok=false;}
+            try{
+              obHead.observe(document.head,{childList:true,subtree:true,attributes:true,
+                attributeFilter:['content']});
+            }catch(e){ok=false;}
+            if(ok||++retries>=50)return;
+            setTimeout(startObserver,200);
           }
           startObserver();
         }catch(e){}
         })();
     """.trimIndent()
 
-    /** 挂接桥（每 WebView 一次；与其它桥同一安装通道） */
+    /**
+     * 挂接桥（每 WebView 一次；与其它桥同一安装通道）。
+     * onColor 第二参数 src 为 JS 侧触发器来源（t1 首读/t2 observer/t3 系统
+     * 深浅切换/t5 load/t6 回前台/t7 宿主 evaluateJavascript 踢）——宿主
+     * 侧诊断探针据此区分判定路径（实机 WebView 内核差异定谳用）。
+     */
     fun attach(
         webView: WebView,
-        onColor: (argb: Int?) -> Unit
+        onColor: (argb: Int?, src: String) -> Unit
     ) {
         WebBridgeKit.install(
             webView,
             documentStartJs = THEME_JS,
             bridgeName = BRIDGE_NAME,
-            onMessage = { _, payload -> onColor(parseThemeColor(payload)) }
+            onMessage = { _, payload ->
+                onColor(parseThemeColor(payload), payloadSrc(payload))
+            }
         )
+    }
+
+    /** 载荷 src 字段（触发器来源，缺省/非法回落 t1） */
+    internal fun payloadSrc(payload: String?): String = try {
+        JSONObject(payload ?: "").optString("src", "t1").ifEmpty { "t1" }
+    } catch (e: JSONException) {
+        "t1"
     }
 
     /**

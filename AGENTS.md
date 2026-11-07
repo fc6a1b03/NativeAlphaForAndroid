@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.4.13`（`versionCode 2413`）
+- **当前版本**：`2.4.14`（`versionCode 2414`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -350,12 +350,18 @@ Profile 等。
     light=#fff，页面却渲染深色，栏仍是白 → 首版修复对用户场景零效果。**正确
     判据是页面实际渲染的配色方案**（`documentElement` 的 computed
     `color-scheme`，站点诚实声明实际态；zcode 的 `color-scheme:dark` 同源），
-    明确 dark/light 时用它替代系统值参与 media 求值，未声明（normal / 二义
-    `light dark`）才回落 `matchMedia` 系统判定——旧行为保底不破。另：站点
-    运行期切主题常改 `<html class>` / 内联 style 而不动 meta，observer 的
-    `attributeFilter` 必须含 `class`/`style`（旧实现只监听 `content`，栏色会
-    滞留旧值），且 class 变更在 SPA 上极频繁，读取需 80ms 防抖合并
-    （`getComputedStyle` 会强制样式重算）。
+    S1 明确 dark/light 时按声明匹配对应分支。**S1 无信号时禁止按系统
+    matchMedia 求值**（系统深浅与页面实际态无关——v2.4.12/2.4.13 两轮白栏
+    根因），改走 **S2 背景亮度选条**（html→body 双读，透明放弃、0.45~0.55
+    中间带不动）；无 meta 站点恒不干预（S3 回落主题色）。站点运行期切主题
+    常改 html/body class 或内联 style 而不动 meta，observer 须覆盖
+    html+body+head 三点（attributes only，body 内元素零监听）。
+    **2026-11-07 三次定诊（t2 死因=内核怪癖）**：WebView 131 上 observer
+    callback 内注册的 setTimeout 永不执行（CDP 实证 cb:1/inner:0）——
+    80ms 防抖形态即死因，callback 必须同步直读；宿主兜底=evaluateJavascript
+    踢 `__wnThemeReread`（t7）+ configChanged/resume 先踢后 800ms 超时重放
+    缓存。验证套件：doc/theme-color-test-pages/（三形态页+矩阵+怪癖清单），
+    栏色改动一律真机 debug 包 CDP+像素回归，模拟器仅作逻辑回归。
     **验证矩阵（6 组合全过）**：网页明暗 × 系统明暗两两组合——页面固定深色+
     系统浅色→#111111、页面固定浅色+系统深色→#ffffff（站点设置优先于系统）、
     页面 `light dark` 跟随系统→随系统切换。**判据必须用状态栏像素 +
