@@ -149,11 +149,14 @@ internal object WebThemeColorBridge {
         try{
           // 直读、无防抖（2026-11-07 真机定谳）：WebView 131 上 observer
           // callback 内注册的 setTimeout 永不执行（CDP 实证 cb:1/inner:0），
-          // v2.4.13 的 80ms 防抖恰好是 t2 死因。观察点已收窄到 html 自身
-          // 属性 + head 子树（主题级信号，低频）——body 渲染树不进回调，
-          // 滚动/动画/流式输出零触发，callback 内同步 read 的
-          // getComputedStyle 开销可接受（v2.4.8~v2.4.11 同形态工作先例）。
+          // v2.4.13 的 80ms 防抖恰好是 t2 死因。观察点收窄为三个属性级低频面：
+          // html/body 自身 class+style（主题级信号——Discourse 等站点切深浅
+          // 改 body class，漏看会导致站点内切主题时栏色滞留）+ head 子树
+          // （meta 增删改）。body 内元素仍零监听，滚动/动画/流式输出零触发，
+          // callback 内同步 read 的 getComputedStyle 开销可接受
+          // （v2.4.8~v2.4.11 同形态工作先例）。
           var obHtml=new MutationObserver(function(){read('t2');});
+          var obBody=new MutationObserver(function(){read('t2');});
           var obHead=new MutationObserver(function(){read('t2');});
           var retries=0;
           function startObserver(){
@@ -161,6 +164,11 @@ internal object WebThemeColorBridge {
             try{
               obHtml.observe(document.documentElement,{attributes:true,subtree:false,
                 attributeFilter:['class','style']});
+            }catch(e){ok=false;}
+            try{
+              if(document.body)obBody.observe(document.body,{attributes:true,subtree:false,
+                attributeFilter:['class','style']});
+              else ok=false;
             }catch(e){ok=false;}
             try{
               obHead.observe(document.head,{childList:true,subtree:true,attributes:true,

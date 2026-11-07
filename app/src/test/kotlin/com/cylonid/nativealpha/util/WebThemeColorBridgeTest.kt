@@ -166,6 +166,20 @@ class WebThemeColorBridgeTest {
     }
 
     /**
+     * body 属性观察钉（2026-11-07 故障树复盘 F5）：Discourse 等站点在
+     * 站点设置内切深浅改的是 body class（CSS 变量随之翻转）——html/head
+     * 观察点看不见且无 configChanged/resume，漏看会导致站点内切主题时
+     * 栏色滞留。body 观察必须存在（attributes only，body 内元素仍零监听）。
+     */
+    @Test
+    fun themeJsObservesBodyClassChanges() {
+        val js = WebThemeColorBridge.THEME_JS
+        assertEquals(true, js.contains("obBody.observe(document.body"))
+        // body 只观察自身属性，不监听子树（渲染性能红线）
+        assertEquals(true, js.contains("obBody.observe(document.body,{attributes:true,subtree:false"))
+    }
+
+    /**
      * 渲染性能钉（2026-11-07 方案评审红线）：observer 必须收窄到 html 自身
      * 属性 + head 子树两点——subtree 全页 childList/class 监听会让 SPA 每帧
      * DOM 变更都进回调（渲染管线常驻税）。禁止回归成全页监听。
