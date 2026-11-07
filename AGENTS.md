@@ -5,7 +5,7 @@
 PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生成、长文档）做渲染优化。
 
 > 阅读本文件前，请先查阅 `skills`——所有代码改动必须遵守其中的「十三条红线」与 Kotlin/Google Android
-> 编码规范。
+> 编码规范；**修复/重构/发版的阶段化流程纪律见 `skills/ReviewFixProtocol.md`**（六阶段+八不变量+记账制；编码规范权威源在 GoogleCodingStandards.md，流程协议权威源在 ReviewFixProtocol.md）。
 
 ---
 
