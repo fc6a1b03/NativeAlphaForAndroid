@@ -225,8 +225,13 @@ class WebThemeColorBridgeTest {
         assertEquals(true, js.contains("lum<0.45&&darkVal!==null"))
         assertEquals(true, js.contains("lum>=0.55&&lightVal!==null"))
         assertEquals(true, js.contains("a>=0.99"))
-        // S2 门控：仅存在 media 条目（hasMedia）才走兜底；无 meta 站点恒不干预
-        assertEquals(true, js.contains("if(!c&&hasMedia)"))
+        // S2 门控（2026-11-07 终版）：无声明站点也走兜底——背景极暗(<0.3)/
+        // 极亮(>0.7)直接按背景上栏（linux.do 深色页无 meta 实锤逼出的口径
+        // 变更，向 Chrome 背景色着色行为对齐）；0.3~0.7 中间带仅在有对应
+        // 声明条目时跟随
+        assertEquals(true, js.contains("if(!c){"))
+        assertEquals(true, js.contains("lum<0.3)c=darkVal||normalize(col)"))
+        assertEquals(true, js.contains("lum>=0.7)c=lightVal||normalize(col)"))
     }
 
     /** 载荷 src 字段解析：正常/缺省/空串/非法载荷 */

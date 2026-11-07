@@ -101,13 +101,16 @@ internal object WebThemeColorBridge {
               }
             }
             var c=mediaHit||fallback;
-            // S2 背景色兜底：S1 无信号且有 media 条目时，按页面背景亮度
-            // （0.299/0.587/0.114 加权，与宿主同口径）在 dark/light 条目间
-            // 选条。跟随系统类站点（背景随系统切换）经 T3/T7 触发重算自然
-            // 跟随。只影响声明形态的条目选择——无 meta 站点仍不干预（坑位
-            // 16「未声明不干预」口径不变）；透明背景/亮度中间带(0.45~0.55)
-            // 不采用，防边界抖动与误判。
-            if(!c&&hasMedia){
+            // S2 背景色兜底（2026-11-07 最终形态）：S1 无信号时按页面背景
+            // 亮度（0.299/0.587/0.114 加权，与宿主同口径）着色——
+            // a) 有 media 双条但未命中：按亮度在 darkVal/lightVal 间选条；
+            // b) 页面完全没有可用声明（v2.4.14 实测定谳：linux.do 登录用户
+            //    深色页 theme-color meta 一条都没有——theme_signal color=none
+            //    src=t7 x5 实锤）：背景极暗(<0.3)/极亮(>0.7)时直接按背景色
+    //        上栏（向 Chrome 自身行为对齐），0.3~0.7 中间带仅在有对应
+            //    声明条目时跟随；透明背景放弃。原「无 meta 站点恒不干预」
+            //    口径就此废弃——它使无声明深色页无解（v2.4.14 白栏根因）。
+            if(!c){
               try{
                 var de=document.documentElement;
                 var col=getComputedStyle(de).backgroundColor;
@@ -119,7 +122,9 @@ internal object WebThemeColorBridge {
                   var a=m[4]===undefined?1:parseFloat(m[4]);
                   if(a>=0.99){
                     var lum=(0.299*parseInt(m[1],10)+0.587*parseInt(m[2],10)+0.114*parseInt(m[3],10))/255;
-                    if(lum<0.45&&darkVal!==null)c=darkVal;
+                    if(lum<0.3)c=darkVal||normalize(col);
+                    else if(lum<0.45&&darkVal!==null)c=darkVal;
+                    else if(lum>=0.7)c=lightVal||normalize(col);
                     else if(lum>=0.55&&lightVal!==null)c=lightVal;
                   }
                 }
