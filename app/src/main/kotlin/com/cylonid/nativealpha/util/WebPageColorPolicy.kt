@@ -33,7 +33,9 @@ internal object WebPageColorPolicy {
         val metas: List<MetaEntry>,
         val colorScheme: String?,
         val htmlBg: String?,
-        val bodyBg: String?
+        val bodyBg: String?,
+        /** 深层容器背景（body 子级→孙级第一个非透明，html/body 全透明时的最后信号） */
+        val deepBg: String? = null
     )
 
     /** 需要着色的 theme-color meta 归一化结果（树序） */
@@ -77,7 +79,7 @@ internal object WebPageColorPolicy {
 
     /** 首个不透明背景色的 #rrggbb 归一化（极暗/极亮直接上栏用） */
     private fun opaqueBgHex(signals: ColorSignals): String? {
-        for (col in listOf(signals.htmlBg, signals.bodyBg)) {
+        for (col in bgChain(signals)) {
             val m = RGBA.find(col ?: continue) ?: continue
             val alpha = m.groupValues.getOrNull(4)?.toFloatOrNull() ?: 1f
             if (alpha >= 0.99f) return normalizeHex(col)
@@ -85,9 +87,13 @@ internal object WebPageColorPolicy {
         return null
     }
 
-    /** 页面背景亮度（首个不透明背景，html→body）；无不透明背景返回 null */
+    /** 背景链（视觉从内到外：深层容器→body→html——最内层背景最贴近页面渲染） */
+    private fun bgChain(signals: ColorSignals): List<String> =
+        listOf(signals.deepBg, signals.bodyBg, signals.htmlBg).filterNotNull()
+
+    /** 页面背景亮度（首个不透明背景，深层容器→body→html）；全透明返回 null */
     fun opaqueBackgroundColor(signals: ColorSignals): Double? {
-        for (col in listOf(signals.htmlBg, signals.bodyBg)) {
+        for (col in bgChain(signals)) {
             val m = RGBA.find(col ?: continue) ?: continue
             val alpha = m.groupValues.getOrNull(4)?.toFloatOrNull() ?: 1f
             if (alpha >= 0.99f) {

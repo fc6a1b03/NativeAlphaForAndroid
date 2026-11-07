@@ -101,6 +101,14 @@ class WebThemeColorBridgeTest {
     }
 
     @Test
+    fun parseSignals_deepBgPayload() {
+        val s = WebThemeColorBridge.parseSignals(
+            "{\"metas\":[],\"cs\":\"\",\"bg\":\"rgba(0, 0, 0, 0)\",\"bg2\":\"rgba(0, 0, 0, 0)\",\"bg3\":\"rgb(34, 34, 34)\",\"src\":\"t1\"}"
+        )
+        assertEquals("rgb(34, 34, 34)", s.policy.deepBg)
+    }
+
+    @Test
     fun parseSignals_emptyAndInvalidPayloads() {
         assertEquals(0, WebThemeColorBridge.parseSignals(null).policy.metas.size)
         assertEquals(0, WebThemeColorBridge.parseSignals("").policy.metas.size)

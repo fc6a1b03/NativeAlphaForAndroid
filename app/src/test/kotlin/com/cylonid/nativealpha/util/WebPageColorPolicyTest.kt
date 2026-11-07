@@ -133,6 +133,33 @@ class WebPageColorPolicyTest {
     }
 
     @Test
+    fun s2_deepContainerBgUsedWhenHtmlBodyTransparent() {
+        // linux.do 登录深色页实锤形态（v2.4.14 theme_signal color=none）：
+        // 无 meta + html/body 全透明 + 深色涂在深层容器——S2 深挖链命中
+        val argb = WebPageColorPolicy.resolve(
+            WebPageColorPolicy.ColorSignals(
+                emptyList(), null,
+                "rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)",
+                deepBg = "rgb(34, 34, 34)"
+            )
+        )
+        assertEquals(0xFF222222.toInt(), argb)
+    }
+
+    @Test
+    fun s2_innermostBgWinsOverOuter() {
+        // 深层容器（最内层）背景优先于 body/html——视觉最贴近页面渲染
+        val argb = WebPageColorPolicy.resolve(
+            WebPageColorPolicy.ColorSignals(
+                emptyList(), null,
+                "rgb(255, 255, 255)", "rgb(128, 128, 128)",
+                deepBg = "rgb(34, 34, 34)"
+            )
+        )
+        assertEquals(0xFF222222.toInt(), argb)
+    }
+
+    @Test
     fun s2_transparentBgOnlyFallsThrough() {
         val argb = WebPageColorPolicy.resolve(
             WebPageColorPolicy.ColorSignals(doubleMeta, null, "rgba(0, 0, 0, 0)", null)

@@ -77,8 +77,33 @@ internal object WebThemeColorBridge {
                 return getComputedStyle(el).backgroundColor||'';
               }catch(e){return '';}
             }
-            var sig={metas:metas,cs:cs,bg:bg(de),bg2:bg(document.body),src:src||'t1'};
-            var key=JSON.stringify({m:sig.metas,c:sig.cs,b:sig.bg,b2:sig.bg2});
+            // 深层容器背景（2026-11-07 用户实测第三形态定谳）：linux.do 登录
+            // 深色页无 theme-color meta 且 html/body 背景全透明，深色涂在
+            // 更深层容器（main-outlet）——html/body 双读对它盲。沿 DOM 向下
+            // 找第一个非透明背景（body 子级→孙级各限 5/3 个，Discourse 的
+            // main-outlet 即 body 直接子），视觉上最内层背景最贴近页面渲染。
+            function deepBg(){
+              try{
+                var bd=document.body;
+                if(!bd)return '';
+                var TRANSP=/^rgba\(0, 0, 0, 0\)$/;
+                var kids=bd.children;
+                for(var i=0;i<kids.length&&i<5;i++){
+                  var c1=bg(kids[i]);
+                  if(c1&&!TRANSP.test(c1)&&c1!=='transparent')return c1;
+                }
+                for(var i=0;i<kids.length&&i<3;i++){
+                  var g=kids[i].children;
+                  for(var j=0;j<g.length&&j<3;j++){
+                    var c2=bg(g[j]);
+                    if(c2&&!TRANSP.test(c2)&&c2!=='transparent')return c2;
+                  }
+                }
+                return '';
+              }catch(e){return '';}
+            }
+            var sig={metas:metas,cs:cs,bg:bg(de),bg2:bg(document.body),bg3:deepBg(),src:src||'t1'};
+            var key=JSON.stringify({m:sig.metas,c:sig.cs,b:sig.bg,b2:sig.bg2,b3:sig.bg3});
             if(key===last&&src!=='t7')return;
             last=key;
             webnativeTheme.postMessage(JSON.stringify(sig));
@@ -179,7 +204,8 @@ internal object WebThemeColorBridge {
                     metas = metasRaw.map { WebPageColorPolicy.MetaEntry(it.first, it.second) },
                     colorScheme = obj.optString("cs", "").ifEmpty { null },
                     htmlBg = obj.optString("bg", "").ifEmpty { null },
-                    bodyBg = obj.optString("bg2", "").ifEmpty { null }
+                    bodyBg = obj.optString("bg2", "").ifEmpty { null },
+                    deepBg = obj.optString("bg3", "").ifEmpty { null }
                 ),
                 metasRaw = metasRaw
             )
@@ -189,7 +215,7 @@ internal object WebThemeColorBridge {
     }
 
     private fun emptySignals() = SampledSignals(
-        policy = WebPageColorPolicy.ColorSignals(emptyList(), null, null, null),
+        policy = WebPageColorPolicy.ColorSignals(emptyList(), null, null, null, null),
         metasRaw = emptyList()
     )
 
