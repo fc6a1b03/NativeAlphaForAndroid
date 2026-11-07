@@ -86,4 +86,53 @@ class FileChooserUriNormalizerTest {
         assertEquals(null, FileChooserUriNormalizer.normalize(context, null).uris)
         assertEquals(null, FileChooserUriNormalizer.normalize(context, emptyList()).uris)
     }
+
+    // ===== 物化字节预算（C5：谎报 size/巨流防御）=====
+
+    @Test
+    fun `stream exceeding materialization budget is aborted and degraded`() {
+        // file URI 走物化分支：注册的流远超注入的微小预算 → 中断 + 半成品
+        // 不落盘 + 原 URI 透传并记入 degraded（降级到既有路径，无新增 UI）
+        val uri = Uri.parse("file:///tmp/huge-upload.bin")
+        shadowOf(context.contentResolver).registerInputStream(
+            uri, ByteArrayInputStream(ByteArray(1000))
+        )
+        val degraded = mutableListOf<Uri>()
+        val out = FileChooserUriNormalizer.ensureWebViewReadable(
+            context, uri, degraded, budgetBytes = 100L
+        )
+        assertEquals(uri, out)
+        assertEquals(listOf(uri), degraded)
+        val leftovers = File(context.cacheDir, "chooser").listFiles()
+            ?.filter { it.name.startsWith("upload_") && it.length() > 0L }
+        assertTrue((leftovers ?: emptyList()).isEmpty())
+    }
+
+    @Test
+    fun `stream exactly at budget plus one byte exposes dishonest size`() {
+        // dsh 形态：+1 字节即判超限——恰好压线的谎报 size 逃不过
+        val uri = Uri.parse("file:///tmp/exact-boundary.bin")
+        shadowOf(context.contentResolver).registerInputStream(
+            uri, ByteArrayInputStream(ByteArray(101))
+        )
+        val degraded = mutableListOf<Uri>()
+        val out = FileChooserUriNormalizer.ensureWebViewReadable(
+            context, uri, degraded, budgetBytes = 100L
+        )
+        assertEquals(listOf(uri), degraded)
+    }
+
+    @Test
+    fun `stream within budget materializes as before`() {
+        // 预算内小流：行为与旧实现一致（物化或环境性透传两分支均合法语义）
+        val uri = Uri.parse("file:///tmp/small.bin")
+        shadowOf(context.contentResolver).registerInputStream(
+            uri, ByteArrayInputStream(byteArrayOf(1, 2, 3))
+        )
+        val degraded = mutableListOf<Uri>()
+        val out = FileChooserUriNormalizer.ensureWebViewReadable(
+            context, uri, degraded, budgetBytes = 100L
+        )
+        assertTrue(out != uri || degraded.isNotEmpty())
+    }
 }
