@@ -10,7 +10,8 @@
 
 | 页面 | 形态 | 验证要点 |
 |---|---|---|
-| double.html | 双条 media 限定 meta + html 深背景 | S1（colorScheme 注入双向）/ S2（背景亮度选条） |
+| double.html | 双条 media 限定 meta + html 深背景 | S1（colorScheme 注入双向）/ S2-a（背景亮度选条） |
+| nometa.html | **无任何 theme-color meta** + 深背景 #222222 | S2-b（无声明极暗/极亮直接上栏——linux.do 登录深色页实锤形态，v2.4.14 失效形态） |
 | single.html | 单条无 media meta | fallback 直通（zcode 形态） |
 | bodyclass.html | **背景由 body class 驱动**（Discourse 形态） | F5：站点内切主题（改 body class）栏色跟随——html/head/系统事件全不动 |
 

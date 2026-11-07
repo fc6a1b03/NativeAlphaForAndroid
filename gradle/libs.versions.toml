@@ -3,6 +3,7 @@
 # 查询时间：2026-10-25（Google Maven / Maven Central 最新稳定版）
 
 [versions]
+orgJson = "20240303"
 # 构建工具
 agp = "9.5.0"
 kotlin = "2.4.21"
@@ -55,6 +56,7 @@ androidxTestRules = "1.7.0"
 orchestrator = "1.6.1"
 
 [libraries]
+org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxingCore" }
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "androidxCamera" }

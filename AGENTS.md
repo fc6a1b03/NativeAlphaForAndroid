@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.4.14`（`versionCode 2414`）
+- **当前版本**：`2.4.15`（`versionCode 2415`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -362,6 +362,14 @@ Profile 等。
     踢 `__wnThemeReread`（t7）+ configChanged/resume 先踢后 800ms 超时重放
     缓存。验证套件：doc/theme-color-test-pages/（三形态页+矩阵+怪癖清单），
     栏色改动一律真机 debug 包 CDP+像素回归，模拟器仅作逻辑回归。
+    **2026-11-07 终局（v2.4.15）**：判定下沉 `WebPageColorPolicy`（Kotlin
+    纯函数可 JVM 穷举，JS 瘦身为纯信号采集）；对齐 Chromium blink
+    `Document::ThemeColor`（first-match+media 词边界）；S2 背景链扩至
+    **深层容器**（deepBg：body 子级→孙级第一个非透明背景，视觉从内到外
+    deepBg→body→html）——linux.do 登录深色页第三形态（无 meta+html/body
+    全透明+深色涂 main-outlet）实锤修复；切配色窗口期补样式表 load 监听
+    （新 CSS 网络应用非 DOM 变化，observer 全盲）。内核怪癖+验证套件见
+    doc/theme-color-test-pages/ 与记忆 webnative-sysbar-color-source。
     **验证矩阵（6 组合全过）**：网页明暗 × 系统明暗两两组合——页面固定深色+
     系统浅色→#111111、页面固定浅色+系统深色→#ffffff（站点设置优先于系统）、
     页面 `light dark` 跟随系统→随系统切换。**判据必须用状态栏像素 +
@@ -440,8 +448,11 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-11-04（**v2.4.13 已发版**：theme-color 桥修复——
-判据改用页面实际 `color-scheme` 而非系统深浅（Discourse 站点账号主题
-与系统无关），网页/系统明暗 6 组合全过；另关闭 WebView favicon 自动
-下载。坑位 16 已补「二次定诊：media 求值前提错误」段 + 像素级验证
-口径。v2.4.11 噪音 WARNING 清零口径仍待实机导日志验证）。
+*最后更新：2026-11-07（**v2.4.14 已发版**：theme-color 桥三级判据
+（S1 colorScheme→S2 背景亮度→S3 不干预，系统 matchMedia 退出选条）+
+事件驱动触发层重构（WebView 131 上 observer callback 内 setTimeout
+永不执行的内核怪癖定谳——同步直读+宿主 evaluateJavascript 踢兜底）+
+body 属性观察点（站点内切主题跟随）+ theme_signal 探针；验证套件
+doc/theme-color-test-pages/ 入库，坑位 16 已补三次定诊。真机 WebView
+131 四路像素级全过。待实机回传：v2.4.11 噪音 WARNING 清零口径 +
+v2.4.14 linux.do/多站点栏色实测）。
