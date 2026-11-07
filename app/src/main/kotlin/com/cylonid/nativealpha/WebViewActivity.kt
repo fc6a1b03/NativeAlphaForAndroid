@@ -45,6 +45,9 @@ import com.cylonid.nativealpha.util.WebViewLauncher
 class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.SelfManagedInsets {
 
     companion object {
+        /** evaluateJavascript 踢命令（常量避免每次调用重新分配） */
+        private const val REREAD_CMD = "window.__wnThemeReread&&window.__wnThemeReread();"
+
         /** 组合键解析结果 */
         data class ShortcutParseResult(
             val ctrl: Boolean,
@@ -116,13 +119,11 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
     private val siteColorReplayHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var siteColorReplayPending = false
 
-    /** 踢页面重算 + 启动 800ms 缓存重放兜底（仅 onConfigurationChanged 等低频时机调用） */
+    /** evaluateJavascript 踢命令（常量避免每次调用重新分配） */
     internal fun kickSiteColorReread() {
         // evaluateJavascript 不走注入/桥/媒体查询任何一条可能失效的通道，
         // 全 WebView 版本可用——WebView 131 动态路径失效的宿主侧兜底
-        wv?.evaluateJavascript(
-            "window.__wnThemeReread&&window.__wnThemeReread();", null
-        )
+        wv?.evaluateJavascript(REREAD_CMD, null)
         siteColorReplayPending = true
         siteColorReplayHandler.postDelayed({
             if (siteColorReplayPending) {
@@ -333,6 +334,9 @@ class WebViewActivity : AppCompatActivity(), WebViewSiteContext, SystemBars.Self
     }
 
     override fun onDestroy() {
+        // 取消待执行的重放：Runnable 持 Activity 引用，销毁后 800ms 内不释放
+        // 属内存泄漏窗口（同类先例：坑位 12 的 timer 配对纪律）
+        siteColorReplayHandler.removeCallbacksAndMessages(null)
         lifecycleDelegate.onHostDestroy()
         super.onDestroy()
     }

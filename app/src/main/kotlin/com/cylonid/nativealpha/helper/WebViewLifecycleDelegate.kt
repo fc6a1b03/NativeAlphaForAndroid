@@ -226,7 +226,7 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
                         activity, "SysBar", "theme_signal",
                         fields = mapOf(
                             "site" to (activity.webapp?.baseUrl ?: ""),
-                            "color" to (effective?.let { String.format("#%06X", it and 0xFFFFFF) } ?: "none"),
+                            "color" to (effective?.let { "#" + it.toString(16).padStart(6, '0').uppercase() } ?: "none"),
                             "src" to src
                         )
                     )
