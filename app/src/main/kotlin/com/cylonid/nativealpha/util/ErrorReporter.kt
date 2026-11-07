@@ -161,6 +161,15 @@ object ErrorReporter {
     /** 文本内所有 URL 逐个截断 query/fragment，非 URL 部分原样保留 */
     internal fun redactUrlsInText(s: String): String = urlInText.replace(s) { redactUrl(it.value) }
 
+    /**
+     * 导出文本终检（读出侧二次脱敏，dsh-Go 双保险形态）：导出诊断日志前对
+     * **最终全文**再跑一遍 [redactUrlsInText]——写侧 sanitizeFieldValue 是
+     * 逐字段处理，新形态值（嵌套 toString/新 URL 变体）仍可能整体绕过
+     * （FileChooser extracted 泄相册路径、`[` 前缀绕过 `^` 锚点皆此教训）；
+     * 终检同正则幂等（一次脱敏结果再过一遍不变），对已脱敏内容零改写。
+     */
+    internal fun sanitizeExportText(text: String): String = redactUrlsInText(text)
+
     /** URL 脱敏（纯函数可单测）：截断 query/fragment（登录凭证所在，如 `#token=`、`?sid=`），
      *  保留 scheme://host/path 主干并限长——站点 URL 与 content:// 文件 URI 同规则覆盖 */
     internal fun redactUrl(url: String): String {

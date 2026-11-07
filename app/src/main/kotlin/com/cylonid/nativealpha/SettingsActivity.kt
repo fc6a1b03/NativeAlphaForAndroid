@@ -29,6 +29,7 @@ import com.cylonid.nativealpha.ui.GlobalSettingsScreen
 import com.cylonid.nativealpha.util.AppMaterialTheme
 import com.cylonid.nativealpha.util.Const
 import com.cylonid.nativealpha.util.DateUtils
+import com.cylonid.nativealpha.util.ErrorReporter
 import com.cylonid.nativealpha.util.MdRenderer
 import com.cylonid.nativealpha.util.NotificationUtils
 import com.cylonid.nativealpha.util.ThemeUtils
@@ -379,7 +380,10 @@ class SettingsActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
                         return@runOnUiThread
                     }
                     OutputStreamWriter(stream, Charsets.UTF_8).use { writer ->
-                        writer.write(AppErrorEntry.toJson(recent))
+                        // 读出侧二次脱敏（终检）：逐字段写侧脱敏之外，对最终全文
+                        // 再整体过一遍 URL 正则——新形态值绕过写侧时导出仍是干净的
+                        // （幂等，已脱敏内容零改写）；见 ErrorReporter.sanitizeExportText
+                        writer.write(ErrorReporter.sanitizeExportText(AppErrorEntry.toJson(recent)))
                     }
                     // 导出成功即清空历史（用户定调：避免反复导出同一批旧错误）。
                     // v2.2.11 修复：文案声称已清空但 clearAll 从未接线（v2.2.9

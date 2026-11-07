@@ -141,4 +141,29 @@ class ErrorReporterProbeTest {
             ErrorReporter.sanitizeFieldValue(listOf(null, 3, "LEGACY"))
         )
     }
+
+    // ===== 导出读出侧二次脱敏（终检，C1）=====
+
+    @Test
+    fun `sanitizeExportText is idempotent over already-redacted content`() {
+        // 一次脱敏产物再过终检必须零改写（主干可读性不被二次截断）
+        val once = ErrorReporter.sanitizeFieldValue("https://a.com/p?tok=1")
+        assertEquals(once, ErrorReporter.sanitizeExportText(once))
+    }
+
+    @Test
+    fun `sanitizeExportText catches field that bypassed write-side`() {
+        // 终检兜底语义：写侧漏网的 URL 形态（模拟未来新字段直拼 JSON）在
+        // 导出全文层仍被拦截
+        val leaked = """{"msg":"x","detail":"see https://a.com/p?sid=secret&u=1"}"""
+        val out = ErrorReporter.sanitizeExportText(leaked)
+        assertEquals(false, out.contains("sid=secret"))
+        assertEquals(true, out.contains("https://a.com/p"))
+    }
+
+    @Test
+    fun `sanitizeExportText keeps non-url json intact`() {
+        val text = """{"k":"v","n":3,"arr":["a","b"]}"""
+        assertEquals(text, ErrorReporter.sanitizeExportText(text))
+    }
 }
