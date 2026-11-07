@@ -54,6 +54,20 @@ internal object WebThemeColorBridge {
             for(var i=0;i<els.length;i++){
               metas.push({c:els[i].getAttribute('content'),m:els[i].getAttribute('media')});
             }
+            // 样式表 load 监听（2026-11-07 真机定谳的窗口期补口）：Discourse
+            // 类站点切配色=替换/追加 link[rel=stylesheet]，新 CSS 经网络下载
+            // 应用——link 替换是 DOM 变化（obHead 触发 read，但此刻新样式
+            // 尚在下载，读到旧值），「下载完成并应用」不是 DOM 变化，
+            // MutationObserver 对其全盲 → 栏色滞留旧值直至零散 head 操作。
+            // 为每个未挂监听的 stylesheet 挂 load：CSS 应用完成那一刻正中
+            // 盲区。read 自身会重扫（新追加的 link 在下一次 read 时挂上）。
+            var links=document.querySelectorAll('link[rel~="stylesheet"]');
+            for(var j=0;j<links.length;j++){
+              if(!links[j].__wnBound){
+                links[j].__wnBound=1;
+                links[j].addEventListener('load',function(){read('t2');});
+              }
+            }
             var de=document.documentElement;
             var cs='';
             try{cs=de?getComputedStyle(de).colorScheme||'':'';}catch(e){}

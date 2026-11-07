@@ -21,3 +21,4 @@ key.properties
 
 # 会话交接文档（临时，不入库）
 /doc/handoff/
+/adbtmp/

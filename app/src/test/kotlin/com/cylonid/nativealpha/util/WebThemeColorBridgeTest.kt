@@ -56,6 +56,22 @@ class WebThemeColorBridgeTest {
         assertEquals(false, js.contains("obBody.observe(document.body,{childList"))
     }
 
+    /**
+     * 样式表 load 监听钉（2026-11-07 真机定谳「滑动列表才变色」的修复）：
+     * Discourse 切配色=替换/追加 link[rel=stylesheet]，新 CSS 经网络下载
+     * 应用——「应用完成」不是 DOM 变化，MutationObserver 全盲。read 必须
+     * 为每个未挂监听的 stylesheet 挂 load（CSS 应用完成即重读）。
+     * **此块曾在重构中被覆盖丢失（用户红线：新方案不得遗漏旧逻辑），
+     * 本测试防再丢。**
+     */
+    @Test
+    fun themeJsBindStylesheetLoad() {
+        val js = WebThemeColorBridge.THEME_JS
+        assertEquals(true, js.contains("link[rel~=\"stylesheet\"]"))
+        assertEquals(true, js.contains("__wnBound"))
+        assertEquals(true, js.contains("addEventListener('load',function(){read('t2');})"))
+    }
+
     @Test
     fun themeJsHasAllTriggerSources() {
         val js = WebThemeColorBridge.THEME_JS
