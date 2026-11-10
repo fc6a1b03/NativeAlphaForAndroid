@@ -272,7 +272,7 @@ Profile 等。
     - Release body 根据两次 tag 之间的 commit 自动分类（亮点 / 修复 / 性能优化）
 - **分发渠道**：仅 GitHub Releases，不上架 Play / F-Droid
 - **版本升级**：修改 `app/build.gradle` 中 `defaultConfig.versionCode` / `versionName`，同步更新 `README.md`；
-  `doc/KOTLIN_MIGRATION.md` 为历史迁移文档，迁移完成后已归档，后续版本变更无需再改
+  Kotlin 迁移已完成（历史迁移文档已随迁移闭环移除，后续版本变更无需关注）
 
 ---
 
