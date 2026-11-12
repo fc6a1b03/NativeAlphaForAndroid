@@ -98,6 +98,8 @@
     <string name="no_filemanager">请安装文件管理器。</string>
     <string name="export_settings_web_apps">导出设置与 Web App</string>
     <string name="import_settings_web_apps">导入设置与 Web App</string>
+    <string name="import_risk_title">导入将覆盖现有数据</string>
+    <string name="import_risk_desc">导入会用备份文件替换全部站点与设置，并清除所有 Cookie（包括各站点的登录状态）。此操作无法撤销。</string>
     <string name="global_settings_multitouch_reload">使用双指下滑刷新页面</string>
     <string name="allow_location_access">允许位置访问</string>
     <string name="allow_drm_content">允许 DRM 内容</string>
@@ -459,6 +461,10 @@
     <string name="share_close">关闭</string>
     <string name="share_invalid_url">无法生成分享码：站点地址似乎无效。</string>
     <string name="share_invalid_link">这不是有效的站点分享链接。</string>
+    <!-- ===== 域名路由（默认浏览器接管） ===== -->
+    <string name="domain_route_invalid_link">无法打开此链接。</string>
+    <string name="default_browser_entry">设为默认浏览器</string>
+    <string name="desc_default_browser">在其他应用（邮件、笔记、其他浏览器）里点击链接时，按域名自动进入匹配的 Web App；未匹配的链接以临时浏览打开。微信/QQ 等应用内置浏览器不走系统路由。</string>
     <string name="share_qr_content_desc">站点分享链接的二维码</string>
     <!-- ===== 扫码入口（C-扫码：权限走 ActivityResultContracts 现代范式） ===== -->
     <string name="scan_entry_desc">扫码</string>

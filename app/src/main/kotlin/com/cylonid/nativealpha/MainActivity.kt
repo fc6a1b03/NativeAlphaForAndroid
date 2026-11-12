@@ -24,6 +24,7 @@ import com.cylonid.nativealpha.model.WebApp
 import com.cylonid.nativealpha.ui.AddWebAppActivity
 import com.cylonid.nativealpha.ui.MainScreen
 import com.cylonid.nativealpha.util.Const
+import com.cylonid.nativealpha.util.DomainRouter
 import com.cylonid.nativealpha.util.EntryPointUtils.entryPointReached
 import com.cylonid.nativealpha.util.ShortcutIconUtils
 import com.cylonid.nativealpha.util.SiteShareCodec
@@ -47,6 +48,8 @@ class MainActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
         // 分享深链导入（C-分享）：扫码/点开 webnative://add 链接 → 校验后
         // 进添加向导预填（fail-closed：解析失败提示无效，不进向导）
         routeShareDeepLink(intent)
+        // 域名路由（默认浏览器接管）：http/https 链接按 host 匹配 WebApp
+        routeWebLink(intent)
 
         // 崩溃恢复提示：上次进程崩溃过 → 引导导出诊断日志（异步检查，不阻塞启动）
         checkAndPromptCrashLog()
@@ -139,8 +142,10 @@ class MainActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // singleTask：App 在前台时再扫一个码走这里（onCreate 只覆盖冷启路径）
+        // singleTask：App 在前台时再扫一个码/再点一个链接走这里
+        //（onCreate 只覆盖冷启路径）
         routeShareDeepLink(intent)
+        routeWebLink(intent)
     }
 
     /**
@@ -162,6 +167,32 @@ class MainActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
                 .putExtra(AddWebAppActivity.EXTRA_PREFILL_NAME, shared.name)
                 .putExtra(AddWebAppActivity.EXTRA_PREFILL_CONFIG, shared.configJson)
         )
+    }
+
+    /**
+     * 域名路由（默认浏览器接管）：http/https 链接按 host 匹配已注册
+     * WebApp——命中在其内打开该链接（保留完整路径：点具体文章开具体
+     * 文章），未命中瞬态浏览（浏览器兜底角色），非法提示无效。
+     * intent data 视为不可信输入（同分享深链 fail-closed 纪律）；
+     * 链接原样打开不剥 query（浏览器保真优先，区别于扫码防追踪口径）。
+     */
+    private fun routeWebLink(intent: Intent?) {
+        val url = intent?.dataString ?: return
+        val scheme = intent.data?.scheme?.lowercase() ?: return
+        if (scheme != DomainRouter.SCHEME_HTTP && scheme != DomainRouter.SCHEME_HTTPS) return
+        // 冷启路径 loadAppData 尚未跑（onResume 才调）：路由需要 WebApp 列表，
+        // 先幂等加载（已加载短路），此后 onResume 再调零重复开销
+        DataManager.getInstance().loadAppData()
+        val webApps = DataManager.getInstance().webAppsFlow.value.items
+            .filterNotNull().filter { it.isActiveEntry }
+        when (val action = DomainRouter.route(url, webApps)) {
+            is DomainRouter.Action.OpenInWebApp ->
+                WebViewLauncher.startWebViewAtUrl(action.webApp, action.url, this)
+            is DomainRouter.Action.TransientBrowse ->
+                WebViewLauncher.startRawUrl(action.url, this)
+            is DomainRouter.Action.Invalid ->
+                Toast.makeText(this, R.string.domain_route_invalid_link, Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onResume() {

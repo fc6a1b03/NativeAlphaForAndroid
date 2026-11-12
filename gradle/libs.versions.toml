@@ -40,7 +40,7 @@ palette = "1.1.0"
 gson = "2.15.0"
 jsoup = "1.23.2"
 markwon = "4.6.2"
-# 加载动画（Lottie 矢量动画播放，View 版；素材 res/raw/lottie_dog_walk.json，LottieFiles Free License）
+# 加载动画（Lottie 矢量动画播放，View 版；素材授权见 THIRD_PARTY_NOTICES.md 第 1 节）
 lottie = "6.7.1"
 
 # 测试

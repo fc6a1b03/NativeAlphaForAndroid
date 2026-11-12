@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SystemUpdate
@@ -64,6 +65,8 @@ import androidx.core.os.LocaleListCompat
 import androidx.appcompat.app.AppCompatDelegate
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.core.net.toUri
 import com.cylonid.nativealpha.BuildConfig
 import com.cylonid.nativealpha.R
@@ -97,6 +100,18 @@ fun GlobalSettingsScreen(
     val settings = DataManager.getInstance().settings
     var modified by remember { mutableStateOf(settings.copy()) }
     val context = LocalContext.current
+    var showImportRiskDialog by remember { mutableStateOf(false) }
+    if (showImportRiskDialog) {
+        ConfirmDialog(
+            title = stringResource(R.string.import_risk_title),
+            text = stringResource(R.string.import_risk_desc),
+            onConfirm = {
+                showImportRiskDialog = false
+                onImport()
+            },
+            onDismiss = { showImportRiskDialog = false }
+        )
+    }
 
     // 诊断日志分级计数：导出入口副标题动态展示，导出前即知有无真错误
     // （容器叫「错误日志」实含 INFO 探针的语义错位，实机反馈原话「还以为是错误日志」）。
@@ -180,6 +195,33 @@ fun GlobalSettingsScreen(
                     title = stringResource(R.string.global_web_app_settings),
                     subtitle = stringResource(R.string.these_settings_are_applied_globally_and_override_app_specific_settings),
                     onClick = onGlobalWebApp
+                )
+
+                HorizontalDivider()
+
+                // 默认浏览器引导（域名路由接管）：跳系统默认应用设置页。
+                // 路由判定在 DomainRouter + MainActivity.routeWebLink，本入口
+                // 只负责把用户带到开关处——个别 ROM 缺该页时回落应用详情页
+                SettingsActionRow(
+                    icon = { Icon(Icons.Default.Public, contentDescription = null) },
+                    title = stringResource(R.string.default_browser_entry),
+                    subtitle = stringResource(R.string.desc_default_browser),
+                    onClick = {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+                        } catch (ignored: Exception) {
+                            try {
+                                context.startActivity(
+                                    Intent(
+                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                        Uri.fromParts("package", context.packageName, null)
+                                    )
+                                )
+                            } catch (ignored2: Exception) {
+                                // 两级设置页均不可达：静默（入口引导非关键路径）
+                            }
+                        }
+                    }
                 )
 
                 HorizontalDivider()
@@ -337,7 +379,9 @@ fun GlobalSettingsScreen(
                 SettingsActionRow(
                     icon = { Icon(Icons.Default.Restore, contentDescription = null) },
                     title = stringResource(R.string.import_settings_web_apps),
-                    onClick = onImport
+                    // 导入是覆盖性动作（站点+设置+全 Cookie 清除，不可逆）——
+                    // 先确认再进文件选择（v2.4.16 补口：此前直通零确认）
+                    onClick = { showImportRiskDialog = true }
                 )
                 HorizontalDivider()
                 SettingsActionRow(

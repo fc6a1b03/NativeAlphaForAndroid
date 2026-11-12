@@ -21,10 +21,19 @@ import com.cylonid.nativealpha.model.WebApp
  */
 internal object StatAccent {
 
-    /** 回退色：M3 靛蓝 seed（#4F46E5，README 品牌色）——非动态主题下的稳定兜底 */
+    /**
+     * 回退色：M3 靛蓝 seed（#4F46E5，README 品牌色）——非动态主题下的稳定兜底。
+     * 对比度实勘：vs 白 6.29（超 AA 4.5，接近 AAA 7）——英雄卡/柱状图上叠加
+     * 白字或亮色内容时该色自身达标；文字色的最终保证仍由 M3 主题槽位
+     * （on* 系列）承担，本色只是色块基色。
+     */
     private const val FALLBACK_COLOR_HEX = "#4F46E5"
 
-    /** 饱和度门槛：低于此值（黑白/灰图标）视为无有效主色，回退品牌色 */
+    /**
+     * 饱和度门槛：低于此值（黑白/灰图标）视为无有效主色，回退品牌色。
+     * 经验阈值——Palette Vibrant 自身有饱和度偏好，0.15 是「肉眼可辨彩色
+     * 与灰白」的分界下界；与对比度无关（那是 on* 槽位的职责）。
+     */
     private const val MIN_SATURATION = 0.15f
 
     /** 主色缓存（站点 ID → ARGB int；32 站覆盖全站列表绰绰有余） */
@@ -63,6 +72,9 @@ internal object StatAccent {
      * 热力图 5 档色阶：低→高活跃。档位取值对齐主流参照（GitHub contributions：
      * 最低活跃档即明显可辨，仅空态用容器色）——纯低 alpha 在浅色底会淡到不可辨，
      * 故低档 35% 起步、高档全饱和。色相仍只由强调色派生（不引入第二色相）。
+     * 口径说明：热力格是纯色块不承载文字，**不适用 WCAG 文字对比度口径**；
+     * 可辨性由相邻档 alpha 步进（0x59→0x8C→0xB8→0xE0→0xFF，差 0.20/0.17/0.16/0.12）
+     * 与色相一致性保证。
      */
     fun heatScale(base: ComposeColor): List<ComposeColor> =
         listOf(0x59, 0x8C, 0xB8, 0xE0, 0xFF).map { base.copy(alpha = it / 255f) }

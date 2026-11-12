@@ -59,6 +59,19 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="webnative" android:host="add" />
             </intent-filter>
+            <!-- 域名路由接管（默认浏览器）：声明处理 http/https 链接——用户设为
+                 默认浏览器或点击时选「总是」后，邮件/笔记/其他浏览器的链接进入
+                 本应用按域名路由（DomainRouter）：命中已注册 WebApp 在其内打开
+                 （保留完整路径），未命中瞬态浏览（浏览器兜底角色）。
+                 不带 autoVerify（无 assetlinks.json 依赖，未验证链接路径——
+                 per-app「总是」授权，无需逐域校验）；判定收口在 DomainRouter -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+            </intent-filter>
         </activity>
 
 <!--        Make sure to also copy changes to WebViewActivity in build.gradle-->

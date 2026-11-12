@@ -68,6 +68,10 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
 
     private var quitOnNextBackpress = false
 
+    /** 域名路由覆盖 URL：本装配加载它而非 baseUrl（仅本次 intent 有效，
+     *  每次 handleIntent 重置——无 extra 时回落 baseUrl，不复用旧值） */
+    private var pendingOverrideUrl: String? = null
+
     /** 后台回收标记：true=WebView 实例已被分级回收，onStart 需重建 */
     private var recycled = false
 
@@ -105,6 +109,9 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
             activity.webapp = DataManager.getInstance().getWebApp(activity.webappID)
         }
         activity.webappTabIndex = intent.getIntExtra(Const.INTENT_TAB_INDEX, 0)
+        // 域名路由覆盖 URL：仅命中已注册 WebApp 的启动带此 extra；每次重置
+        // （onNewIntent 复用实例再进时无 extra 必须回落 baseUrl）
+        pendingOverrideUrl = intent.getStringExtra(Const.INTENT_OVERRIDE_URL)
         EntryPointUtils.entryPointReached(activity)
         // 重置错误页重试目标（新应用加载，避免残留旧地址）
         activity.retryUrl = ""
@@ -181,7 +188,11 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
             activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
 
-        val url = app.baseUrl
+        // 域名路由覆盖 URL 优先（点具体链接开具体页面）；消费即清——后续
+        // 装配（如重载）不得再吃到旧值。返回键「到底回首页」走 baseUrl，
+        // 不经此字段（首页语义独立于外部链接入口）
+        val effectiveUrl = pendingOverrideUrl ?: app.baseUrl
+        pendingOverrideUrl = null
 
         activity.loadingAnimal = activity.findViewById(R.id.loadingAnimal)
         activity.loadingBg = activity.findViewById(R.id.loadingBg)
@@ -273,7 +284,7 @@ class WebViewLifecycleDelegate(private val activity: WebViewActivity) {
         darkMode.setDarkModeIfNeeded()
 
         activity.pageChrome.initCustomHeaders(app.isSendSavedataRequest)
-        activity.pageChrome.loadURL(webview, url)
+        activity.pageChrome.loadURL(webview, effectiveUrl)
         webview.webChromeClient = CustomWebChromeClient(activity)
         activity.pageChrome.installDownloadListener(webview)
         activity.touchHandler.attach()

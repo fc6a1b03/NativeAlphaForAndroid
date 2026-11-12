@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import com.cylonid.nativealpha.R
+import com.cylonid.nativealpha.util.AndroidPermissionRequestQueue
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
 
@@ -231,9 +232,15 @@ internal class WebPermissionCoordinator(
 
     private fun requestAndroid(permissions: List<String>, onResult: (Boolean) -> Unit) {
         requestedHistory.addAll(permissions)
-        requestAndroidPermissions(permissions) { granted ->
-            onResult(granted)
-        }
+        // 全局队列串行化系统请求（C6）：系统权限对话框全局唯一，跨格并发调用
+        // 会互相顶掉（后发吃掉先发的结果回调）——同组请求 join 共享结果，
+        // 异组 FIFO 串行。retire 由宿主/矩阵 Activity onDestroy 接线。
+        AndroidPermissionRequestQueue.enqueue(
+            permissions,
+            channel = requestAndroidPermissions,
+            fire = requestAndroidPermissions,
+            onResult = onResult
+        )
     }
 
     private fun isPermanentlyDenied(permissions: List<String>): Boolean {

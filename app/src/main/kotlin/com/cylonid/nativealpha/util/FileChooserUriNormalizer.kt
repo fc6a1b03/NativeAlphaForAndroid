@@ -29,6 +29,24 @@ internal object FileChooserUriNormalizer {
     /** 流式拷贝缓冲（64KB） */
     private const val BUFFER_BYTES = 64 * 1024
 
+    /**
+     * 物化字节预算（默认 32MB，测试可注入小值）：物化只服务「不可读 URI 的
+     * 兜底转可读」，provider 谎报 size（SIZE 列可缺失/造假）或巨流时流式
+     * 累计超限即断——防写满 cache 分区与长时间阻塞上传。超限=物化失败，
+     * 走既有 degraded 透传降级（不新增 UI）。参照 dsh-Go SelectedFileBudget
+     * 「硬性策略上限独立于 provider 的 SIZE 列」形态。
+     */
+    internal const val MATERIALIZATION_BUDGET_BYTES = 32L * 1024 * 1024
+
+    /**
+     * chooser/ 物化残留时效（24h）：字节预算只防「单次巨流」，防不住
+     * 「多次合法积累」——物化成功+FileProvider 交付后无人清理，反复上传
+     * 大文件照样写满 cache 分区。FileProvider URI 只在当次上传会话内有效，
+     * 跨会话残留必是垃圾。不选 LRU/按大小：WebView 读 URI 的时机不定，
+     * 近期文件不能动——按修改时间超龄清理是唯一安全的口径。
+     */
+    internal const val CHOOSER_RETENTION_MS = 24L * 60 * 60 * 1000
+
     /** 归一化结果：uris=回执 WebView 的最终 URI；degraded=物化失败被迫透传的
      *  原 URI（物理不可读，调用方应提示用户——页面端只会表现为静默不上传） */
     data class Result(val uris: Array<Uri>?, val degraded: List<Uri>)
@@ -46,13 +64,14 @@ internal object FileChooserUriNormalizer {
     internal fun ensureWebViewReadable(
         context: Context,
         uri: Uri,
-        degraded: MutableList<Uri>
+        degraded: MutableList<Uri>,
+        budgetBytes: Long = MATERIALIZATION_BUDGET_BYTES
     ): Uri {
         if (uri.scheme == "content" && canRead(context.contentResolver, uri)) {
             Log.d(TAG, "uri passthrough: $uri")
             return uri
         }
-        val copied = copyToCache(context, uri)
+        val copied = copyToCache(context, uri, budgetBytes)
         if (copied != null) {
             Log.w(TAG, "uri materialized via FileProvider: $copied (origin=$uri)")
             return copied
@@ -74,7 +93,7 @@ internal object FileChooserUriNormalizer {
     /** 流式拷贝到 cache/chooser，经 FileProvider 发 content URI（扩展名保 MIME）。
      *  任何一环失败（含 FileProvider 配置异常）都降级为 null→透传：兜底层自己
      *  不允许成为崩溃源。 */
-    private fun copyToCache(context: Context, uri: Uri): Uri? {
+    private fun copyToCache(context: Context, uri: Uri, budgetBytes: Long): Uri? {
         val input = try {
             context.contentResolver.openInputStream(uri) ?: return null
         } catch (e: Exception) {
@@ -84,6 +103,8 @@ internal object FileChooserUriNormalizer {
         return input.use { stream ->
             try {
                 val dir = File(context.cacheDir, "chooser").apply { mkdirs() }
+                // 物化前清超龄残留（预防性，失败静默——不允许清理成为上传失败源）
+                pruneStaleMaterialized(dir, System.currentTimeMillis())
                 val mime = context.contentResolver.getType(uri)
                 val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime)
                     // file:// 从原文件名保扩展名（getType 对 file scheme 为 null）
@@ -91,12 +112,50 @@ internal object FileChooserUriNormalizer {
                         ?.takeIf { it.length in 1..5 && it.all { c -> c.isLetterOrDigit() } }
                     ?: "dat"
                 val out = File(dir, "upload_${System.currentTimeMillis()}.$ext")
-                out.outputStream().use { output -> stream.copyTo(output, BUFFER_BYTES) }
+                // 流式累计计数（不信 provider SIZE 列）：超预算即断，半成品删除
+                // 后返回 null→degraded 透传。+1 字节即判超限——恰好压线的谎报
+                // size 也逃不过（多读一个字节就暴露）。
+                var total = 0L
+                var overBudget = false
+                out.outputStream().use { output ->
+                    val buf = ByteArray(BUFFER_BYTES)
+                    while (true) {
+                        val n = stream.read(buf)
+                        if (n < 0) break
+                        total += n
+                        if (total > budgetBytes) {
+                            overBudget = true
+                            break
+                        }
+                        output.write(buf, 0, n)
+                    }
+                }
+                if (overBudget) {
+                    out.delete()
+                    Log.w(TAG, "cache materialize aborted: budget ${budgetBytes}B exceeded by $uri (total=$total)")
+                    return null
+                }
                 // authority 须与 manifest 的 androidx.core.content.FileProvider 声明一致
                 FileProvider.getUriForFile(context, context.packageName + ".fileprovider", out)
             } catch (e: Exception) {
                 Log.e(TAG, "cache materialize failed for $uri", e)
                 null
+            }
+        }
+    }
+
+    /** 清理目录内修改时间超龄的残留文件（只删本目录一层、不递归）。
+     *  单文件删除失败只记日志继续——个别文件被占用不应阻断整批清理，
+     *  更不应阻断调用方的物化主流程。 */
+    internal fun pruneStaleMaterialized(
+        dir: File,
+        nowMs: Long,
+        retentionMs: Long = CHOOSER_RETENTION_MS
+    ) {
+        val files = dir.listFiles() ?: return
+        for (f in files) {
+            if (nowMs - f.lastModified() > retentionMs && !f.delete()) {
+                Log.w(TAG, "stale chooser file delete failed: ${f.name}")
             }
         }
     }

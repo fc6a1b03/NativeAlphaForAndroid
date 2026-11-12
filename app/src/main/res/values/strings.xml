@@ -98,6 +98,8 @@
     <string name="no_filemanager">Please install a file manager.</string>
     <string name="export_settings_web_apps"><![CDATA[Export settings & Web Apps]]></string>
     <string name="import_settings_web_apps"><![CDATA[Import settings & Web Apps]]></string>
+    <string name="import_risk_title">Import overwrites current data</string>
+    <string name="import_risk_desc">Importing replaces all sites and settings with the backup file, and clears all cookies (sign-in states on every site). This cannot be undone.</string>
     <string name="global_settings_multitouch_reload">Use two-finger swipes ↓ to reload page</string>
     <string name="allow_location_access">Allow location access</string>
     <string name="allow_drm_content">Allow DRM content</string>
@@ -466,6 +468,10 @@
     <string name="share_close">Close</string>
     <string name="share_invalid_url">Cannot generate a share code: the site URL looks invalid.</string>
     <string name="share_invalid_link">This share link is not valid.</string>
+    <!-- ===== Domain routing (default-browser takeover) ===== -->
+    <string name="domain_route_invalid_link">This link cannot be opened.</string>
+    <string name="default_browser_entry">Set as default browser</string>
+    <string name="desc_default_browser">Links you tap (email, notes, other browsers) open in the matching Web App by domain; unmatched links open as temporary browsing. In-app browsers like WeChat don\'t go through system routing.</string>
     <string name="share_qr_content_desc">QR code of the site share link</string>
     <!-- ===== Scan entry (C-扫码: camera permission via ActivityResultContracts) ===== -->
     <string name="scan_entry_desc">Scan QR code</string>

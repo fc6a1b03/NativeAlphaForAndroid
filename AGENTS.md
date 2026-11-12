@@ -5,7 +5,7 @@
 PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生成、长文档）做渲染优化。
 
 > 阅读本文件前，请先查阅 `skills`——所有代码改动必须遵守其中的「十三条红线」与 Kotlin/Google Android
-> 编码规范。
+> 编码规范；**修复/重构/发版的阶段化流程纪律见 `skills/ReviewFixProtocol.md`**（六阶段+八不变量+记账制；编码规范权威源在 GoogleCodingStandards.md，流程协议权威源在 ReviewFixProtocol.md）。
 
 ---
 
@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.4.15`（`versionCode 2415`）
+- **当前版本**：`2.4.16`（`versionCode 2416`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -149,7 +149,8 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── StatsReviewData.kt       # 回顾数据聚合（纯函数；活跃<7 天不生成）
 │   ├── WebAppStatsErrors.kt     # 统计页错误日志区块（分组/详情抽屉/清空，状态自管）
 │   ├── WebAppStatsMetrics.kt    # 统计页图表/格式化/分桶（纯函数可单测）
-│   ├── ShortcutRecreateDialog.kt# 重新创建快捷方式弹窗
+│   ├── ConfirmDialog.kt           # 通用确认对话框（不可逆动作统一入口：导入确认等）
+├── ShortcutRecreateDialog.kt# 重新创建快捷方式弹窗
 │   ├── ShortcutMenuOverlay.kt   # 快捷方式菜单浮层
 │   └── WebViewMenuOverlay.kt    # WebView 页面菜单浮层
 ├── matrix/                      # 多窗矩阵（独立包，MainActivity 直达 MatrixActivity，实现内聚）
@@ -185,6 +186,8 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── WebAppDataFetcher.kt     # 添加向导：标题/favicon/start_url 识别
 │   ├── WebViewLauncher.kt       # 启动 WebViewActivity 的封装
 │   ├── WebViewSetup.kt          # WebView 创建配置纯函数（宿主/矩阵同源，禁双路径漂移）
+│   ├── DomainRouter.kt          # 域名路由纯函数（默认浏览器接管：host 精确/子域匹配，多命中取最具体）
+│   ├── AndroidPermissionRequestQueue.kt  # 运行时权限请求全局队列（跨格系统框防顶掉）
 │   ├── WebShareBridge.kt        # navigator.share 桥（document-start 注入 + WebMessageListener → 系统分享面板）
 │   ├── WebThemeColorBridge.kt   # 站点主题色桥（meta[theme-color] → 系统栏，通用兼容）
 │   ├── StatsRecorder.kt         # 加载耗时/缓存等统计记录（单线程埋点队列）
@@ -272,7 +275,7 @@ Profile 等。
     - Release body 根据两次 tag 之间的 commit 自动分类（亮点 / 修复 / 性能优化）
 - **分发渠道**：仅 GitHub Releases，不上架 Play / F-Droid
 - **版本升级**：修改 `app/build.gradle` 中 `defaultConfig.versionCode` / `versionName`，同步更新 `README.md`；
-  `doc/KOTLIN_MIGRATION.md` 为历史迁移文档，迁移完成后已归档，后续版本变更无需再改
+  Kotlin 迁移已完成（历史迁移文档已随迁移闭环移除，后续版本变更无需关注）
 
 ---
 
@@ -448,11 +451,11 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-11-07（**v2.4.14 已发版**：theme-color 桥三级判据
-（S1 colorScheme→S2 背景亮度→S3 不干预，系统 matchMedia 退出选条）+
-事件驱动触发层重构（WebView 131 上 observer callback 内 setTimeout
-永不执行的内核怪癖定谳——同步直读+宿主 evaluateJavascript 踢兜底）+
-body 属性观察点（站点内切主题跟随）+ theme_signal 探针；验证套件
-doc/theme-color-test-pages/ 入库，坑位 16 已补三次定诊。真机 WebView
-131 四路像素级全过。待实机回传：v2.4.11 噪音 WARNING 清零口径 +
-v2.4.14 linux.do/多站点栏色实测）。
+*最后更新：2026-11-12（**v2.4.16 发版**：域名路由接管（默认浏览器按域名
+进匹配 WebApp，DomainRouter 纯函数+override URL 保留完整路径+瞬态浏览
+兜底+设置页默认浏览器引导）+ 备份导入确认门 + 文件选择物化 32MB 字节
+预算与 chooser/ 残留 24h 时效清理 + 运行时权限请求全局队列 + 导出读出
+侧二次脱敏终检 + 瞬态浏览秒退存量修复（loadURL 负 ID 误 finish，扫码
+同踩）+ THIRD_PARTY_NOTICES.md。模拟器全链路实证；真机项（外链源/
+ROM 默认页/chooser 总是路径/登录态路由/C5 大文件）待回传）。**待实机
+回传：linux.do 登录深色页最终效果 + v2.4.11 噪音 WARNING 清零口径**）。

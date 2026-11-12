@@ -31,6 +31,28 @@ object WebViewLauncher {
         }
     }
 
+    /**
+     * 域名路由命中（默认浏览器接管）：在已注册 WebApp 内打开具体链接
+     * （overrideUrl 非 baseUrl）。任务身份仍用 baseUrl——同一 WebApp 的
+     * 所有外部链接复用同一任务卡（onNewIntent 切换，与主启动链路一致）。
+     */
+    @JvmStatic
+    fun startWebViewAtUrl(webapp: WebApp, overrideUrl: String, c: Context) {
+        try {
+            val intent = createWebViewIntent(webapp, c, webapp.ID, 0)
+                ?: return
+            intent.putExtra(Const.INTENT_OVERRIDE_URL, overrideUrl)
+            c.startActivity(intent)
+        } catch (e: NullPointerException) {
+            NotificationUtils.showInfoSnackbar(
+                c as AppCompatActivity,
+                c.getString(R.string.webview_activity_launch_failed),
+                Snackbar.LENGTH_LONG
+            )
+            e.printStackTrace()
+        }
+    }
+
     @JvmStatic
     fun createWebViewIntent(webapp: WebApp, c: Context?): Intent? {
         return createWebViewIntent(webapp, c, webapp.ID, 0)
