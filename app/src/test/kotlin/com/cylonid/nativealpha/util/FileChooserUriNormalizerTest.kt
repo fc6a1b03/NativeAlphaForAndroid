@@ -135,4 +135,28 @@ class FileChooserUriNormalizerTest {
         )
         assertTrue(out != uri || degraded.isNotEmpty())
     }
+
+    @Test
+    fun `stale chooser files older than retention are pruned`() {
+        // 超龄残留（>24h）必是垃圾：FileProvider URI 只在当次上传会话内有效
+        val dir = File(context.cacheDir, "chooser").apply { mkdirs() }
+        val stale = File(dir, "upload_stale.dat").apply { writeBytes(byteArrayOf(1)) }
+        val fresh = File(dir, "upload_fresh.dat").apply { writeBytes(byteArrayOf(2)) }
+        assertTrue(stale.setLastModified(0L))
+        val now = System.currentTimeMillis()
+        FileChooserUriNormalizer.pruneStaleMaterialized(dir, now)
+        assertTrue(!stale.exists())
+        assertTrue(fresh.exists())
+    }
+
+    @Test
+    fun `recent chooser files within retention are kept`() {
+        // 近期文件不能动：WebView 读 URI 的时机不定（LRU/按大小会误删在用文件，
+        // 时效口径的存在理由）
+        val dir = File(context.cacheDir, "chooser").apply { mkdirs() }
+        val recent = File(dir, "upload_recent.dat").apply { writeBytes(byteArrayOf(1)) }
+        val now = System.currentTimeMillis()
+        FileChooserUriNormalizer.pruneStaleMaterialized(dir, now)
+        assertTrue(recent.exists())
+    }
 }

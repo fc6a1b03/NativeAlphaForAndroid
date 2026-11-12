@@ -38,6 +38,15 @@ internal object FileChooserUriNormalizer {
      */
     internal const val MATERIALIZATION_BUDGET_BYTES = 32L * 1024 * 1024
 
+    /**
+     * chooser/ 物化残留时效（24h）：字节预算只防「单次巨流」，防不住
+     * 「多次合法积累」——物化成功+FileProvider 交付后无人清理，反复上传
+     * 大文件照样写满 cache 分区。FileProvider URI 只在当次上传会话内有效，
+     * 跨会话残留必是垃圾。不选 LRU/按大小：WebView 读 URI 的时机不定，
+     * 近期文件不能动——按修改时间超龄清理是唯一安全的口径。
+     */
+    internal const val CHOOSER_RETENTION_MS = 24L * 60 * 60 * 1000
+
     /** 归一化结果：uris=回执 WebView 的最终 URI；degraded=物化失败被迫透传的
      *  原 URI（物理不可读，调用方应提示用户——页面端只会表现为静默不上传） */
     data class Result(val uris: Array<Uri>?, val degraded: List<Uri>)
@@ -94,6 +103,8 @@ internal object FileChooserUriNormalizer {
         return input.use { stream ->
             try {
                 val dir = File(context.cacheDir, "chooser").apply { mkdirs() }
+                // 物化前清超龄残留（预防性，失败静默——不允许清理成为上传失败源）
+                pruneStaleMaterialized(dir, System.currentTimeMillis())
                 val mime = context.contentResolver.getType(uri)
                 val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime)
                     // file:// 从原文件名保扩展名（getType 对 file scheme 为 null）
@@ -129,6 +140,22 @@ internal object FileChooserUriNormalizer {
             } catch (e: Exception) {
                 Log.e(TAG, "cache materialize failed for $uri", e)
                 null
+            }
+        }
+    }
+
+    /** 清理目录内修改时间超龄的残留文件（只删本目录一层、不递归）。
+     *  单文件删除失败只记日志继续——个别文件被占用不应阻断整批清理，
+     *  更不应阻断调用方的物化主流程。 */
+    internal fun pruneStaleMaterialized(
+        dir: File,
+        nowMs: Long,
+        retentionMs: Long = CHOOSER_RETENTION_MS
+    ) {
+        val files = dir.listFiles() ?: return
+        for (f in files) {
+            if (nowMs - f.lastModified() > retentionMs && !f.delete()) {
+                Log.w(TAG, "stale chooser file delete failed: ${f.name}")
             }
         }
     }
