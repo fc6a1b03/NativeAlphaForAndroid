@@ -13,7 +13,7 @@ PWA 风格 Android 应用，并为高频文本流场景（AI 对话、代码生�
 
 - **应用名**：WebNative
 - **包名 / namespace / applicationId**：`com.cylonid.nativealpha`
-- **当前版本**：`2.4.15`（`versionCode 2415`）
+- **当前版本**：`2.4.16`（`versionCode 2416`）
 - **最低 SDK**：31（Android 12）
 - **目标 / 编译 SDK**：37
 - **开源协议**：GPL-3.0
@@ -149,7 +149,8 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── StatsReviewData.kt       # 回顾数据聚合（纯函数；活跃<7 天不生成）
 │   ├── WebAppStatsErrors.kt     # 统计页错误日志区块（分组/详情抽屉/清空，状态自管）
 │   ├── WebAppStatsMetrics.kt    # 统计页图表/格式化/分桶（纯函数可单测）
-│   ├── ShortcutRecreateDialog.kt# 重新创建快捷方式弹窗
+│   ├── ConfirmDialog.kt           # 通用确认对话框（不可逆动作统一入口：导入确认等）
+├── ShortcutRecreateDialog.kt# 重新创建快捷方式弹窗
 │   ├── ShortcutMenuOverlay.kt   # 快捷方式菜单浮层
 │   └── WebViewMenuOverlay.kt    # WebView 页面菜单浮层
 ├── matrix/                      # 多窗矩阵（独立包，MainActivity 直达 MatrixActivity，实现内聚）
@@ -185,6 +186,8 @@ app/src/main/kotlin/com/cylonid/nativealpha/
 │   ├── WebAppDataFetcher.kt     # 添加向导：标题/favicon/start_url 识别
 │   ├── WebViewLauncher.kt       # 启动 WebViewActivity 的封装
 │   ├── WebViewSetup.kt          # WebView 创建配置纯函数（宿主/矩阵同源，禁双路径漂移）
+│   ├── DomainRouter.kt          # 域名路由纯函数（默认浏览器接管：host 精确/子域匹配，多命中取最具体）
+│   ├── AndroidPermissionRequestQueue.kt  # 运行时权限请求全局队列（跨格系统框防顶掉）
 │   ├── WebShareBridge.kt        # navigator.share 桥（document-start 注入 + WebMessageListener → 系统分享面板）
 │   ├── WebThemeColorBridge.kt   # 站点主题色桥（meta[theme-color] → 系统栏，通用兼容）
 │   ├── StatsRecorder.kt         # 加载耗时/缓存等统计记录（单线程埋点队列）
@@ -448,10 +451,11 @@ Android SDK 路径已配置在 local.properties
 
 ---
 
-*最后更新：2026-11-07（**v2.4.15 已发版**：theme-color 桥全量重构——
-判定下沉 WebPageColorPolicy（Kotlin 纯函数可穷举）+ 三级判据终版
-（S1 声明匹配→S2 背景链深层容器 deepBg→body→html→S3 不干预，系统
-matchMedia 退出选条）+ Chromium first-match/词边界对齐 + 切配色样式表
-load 窗口期补口 + theme_signal 探针增强（color=none 附信号原文）。
-真机 131 多路像素级验证。待实机回传：linux.do 登录深色页最终效果 +
-v2.4.11 噪音 WARNING 清零口径）。
+*最后更新：2026-11-12（**v2.4.16 发版**：域名路由接管（默认浏览器按域名
+进匹配 WebApp，DomainRouter 纯函数+override URL 保留完整路径+瞬态浏览
+兜底+设置页默认浏览器引导）+ 备份导入确认门 + 文件选择物化 32MB 字节
+预算与 chooser/ 残留 24h 时效清理 + 运行时权限请求全局队列 + 导出读出
+侧二次脱敏终检 + 瞬态浏览秒退存量修复（loadURL 负 ID 误 finish，扫码
+同踩）+ THIRD_PARTY_NOTICES.md。模拟器全链路实证；真机项（外链源/
+ROM 默认页/chooser 总是路径/登录态路由/C5 大文件）待回传）。**待实机
+回传：linux.do 登录深色页最终效果 + v2.4.11 噪音 WARNING 清零口径**）。
