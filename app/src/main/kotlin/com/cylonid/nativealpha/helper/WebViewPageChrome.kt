@@ -361,11 +361,11 @@ class WebViewPageChrome(private val activity: WebViewActivity) {
     }
 
     fun loadURL(view: WebView, url: String) {
-        val webApp = DataManager.getInstance().getWebApp(activity.webappID)
-        if (webApp == null) {
-            activity.finish()
-            return
-        }
+        // 用当前装配实例而非重查 DataManager：瞬态浏览（负 ID，扫码/外部链接）
+        // 不在册——getWebApp(-1) 恒 null 会把瞬态页误 finish（域名路由瞬态
+        // 浏览秒退实锤，扫码路径同踩）。activity.webapp 由 handleIntent 装配
+        // （在册站点=同一 getWebApp 来源，语义等价；null 时 proceedSetup 已 finish）
+        val webApp = activity.webapp ?: return
         if (url.contains("http://") && !webApp.isAllowHttp) {
             val builder = AlertDialog.Builder(activity)
 
