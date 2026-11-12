@@ -179,7 +179,7 @@ class MainActivity : AppCompatActivity(), SystemBars.SelfManagedInsets {
     private fun routeWebLink(intent: Intent?) {
         val url = intent?.dataString ?: return
         val scheme = intent.data?.scheme?.lowercase() ?: return
-        if (scheme != "http" && scheme != "https") return
+        if (scheme != DomainRouter.SCHEME_HTTP && scheme != DomainRouter.SCHEME_HTTPS) return
         // 冷启路径 loadAppData 尚未跑（onResume 才调）：路由需要 WebApp 列表，
         // 先幂等加载（已加载短路），此后 onResume 再调零重复开销
         DataManager.getInstance().loadAppData()

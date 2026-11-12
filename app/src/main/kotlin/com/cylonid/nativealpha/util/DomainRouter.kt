@@ -24,6 +24,10 @@ import java.net.URI
  */
 object DomainRouter {
 
+    /** 路由只认的协议字面量（域名路由/外部链接入口与扫码白名单同口径） */
+    const val SCHEME_HTTP = "http"
+    const val SCHEME_HTTPS = "https"
+
     sealed interface Action {
         /** 命中已注册 WebApp：在该应用内打开 [url]（非 baseUrl） */
         data class OpenInWebApp(val webApp: WebApp, val url: String) : Action
@@ -41,10 +45,9 @@ object DomainRouter {
         } catch (ignored: Exception) {
             return Action.Invalid
         }
+        val scheme = uri.scheme?.lowercase()
         val host = uri.host?.lowercase()
-        if ((uri.scheme?.lowercase() != "http" && uri.scheme?.lowercase() != "https") ||
-            host.isNullOrBlank()
-        ) {
+        if ((scheme != SCHEME_HTTP && scheme != SCHEME_HTTPS) || host.isNullOrBlank()) {
             return Action.Invalid
         }
         val matched = matchHost(host, webApps)
