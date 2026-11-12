@@ -14,6 +14,10 @@ object Const {
     const val INTENT_REFRESH_NEW_THEME = "theme_changed"
     /** 扫码临时浏览：携带原始 URL 直接进页面（不注册站点，ID 恒为负） */
     const val INTENT_RAW_URL = "raw_url"
+    /** 域名路由（默认浏览器接管）：在已注册 WebApp 内打开具体链接
+     *  （非 baseUrl——点具体文章开具体文章）。仅本装配生效，重进无此
+     *  extra 时回落 baseUrl */
+    const val INTENT_OVERRIDE_URL = "override_url"
 
 
     // ===== 应用错误日志 =====

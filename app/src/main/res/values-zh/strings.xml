@@ -461,6 +461,10 @@
     <string name="share_close">关闭</string>
     <string name="share_invalid_url">无法生成分享码：站点地址似乎无效。</string>
     <string name="share_invalid_link">这不是有效的站点分享链接。</string>
+    <!-- ===== 域名路由（默认浏览器接管） ===== -->
+    <string name="domain_route_invalid_link">无法打开此链接。</string>
+    <string name="default_browser_entry">设为默认浏览器</string>
+    <string name="desc_default_browser">在其他应用（邮件、笔记、其他浏览器）里点击链接时，按域名自动进入匹配的 Web App；未匹配的链接以临时浏览打开。微信/QQ 等应用内置浏览器不走系统路由。</string>
     <string name="share_qr_content_desc">站点分享链接的二维码</string>
     <!-- ===== 扫码入口（C-扫码：权限走 ActivityResultContracts 现代范式） ===== -->
     <string name="scan_entry_desc">扫码</string>
